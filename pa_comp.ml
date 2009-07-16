@@ -213,7 +213,7 @@ and descr_of_comp env (_loc, r) =
                   Sql.Not_null (Sql.TRecord
                     (descr, Sql.unsafe_parser $parser_of_row env (_loc, row)$)) >>
       | Field (table, name) -> <:expr< Sql.get_field_type $lid:Env.row table env$.Sql.descr $str:name$ >>
-      | Value (Quoted expr) -> <:expr< Sql.value_type (Sql.Value.concrete $expr$) >>
+      | Value (Quoted expr) -> <:expr< Sql.Value.get_type $expr$ >>
       | Value (Raw v) ->
           match v with
             | Int _ -> <:expr< Sql.Not_null Sql.TInt >>

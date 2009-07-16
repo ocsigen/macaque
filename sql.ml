@@ -79,68 +79,8 @@ let option_field_parser (field_parser : unsafe_parser) : unsafe_parser =
 
 let null_field_parser = option_field_parser error_field_parser
 
-let parse_record str =
-  let debug = false in
-  let string_of_charlist charlist =
-    let chart = Array.of_list charlist in
-    let res = String.create (Array.length chart) in
-    Array.iteri (String.set res) chart;
-    res in
-  let len = String.length str in
-  let (++) hd (tl, i) = hd :: tl, i in
-  let rec space i =
-    if i = len then i
-    else match str.[i] with
-      | ' ' | '\n' | '\t' -> space (i + 1)
-      | _ -> i in
-  let rec parse depth i =
-    let i = space i in
-    if i = len then []
-    else match str.[i] with
-      | '"' ->
-          if debug then Printf.eprintf "Quote begin : %d\n" i;
-          let depth' = parse_quote i in
-          assert (depth' > depth);
-          if debug then Printf.eprintf "Quote depth : %d\n" depth';
-          let quoted, i = parse_quoted depth' (i + depth') in
-          let quoted = string_of_charlist quoted in
-          if debug then Printf.eprintf "Quote end : %S %d\n" quoted i;
-          quoted :: parse depth i
-      | _ ->
-          if debug then Printf.eprintf "Elem begin : %d\n" i;
-          let elem, i = parse_elem i in
-          let elem = string_of_charlist elem in
-          if debug then Printf.eprintf "Elem end : %S %d\n" elem i;
-          elem :: parse depth i
-  and parse_elem i =
-    if i = len then [], (i + 1)
-    else match str.[i] with
-      | ' ' | '\n' | '\t' -> parse_elem (i + 1)
-      | ',' | ')' -> [], (i + 1)
-      | c -> c ++ parse_elem (i + 1)
-  and parse_quote i =
-    if i = len || str.[i] <> '"' then 0
-    else 1 + parse_quote (i + 1)
-  and parse_quoted depth i =
-    match parse_quote i with
-      | 0 -> str.[i] ++ parse_quoted depth (i + 1)
-      | d when d = depth && List.mem str.[space (i + depth)] [','; ')'] -> [], space(i + depth + 1)
-      | d ->
-          let quote = Array.to_list (Array.make d '"') in
-          let res, i = parse_quoted depth (i + d) in quote @ res, i
-  in
-  let rec record_begin i =
-    if i = len || str.[i] <> '(' then i
-    else record_begin (i + 1) in
-  try
-    Array.of_list (parse 0 (record_begin 0))
-  with _ -> failwith "parse_record : Fatal error"
-
 let row_field_parser row_parser =
-(*   unsafe_parser row_parser *)
-  let parse str = row_parser (parse_record str, ref 0) in
-  unsafe_parser (incr &&& parse)
-  
+  unsafe_parser row_parser  
 
 let parser_of_type =
   let parser_of_sql_type = function
@@ -155,10 +95,15 @@ let parser_of_type =
 let call descr field_name input =
   use_unsafe_parser (parser_of_type (get_field_type descr field_name)) input
 
+let value_type = function
+  | Int _ -> Not_null TInt
+  | String _ -> Not_null TString
+
 (** Sql-representable values *)
 module Value : sig
   type 'a t
   val concrete : 'a t -> value
+  val get_type : 'a t -> field_type
   val int : int -> int t
   val string : string -> string t
 end = struct
@@ -166,16 +111,49 @@ end = struct
   let concrete v = v
   let int i = Int i
   let string s = String s
+  let get_type v = value_type v
 end
-
-let value_type = function
-  | Int _ -> Not_null TInt
-  | String _ -> Not_null TString
 
 let nullable = function
   | Nullable t -> Nullable t
   | Not_null t -> Nullable (Some t)
 
+(** SQL composite types flattening *)
+let rec flatten_concrete = function
+  | Query q -> Query (flatten_query q)
+  | Table t -> Table t
+and flatten_query q =
+  { select = flatten_row q.select;
+    from = List.map flatten_table q.from;
+    where = List.map flatten_condition q.where }
+and flatten_row = function
+  | Row (table_name, descr) ->
+      let rec field acc (field_name, field_type) =
+        let acc = field_name :: acc in
+        match field_type with
+          | Not_null (TRecord (descr, _))
+          | Nullable (Some (TRecord (descr, _))) ->
+              (field_name, Row_ref (flatten_descr acc descr))
+          | _ ->
+              let path = String.concat "__" (List.rev acc) in
+              (field_name, Field (table_name, path))
+      and flatten_descr acc descr = Tuple (List.map (field acc) descr) in
+      flatten_row (flatten_descr [] descr)
+  | Tuple tup ->
+      let field (field_name, field_val) = match field_val with
+        | Row_ref row ->
+            (match flatten_row row with
+               | Row _ -> assert false (* flatten result must be tuple *)
+               | Tuple child_tup ->
+                   let children (child_name, child_val) =
+                     (field_name ^ "__" ^ child_name, child_val) in
+                   (List.map children child_tup))
+        | flat_value -> [(field_name, flat_value)] in
+      Tuple (List.flatten (List.map field tup))
+and flatten_table (name, comp) = (name, flatten_concrete comp)
+and flatten_condition c = c (* TODO *)
+
+let flatten = flatten_concrete
 
 (** SQL Query printing *)
 open Printf
@@ -194,30 +172,29 @@ and string_of_row = function
 | Tuple tup ->
     if tup = [] then "NULL"
     else string_of_list string_of_binding ", " tup
-| Row (table_name, descr) ->
-    let rec flatten (field_name, field_type) = match field_type with
-      | Not_null (TRecord (descr, _)) | Nullable (Some (TRecord (descr, _))) ->
-          List.flatten (List.map flatten descr)
-      | _ -> [(field_name, Field (table_name, field_name))] in
-    string_of_row (Tuple (List.flatten (List.map flatten descr)))
+| Row _ -> invalid_arg "string_of_row : non-flattened query"
 and string_of_condition = function
 | Eq (a, b) -> sprintf "%s = %s" (string_of_reference a) (string_of_reference b)
 and string_of_binding (name, value) =
   let v = string_of_reference value in
   match value with
-    | Row_ref _ when false -> v (* flattened -> no binding *)
+    | Row_ref _ -> v (* flattened -> no binding *)
     | _ -> sprintf "%s AS %s" v name
 and string_of_reference = function
-| Row_ref row when false -> string_of_row row
-| Row_ref (Tuple tup) -> sprintf "ROW(%s)" (string_of_list (fun (_, v) -> string_of_reference v) ", " tup)
-| Row_ref (Row (table_name, descr)) -> table_name
+| Row_ref row -> string_of_row row
 | Field f -> string_of_field f
 | Value (Int i) -> string_of_int i
 | Value (String s) -> sprintf "'%s'" (String.escaped s)
 | Null -> "NULL"
-and string_of_field (row, name) = sprintf "%s.%s" row name
+and string_of_field (row, name) = match name with
+  | field_name when true -> sprintf "%s.%s" row field_name
+  | _ -> assert false
 and string_of_table (row_name, table) =
   sprintf "%s AS %s" (string_of_concrete table) row_name
 and string_of_table_name = function
   | (None, table) -> table
   | (Some schema, table) -> sprintf "%s.%s" schema table
+
+let sql_of_comp comp = string_of_concrete (flatten comp.concrete)
+let parser_of_comp comp input_tab =
+  comp.result_parser (input_tab, ref 0)

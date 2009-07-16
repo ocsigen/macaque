@@ -6,13 +6,13 @@ let nullable = function
 
 let execute comp =
   let dbh = PGOCaml.connect ~host:"myhost" ~database:"base" () in
-  let query = string_of_concrete comp.concrete in
+  let query = sql_of_comp comp in
   print_endline query;
   let name = "query_result" in
   ignore (PGOCaml.prepare dbh ~query ~name ());
   let rows =
     let parse row =
-      comp.result_parser (Array.of_list (List.map nullable row), ref 0) in
+      parser_of_comp comp (Array.of_list (List.map nullable row)) in
     List.map parse (PGOCaml.execute dbh ~name ~params:[] ()) in
   PGOCaml.close dbh;
   rows        

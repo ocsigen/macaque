@@ -81,9 +81,9 @@ let (&&&) ptr_action safe_parser (input, input_ptr) =
 
 let use_unsafe_parser unsafe_parser input = Obj.obj (unsafe_parser input)
 
-let bool_field_parser = unsafe_parser (incr &&& bool_of_string)
-let int_field_parser = unsafe_parser (incr &&& int_of_string)
-let string_field_parser = unsafe_parser (incr &&& (fun s -> s))
+let bool_field_parser = unsafe_parser (incr &&& PGOCaml.bool_of_string)
+let int_field_parser = unsafe_parser (incr &&& PGOCaml.int_of_string)
+let string_field_parser = unsafe_parser (incr &&& PGOCaml.string_of_string)
 let error_field_parser= unsafe_parser (ignore &&& (fun _ -> failwith "Error parser"))
 
 let option_field_parser (field_parser : unsafe_parser) : unsafe_parser =
@@ -112,9 +112,9 @@ let call descr field_name input =
   use_unsafe_parser (parser_of_type (get_field_type descr [field_name])) input
 
 let value_type = function
-  | Int _ -> Not_null TInt
-  | String _ -> Not_null TString
-  | Bool _ -> Not_null TBool
+  | Int _ -> TInt
+  | String _ -> TString
+  | Bool _ -> TBool
 
 (** Sql-representable values *)
 module Value : sig
@@ -130,7 +130,7 @@ end = struct
   let bool b = Bool b
   let int i = Int i
   let string s = String s
-  let get_type v = value_type v
+  let get_type v = Not_null (value_type v)
 end
 
 let nullable = function

@@ -18,17 +18,11 @@ and reference =
 and reference' =
   | Row_ref of row
   | Field of field
-  | Value of value quotable
-and value =
-  | Bool of bool quotable
-  | Int of int quotable
-  | String of string quotable
+  | Value of value
+and value = Ast.expr
 and field = ident located * ident located list
 and 'a binding = (ident * 'a located) located
 and 'a located = (Loc.t * 'a)
-and 'a quotable =
-  | Quoted of Ast.expr
-  | Raw of 'a
 and ident = string
 
 (** Syntaxic form parsing *)
@@ -58,19 +52,19 @@ let () =
    reference' : [[ f = field -> (_loc, Field f)
                  | v = value -> (_loc, Value v)
                  | r = row -> (_loc, Row_ref r) ]];
-   value: [[ `ANTIQUOT((""|"value"), v) -> Quoted (quote _loc v)
-            | raw = raw_value -> Raw raw ]];
+   value: [[ `ANTIQUOT((""|"value"), v) -> quote _loc v
+           | `INT(i, _) -> <:expr< Sql.Value.int $`int:i$ >>
+           | `STRING(_, s) -> <:expr< Sql.Value.string $`str:s$ >>
+           | "true" -> <:expr< Sql.Value.bool True >>
+           | "false" -> <:expr< Sql.Value.bool False >>
+           | `ANTIQUOT( (* PGOcaml data types *)
+               ( "int" | "int16" | "int32" | "int64"
+               | "unit" | "bool" | "point" | "float"
+               | "bytea"| "string" | "int32_array"
+               | "date" | "time" | "timestamp" | "timestampz" | "interval" )
+               as type_name, v) -> <:expr< Sql.Value.$lid:type_name$ $quote _loc v$ >> ]];
    field: [[ row = LIDENT; "."; path = LIST0 [id = LIDENT -> (_loc, id)] SEP "." -> ((_loc, row), path) ]];
-   raw_value:
-     [[ `INT(i, _) -> Int (Raw i)
-      | `ANTIQUOT("int", v) -> Int (Quoted (quote _loc v))
-      | `STRING(_, s) -> String (Raw s)
-      | `ANTIQUOT("string", v) -> String (Quoted (quote _loc v))
-      | "TRUE" -> Bool (Raw true)
-      | "FALSE" -> Bool (Raw false)
-      | `ANTIQUOT("bool", v) -> Bool (Quoted (quote _loc v)) ]];
  END;;
-
 
 (** Code emission from the syntaxic form *)
 let new_tvar =
@@ -86,7 +80,10 @@ let unify _loc a_typer b_typer =
   let tvar = new_tvar _loc in
   <:expr< do { $a_typer tvar$; $b_typer tvar$ } >>
 
-let unify_type _loc ta tb =
+let generic_typer _loc v t =
+  <:expr< ignore ($v$ : $t$) >>
+
+let type_unifier _loc ta tb =
   <:expr< ignore ((None : option $ta$) : option $tb$) >>
 
 let camlp4_list _loc =
@@ -98,17 +95,6 @@ let camlp4_list _loc =
 let camlp4_path _loc path =
   let str (_loc, s) = <:expr< $str:s$ >> in
   camlp4_list _loc (List.map str path)
-
-let runtime_type _loc = function
-  | Int _ -> <:expr< Sql.TInt >>
-  | String _ -> <:expr< Sql.TString >>
-  | Bool _ -> <:expr< Sql.TBool >>
-      
-let compile_time_type _loc = function
-  | Int _ -> <:ctyp< int >>
-  | String _ -> <:ctyp< string >>
-  | Bool _ -> <:ctyp< bool >>
-
 
 module Env : sig
   type env
@@ -183,7 +169,8 @@ and reference_of_row env (_loc, row) = match row with
         <:expr< ($str:id$, $reference_of_comp env value$) >> in
       <:expr< Sql.Tuple $camlp4_list _loc (List.map reference_of_item tup)$ >>
 and typer_of_row env (_loc, row) t = match row with
-  | Row row -> <:expr< ignore ($lid:Env.row row env$ : Sql.view $t$) >>
+  | Row row ->
+      generic_typer _loc <:expr< $lid:Env.row row env$ >> <:ctyp< Sql.view $t$ >>
   | Tuple tup ->
       let item_typers, tuple_t =
         let item (_loc, (id, value)) =
@@ -192,7 +179,7 @@ and typer_of_row env (_loc, row) t = match row with
           <:ctyp< $lid:id$ : $item_t$ >> in
         List.split (List.map item tup) in
       <:expr< do { $Ast.exSem_of_list item_typers$;
-                   $unify_type _loc t <:ctyp< < $Ast.tySem_of_list tuple_t$ > >>$ } >>
+                   $type_unifier _loc t <:ctyp< < $Ast.tySem_of_list tuple_t$ > >>$ } >>
 and parser_of_row env (_loc, row) = match row with
   | Row row -> <:expr< $lid:Env.row row env$.Sql.result_parser >>
   | Tuple tup ->
@@ -206,40 +193,29 @@ and reference_of_comp env (_loc, r) =
     let reference _loc = function
       | Row_ref row -> <:expr< Sql.Row_ref $reference_of_row env (_loc, row)$ >>
       | Field ((_,row), path) ->  <:expr< Sql.Field ($str:row$, $camlp4_path _loc path$) >>
-      | Value v -> <:expr< Sql.Value (Sql.Value.concrete $value_of_comp _loc v$) >> in
+      | Value v -> <:expr< Sql.Value (Sql.Value.concrete $v$) >> in
     match r with
       | Nullable_ref None -> <:expr< Sql.Null >>
       | Ref r -> reference _loc r
       | Nullable_ref (Some (_loc, r)) -> reference _loc r
-and value_of_comp _loc = function
-  | Quoted expr -> expr
-  | Raw v -> match v with
-      | Int (Raw i) ->  <:expr< Sql.Value.int $`int:i$ >>
-      | Int (Quoted i) -> <:expr< Sql.Value.int $i$ >>
-      | String (Raw s) -> <:expr< Sql.Value.string $`str:s$ >>
-      | String (Quoted s) -> <:expr< Sql.Value.string $s$ >>
-      | Bool (Raw b) -> <:expr< Sql.Value.bool $`bool:b$ >>
-      | Bool (Quoted b) -> <:expr< Sql.Value.bool $b$ >>
 and typer_of_comp env (_loc, r) t =
     let typer t _loc = function
       | Row_ref row -> typer_of_row env (_loc, row) t
-      | Value (Quoted expr) -> <:expr< ignore ($expr$ : Sql.Value.t $t$) >>
-      | Value (Raw v) -> unify_type _loc t (compile_time_type _loc v)
+      | Value v -> generic_typer _loc v <:ctyp< Sql.Value.t $t$ >>
       | Field (row, path) ->
           let row = let _loc, row = row in <:expr< $lid:Env.row row env$ >> in
           let meth (_loc, id) t = <:ctyp< < $lid:id$ : $t$; .. > >> in
-          <:expr< ignore ($row$ : Sql.view $List.fold_right meth path t$) >> in
+          generic_typer _loc row <:ctyp< Sql.view $List.fold_right meth path t$ >> in
     match r with
       | Ref v -> typer t _loc v
-      | Nullable_ref None -> unify_type _loc t <:ctyp< option _ >>
+      | Nullable_ref None -> type_unifier _loc t <:ctyp< option _ >>
       | Nullable_ref (Some (loc, v)) ->
           let some_t = new_tvar loc in
           <:expr< do { $typer some_t loc v$;
-                       $unify_type loc t <:ctyp@loc< option $some_t$ >>$ } >>
+                       $type_unifier loc t <:ctyp@loc< option $some_t$ >>$ } >>
 and descr_of_comp env (_loc, r) =
     let descr_of_val _loc = function
-      | Value (Quoted expr) -> <:expr< Sql.Value.get_type $expr$ >>
-      | Value (Raw v) -> <:expr< Sql.Not_null $runtime_type _loc v$ >>
+      | Value v -> <:expr< Sql.Value.get_type $v$ >>
       | Row_ref row ->
           <:expr< let descr = $descr_of_row env (_loc, row)$ in
                   Sql.Not_null (Sql.TRecord
@@ -260,6 +236,5 @@ let () =
   Syntax.Quotation.add "sql" Syntax.Quotation.DynAst.expr_tag
     (fun loc _ quote -> query_of_comp (CompGram.parse_string comp loc quote));
   Syntax.Quotation.add "sql_val" Syntax.Quotation.DynAst.expr_tag
-    (fun loc _ quote ->
-       value_of_comp loc (CompGram.parse_string value loc quote));
+    (fun loc _ quote -> CompGram.parse_string value loc quote);
   Syntax.Quotation.default := "sql"

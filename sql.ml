@@ -23,6 +23,7 @@ and field = row_name * field_name list
 and value =
   | Int of int
   | String of string
+  | Bool of bool
 and table_name = string option * string
 and row_name = string
 and 'a tuple = (field_name * 'a) list
@@ -37,6 +38,7 @@ and field_type =
 and sql_type =
   | TInt
   | TString
+  | TBool
   | TRecord of unsafe_descr
 and unsafe_descr = Obj.t descr
 and unsafe_parser = Obj.t result_parser
@@ -55,10 +57,12 @@ let rec get_field_type descr = function
 let sql_type_of_string = function
   | "integer" -> TInt
   | "text" -> TString
+  | "boolean" -> TBool
   | other -> failwith ("unknown sql type " ^ other)
 let string_of_sql_type = function
   | TInt -> "integer"
   | TString -> "text"
+  | TBool -> "boolean"
   | TRecord (_, _) -> "record"
 
 (** untyped parsers *)
@@ -77,6 +81,7 @@ let (&&&) ptr_action safe_parser (input, input_ptr) =
 
 let use_unsafe_parser unsafe_parser input = Obj.obj (unsafe_parser input)
 
+let bool_field_parser = unsafe_parser (incr &&& bool_of_string)
 let int_field_parser = unsafe_parser (incr &&& int_of_string)
 let string_field_parser = unsafe_parser (incr &&& (fun s -> s))
 let error_field_parser= unsafe_parser (ignore &&& (fun _ -> failwith "Error parser"))
@@ -96,6 +101,7 @@ let parser_of_type =
   let parser_of_sql_type = function
     | TInt -> int_field_parser
     | TString -> string_field_parser
+    | TBool -> bool_field_parser
     | TRecord (descr, row_parser) -> row_field_parser row_parser in
   function
   | Not_null typ -> parser_of_sql_type typ
@@ -108,17 +114,20 @@ let call descr field_name input =
 let value_type = function
   | Int _ -> Not_null TInt
   | String _ -> Not_null TString
+  | Bool _ -> Not_null TBool
 
 (** Sql-representable values *)
 module Value : sig
   type 'a t
   val concrete : 'a t -> value
   val get_type : 'a t -> field_type
+  val bool : bool -> bool t
   val int : int -> int t
   val string : string -> string t
 end = struct
   type 'a t = value
   let concrete v = v
+  let bool b = Bool b
   let int i = Int i
   let string s = String s
   let get_type v = value_type v
@@ -195,6 +204,7 @@ and string_of_reference = function
 | Field (table, fields) -> sprintf "%s.%s" table (String.concat "__" fields)
 | Value (Int i) -> string_of_int i
 | Value (String s) -> sprintf "'%s'" (String.escaped s)
+| Value (Bool b) -> string_of_bool b
 | Null -> "NULL"
 and string_of_field (row, name) = match name with
   | field_name when true -> sprintf "%s.%s" row field_name

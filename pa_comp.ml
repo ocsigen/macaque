@@ -20,6 +20,7 @@ and reference' =
   | Field of field
   | Value of value quotable
 and value =
+  | Bool of bool quotable
   | Int of int quotable
   | String of string quotable
 and field = ident located * ident located list
@@ -64,8 +65,10 @@ let () =
      [[ `INT(i, _) -> Int (Raw i)
       | `ANTIQUOT("int", v) -> Int (Quoted (quote _loc v))
       | `STRING(_, s) -> String (Raw s)
-      | `ANTIQUOT("string", v) -> String (Quoted (quote _loc v)) ]];
-   field: [[ table = LIDENT; "."; name = LIDENT -> (table, name) ]];
+      | `ANTIQUOT("string", v) -> String (Quoted (quote _loc v))
+      | "TRUE" -> Bool (Raw true)
+      | "FALSE" -> Bool (Raw false)
+      | `ANTIQUOT("bool", v) -> Bool (Quoted (quote _loc v)) ]];
  END;;
 
 
@@ -193,6 +196,8 @@ and value_of_comp _loc = function
       | Int (Quoted i) -> <:expr< Sql.Value.int $i$ >>
       | String (Raw s) -> <:expr< Sql.Value.string $`str:s$ >>
       | String (Quoted s) -> <:expr< Sql.Value.string $s$ >>
+      | Bool (Raw b) -> <:expr< Sql.Value.bool $`bool:b$ >>
+      | Bool (Quoted b) -> <:expr< Sql.Value.bool $b$ >>
 and typer_of_comp env (_loc, r) t =
     let typer t _loc = function
       | Row_ref row -> typer_of_row env (_loc, row) t

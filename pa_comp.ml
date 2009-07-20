@@ -34,7 +34,26 @@ let () =
   Camlp4_config.antiquotations := true;
   let quote _loc str =
     Syntax.Gram.parse_string Syntax.expr_eoi _loc str in
- EXTEND CompGram
+
+  let compentry entry = CompGram.Entry.of_parser
+    (Syntax.Gram.Entry.name entry)
+    (fun input ->
+       try Syntax.Gram.parse_tokens_after_filter entry input
+       with _ -> raise Stream.Failure) in
+  
+  let infixop4 = compentry Syntax.infixop4 in
+  let infixop3 = compentry Syntax.infixop3 in
+  let infixop2 = compentry Syntax.infixop2 in
+  let infixop1 = compentry Syntax.infixop1 in
+  let infixop0 = compentry Syntax.infixop0 in
+  let prefixop = compentry Syntax.prefixop in
+
+  let infix op a b = match op with
+    | <:expr@_loc< $lid:op$ >> ->
+      <:expr< Sql.Infix.$lid:op$ $a$ $b$ >>
+    | _ -> invalid_arg "infix" in
+
+  EXTEND CompGram
    GLOBAL: comp value;
    comp: [[ result = row; "|"; items = LIST0 comp_item SEP ";"; `EOI ->
               (_loc, (result, items)) ]]; 
@@ -51,7 +70,40 @@ let () =
                 | r = reference' -> let _loc, r = r in (_loc, Ref r) ]];
    reference' : [[ f = field -> (_loc, Field f)
                  | v = value -> (_loc, Value v)
+                 | "{"; e = expr; "}" -> (_loc, Value e)
                  | r = row -> (_loc, Row_ref r) ]];
+
+   infixop6: [[ x = ["||"] -> <:expr< $lid:x$ >> ]];
+   infixop5: [[ x = ["&&"] -> <:expr< $lid:x$ >> ]];
+
+   expr:
+     [ "top" RIGHTA [ ]
+     | "||" RIGHTA [ e1 = SELF; op = infixop6; e2 = SELF -> infix op e1 e2 ]
+     | "&&" RIGHTA [ e1 = SELF; op = infixop5; e2 = SELF -> infix op e1 e2 ]
+     | "<"  LEFTA [ e1 = SELF; op = infixop0; e2 = SELF -> infix op e1 e2 ]
+     | "^"  RIGHTA [ e1 = SELF; op = infixop1; e2 = SELF -> infix op e1 e2 ]
+     | "+"  LEFTA [ e1 = SELF; op = infixop2; e2 = SELF -> infix op e1 e2 ]
+     | "*"  LEFTA [ e1 = SELF; op = infixop3; e2 = SELF -> infix op e1 e2 ]
+     | "**" RIGHTA [ e1 = SELF; op = infixop4; e2 = SELF -> infix op e1 e2 ]
+     | "apply" LEFTA [ ]
+     | "~-" NONA  [ f = prefixop; e = SELF ->
+                      <:expr< Sql.Infix.$exp:f$ $e$ >> ]
+     | "." LEFTA [ ]
+     | "simple"
+       [ `ANTIQUOT((""|"value"), v) -> quote _loc v
+       | `ANTIQUOT( (* PGOcaml data types *)
+           ( "int" | "int16" | "int32" | "int64"
+           | "unit" | "bool" | "point" | "float"
+           | "bytea"| "string" | "int32_array"
+           | "date" | "time" | "timestamp" | "timestampz" | "interval" )
+         as type_name, v) ->
+           <:expr< Sql.Value.$lid:type_name$ $quote _loc v$ >>
+       | `INT(i, _) -> <:expr< Sql.Value.int $`int:i$ >>
+       | `STRING(_, s) -> <:expr< Sql.Value.string $`str:s$ >>
+       | "true" -> <:expr< Sql.Value.bool True >>
+       | "false" -> <:expr< Sql.Value.bool False >>
+       | "("; e = SELF; ")" -> e ]];
+   
    value: [[ `ANTIQUOT((""|"value"), v) -> quote _loc v
            | `INT(i, _) -> <:expr< Sql.Value.int $`int:i$ >>
            | `STRING(_, s) -> <:expr< Sql.Value.string $`str:s$ >>

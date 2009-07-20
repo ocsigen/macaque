@@ -12,8 +12,8 @@ and query = { select : row;
 and row =
   | Row of (row_name * types_descr)
   | Tuple of reference tuple
-and field = row_name * field_name
-and pred = Eq of reference * reference
+and pred = Comp of comp_op * reference * reference
+and comp_op = Eq
 and reference =
   | Null
   | Row_ref of row
@@ -184,7 +184,7 @@ and string_of_row = function
     else string_of_list string_of_binding ", " tup
 | Row _ -> invalid_arg "string_of_row : non-flattened query"
 and string_of_condition = function
-| Eq (a, b) -> sprintf "%s = %s" (string_of_reference a) (string_of_reference b)
+| Comp (Eq, a, b) -> sprintf "%s = %s" (string_of_reference a) (string_of_reference b)
 and string_of_binding (name, value) =
   let v = string_of_reference value in
   match value with

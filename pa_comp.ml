@@ -9,7 +9,8 @@ and tuple = reference binding list
 and comp_item =
   | Bind of table binding
   | Cond of cond located
-and cond = Eq of reference located * reference located
+and cond = Comp of comp_op * reference located * reference located
+and comp_op = Eq
 and table = Ast.expr
 and reference =
   | Ref of reference'
@@ -49,7 +50,7 @@ let () =
    comp_item: [[ handle = LIDENT; "<-"; table = table ->  Bind ((_loc, (handle, table)))
                | c = cond -> Cond c ]];
    table: [[ `ANTIQUOT((""|"table"), t) -> (_loc, quote _loc t) ]];
-   cond: [[ a = reference; "="; b = reference -> (_loc, Eq (a, b)) ]];
+   cond: [[ a = reference; "="; b = reference -> (_loc, Comp (Eq, a, b)) ]];
    reference : [[ "Some"; r = reference' -> (_loc, Nullable_ref (Some r))
                 | "None" -> (_loc, Nullable_ref None)
                 | r = reference' -> let _loc, r = r in (_loc, Ref r) ]];
@@ -114,9 +115,9 @@ end
 let rec query_of_comp (_loc, (row, items)) =
   let row = (_loc, row) in
   let comp_item (from, where, env, code_cont) = function
-    | Cond (_loc, Eq(a, b)) ->
+    | Cond (_loc, Comp(Eq, a, b)) ->
         let valuer, typer = reference_of_comp env, typer_of_comp env in
-        let where_item = <:expr< Sql.Eq ($valuer a$, $valuer b$) >> in
+        let where_item = <:expr< Sql.Comp (Sql.Eq, $valuer a$, $valuer b$) >> in
         let code_cont =
           let unification = unify _loc (typer a) (typer b) in
           fun k -> code_cont <:expr< do { $unification$; $k$ } >> in

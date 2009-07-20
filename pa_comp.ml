@@ -86,11 +86,29 @@ let unify _loc a_typer b_typer =
   let tvar = new_tvar _loc in
   <:expr< do { $a_typer tvar$; $b_typer tvar$ } >>
 
+let unify_type _loc ta tb =
+  <:expr< ignore ((None : option $ta$) : option $tb$) >>
+
 let camlp4_list _loc =
   let rec to_list = function
     | [] -> <:expr< [] >>
     | hd::tl -> <:expr< [ $hd$ :: $to_list tl$ ] >> in
   to_list
+
+let camlp4_path _loc path =
+  let str (_loc, s) = <:expr< $str:s$ >> in
+  camlp4_list _loc (List.map str path)
+
+let runtime_type _loc = function
+  | Int _ -> <:expr< Sql.TInt >>
+  | String _ -> <:expr< Sql.TString >>
+  | Bool _ -> <:expr< Sql.TBool >>
+      
+let compile_time_type _loc = function
+  | Int _ -> <:ctyp< int >>
+  | String _ -> <:ctyp< string >>
+  | Bool _ -> <:ctyp< bool >>
+
 
 module Env : sig
   type env
@@ -169,8 +187,7 @@ and typer_of_row env (_loc, row) t = match row with
           <:ctyp< $lid:id$ : $item_t$ >> in
         List.split (List.map item tup) in
       <:expr< do { $Ast.exSem_of_list item_typers$;
-                   ignore ((None : option $t$)
-                           : option < $Ast.tySem_of_list tuple_t$ >) } >>
+                   $unify_type _loc t <:ctyp< < $Ast.tySem_of_list tuple_t$ > >>$ } >>
 and parser_of_row env (_loc, row) = match row with
   | Row row -> <:expr< $lid:Env.row row env$.Sql.result_parser >>
   | Tuple tup ->
@@ -190,7 +207,7 @@ and reference_of_comp env (_loc, r) =
       | Ref r -> reference _loc r
       | Nullable_ref (Some (_loc, r)) -> reference _loc r
 and value_of_comp _loc = function
-  | Quoted expr -> <:expr< ( $expr$ : Sql.Value.t _ ) >>
+  | Quoted expr -> expr
   | Raw v -> match v with
       | Int (Raw i) ->  <:expr< Sql.Value.int $`int:i$ >>
       | Int (Quoted i) -> <:expr< Sql.Value.int $i$ >>
@@ -209,13 +226,15 @@ and typer_of_comp env (_loc, r) t =
           <:expr< ignore ($row$ : Sql.view $List.fold_right meth path t$) >> in
     match r with
       | Ref v -> typer t _loc v
-      | Nullable_ref None -> <:expr< ignore ((None : $t$) : option _) >>
+      | Nullable_ref None -> unify_type _loc t <:ctyp< option _ >>
       | Nullable_ref (Some (loc, v)) ->
           let some_t = new_tvar loc in
           <:expr< do { $typer some_t loc v$;
-                       ignore ((None : $t$) : option $some_t$) } >>
+                       $unify_type loc t <:ctyp@loc< option $some_t$ >>$ } >>
 and descr_of_comp env (_loc, r) =
     let descr_of_val _loc = function
+      | Value (Quoted expr) -> <:expr< Sql.Value.get_type $expr$ >>
+      | Value (Raw v) -> <:expr< Sql.Not_null $runtime_type _loc v$ >>
       | Row_ref row ->
           <:expr< let descr = $descr_of_row env (_loc, row)$ in
                   Sql.Not_null (Sql.TRecord

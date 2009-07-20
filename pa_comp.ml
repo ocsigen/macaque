@@ -116,18 +116,23 @@ module Env : sig
   val new_row : ident -> env -> ident * env
   val row : ident -> env -> string
 end = struct
+  module SSet = Set.Make(String)
   module SMap = Map.Make(String)
-  type env = string SMap.t
+  type env = { used : SSet.t;
+               map : string SMap.t }
 
-  let unique name sub_env =
+  let unique name env =
     let rec unique name env =
-      if not (SMap.mem name env) then name
+      if not (SSet.mem name env.used) then name
       else unique (name ^ "'") env in
-    let name' = unique name sub_env in
-    name', SMap.add name name' sub_env
+    let name' = unique name env in
+    name', { used = SSet.add name' env.used;
+             map = SMap.add name name' env.map }
 
-  let empty = SMap.empty
-  let row = SMap.find
+  let empty = { used = SSet.empty; map = SMap.empty }
+  let row row {map=env} =
+    try SMap.find row env
+    with Not_found -> row
     
   let new_row = unique
 end

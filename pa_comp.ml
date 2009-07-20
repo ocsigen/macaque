@@ -21,7 +21,7 @@ and reference' =
 and value =
   | Int of int quotable
   | String of string quotable
-and field = ident * ident
+and field = ident located * ident located list
 and 'a binding = (ident * 'a located) located
 and 'a located = (Loc.t * 'a)
 and 'a quotable =
@@ -58,6 +58,7 @@ let () =
                  | r = row -> (_loc, Row_ref r) ]];
    value: [[ `ANTIQUOT((""|"value"), v) -> Quoted (quote _loc v)
             | raw = raw_value -> Raw raw ]];
+   field: [[ row = LIDENT; "."; path = LIST0 [id = LIDENT -> (_loc, id)] SEP "." -> ((_loc, row), path) ]];
    raw_value:
      [[ `INT(i, _) -> Int (Raw i)
       | `ANTIQUOT("int", v) -> Int (Quoted (quote _loc v))
@@ -178,7 +179,7 @@ and parser_of_row env (_loc, row) = match row with
 and reference_of_comp env (_loc, r) =
     let reference _loc = function
       | Row_ref row -> <:expr< Sql.Row_ref $reference_of_row env (_loc, row)$ >>
-      | Field (table, name) -> <:expr< Sql.Field ($str:Env.row table env$, $str:name$) >>
+      | Field ((_,row), path) ->  <:expr< Sql.Field ($str:row$, $camlp4_path _loc path$) >>
       | Value v -> <:expr< Sql.Value (Sql.Value.concrete $value_of_comp _loc v$) >> in
     match r with
       | Nullable_ref None -> <:expr< Sql.Null >>
@@ -194,11 +195,12 @@ and value_of_comp _loc = function
 and typer_of_comp env (_loc, r) t =
     let typer t _loc = function
       | Row_ref row -> typer_of_row env (_loc, row) t
-      | Field (table, name) -> <:expr< ignore ($lid:Env.row table env$ : Sql.view < $lid:name$ : $t$ ; .. > ) >>
       | Value (Quoted expr) -> <:expr< ignore ($expr$ : Sql.Value.t $t$) >>
-      | Value (Raw v) -> match v with
-          | Int _ -> <:expr< ignore (0 : $t$) >>
-          | String _ -> <:expr< ignore ("" : $t$) >> in
+      | Value (Raw v) -> unify_type _loc t (compile_time_type _loc v)
+      | Field (row, path) ->
+          let row = let _loc, row = row in <:expr< $lid:Env.row row env$ >> in
+          let meth (_loc, id) t = <:ctyp< < $lid:id$ : $t$; .. > >> in
+          <:expr< ignore ($row$ : Sql.view $List.fold_right meth path t$) >> in
     match r with
       | Ref v -> typer t _loc v
       | Nullable_ref None -> <:expr< ignore ((None : $t$) : option _) >>
@@ -212,12 +214,11 @@ and descr_of_comp env (_loc, r) =
           <:expr< let descr = $descr_of_row env (_loc, row)$ in
                   Sql.Not_null (Sql.TRecord
                     (descr, Sql.unsafe_parser $parser_of_row env (_loc, row)$)) >>
-      | Field (table, name) -> <:expr< Sql.get_field_type $lid:Env.row table env$.Sql.descr $str:name$ >>
-      | Value (Quoted expr) -> <:expr< Sql.Value.get_type $expr$ >>
-      | Value (Raw v) ->
-          match v with
-            | Int _ -> <:expr< Sql.Not_null Sql.TInt >>
-            | String _ -> <:expr< Sql.Not_null Sql.TString >> in
+      | Field (row, path) ->
+          let row_descr =
+            let _loc, row = row in
+            <:expr< $lid:Env.row row env$.Sql.descr >> in
+          <:expr< Sql.get_field_type $row_descr$ $camlp4_path _loc path$ >> in
     match r with
       | Ref v -> descr_of_val _loc v
       | Nullable_ref None -> <:expr< Sql.Nullable None >>

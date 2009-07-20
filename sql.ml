@@ -19,6 +19,7 @@ and reference =
   | Row_ref of row
   | Field of field
   | Value of value
+and field = row_name * field_name list
 and value =
   | Int of int
   | String of string
@@ -40,9 +41,18 @@ and sql_type =
 and unsafe_descr = Obj.t descr
 and unsafe_parser = Obj.t result_parser
 
-let get_field_type descr name = List.assoc name descr
+let rec get_field_type descr = function
+  | [] -> invalid_arg "get_field_type"
+  | [name] -> List.assoc name descr
+  | record_name :: path_rest ->
+      match List.assoc record_name descr with
+        | Nullable None -> Nullable None
+        | Not_null (TRecord (descr_rest, _))
+        | Nullable Some (TRecord (descr_rest, _)) ->
+            get_field_type descr_rest path_rest
+        | _ -> invalid_arg "get_field_type"
 
-and sql_type_of_string = function
+let sql_type_of_string = function
   | "integer" -> TInt
   | "text" -> TString
   | other -> failwith ("unknown sql type " ^ other)
@@ -93,7 +103,7 @@ let parser_of_type =
   | Nullable (Some typ) -> option_field_parser (parser_of_sql_type typ)
 
 let call descr field_name input =
-  use_unsafe_parser (parser_of_type (get_field_type descr field_name)) input
+  use_unsafe_parser (parser_of_type (get_field_type descr [field_name])) input
 
 let value_type = function
   | Int _ -> Not_null TInt
@@ -136,7 +146,7 @@ and flatten_row = function
               (field_name, Row_ref (flatten_descr acc descr))
           | _ ->
               let path = String.concat "__" (List.rev acc) in
-              (field_name, Field (table_name, path))
+              (field_name, Field (table_name, [path]))
       and flatten_descr acc descr = Tuple (List.map (field acc) descr) in
       flatten_row (flatten_descr [] descr)
   | Tuple tup ->
@@ -182,7 +192,7 @@ and string_of_binding (name, value) =
     | _ -> sprintf "%s AS %s" v name
 and string_of_reference = function
 | Row_ref row -> string_of_row row
-| Field f -> string_of_field f
+| Field (table, fields) -> sprintf "%s.%s" table (String.concat "__" fields)
 | Value (Int i) -> string_of_int i
 | Value (String s) -> sprintf "'%s'" (String.escaped s)
 | Null -> "NULL"

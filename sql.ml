@@ -8,12 +8,10 @@ and concrete_view =
   | Query of query
 and query = { select : row;
               from : (row_name * concrete_view) list;
-              where : pred list }
+              where : reference list }
 and row =
   | Row of (row_name * types_descr)
   | Tuple of reference tuple
-and pred = Comp of comp_op * reference * reference
-and comp_op = Eq
 and reference =
   | Null
   | Row_ref of row
@@ -24,6 +22,9 @@ and value =
   | Int of int
   | String of string
   | Bool of bool
+  | Binop of binop * value * value
+and binop = op_type * string
+and op_type = Logic | Comp | Arith
 and table_name = string option * string
 and row_name = string
 and 'a tuple = (field_name * 'a) list
@@ -111,26 +112,56 @@ let parser_of_type =
 let call descr field_name input =
   use_unsafe_parser (parser_of_type (get_field_type descr [field_name])) input
 
-let value_type = function
+let rec value_type = function
   | Int _ -> TInt
   | String _ -> TString
   | Bool _ -> TBool
+  | Binop ((op, _), a, _) -> match op with
+      | Logic | Comp -> TBool
+      | Arith -> value_type a
 
 (** Sql-representable values *)
 module Value : sig
   type 'a t
-  val concrete : 'a t -> value
+  val get_reference : 'a t -> reference
   val get_type : 'a t -> field_type
   val bool : bool -> bool t
   val int : int -> int t
   val string : string -> string t
+
+  val (<) : 'a t -> 'a t -> bool t
+  val (<=) : 'a t -> 'a t -> bool t
+  val (<>) : 'a t -> 'a t -> bool t
+  val (=) : 'a t -> 'a t -> bool t
+  val (>) : 'a t -> 'a t -> bool t
+  val (>=) : 'a t -> 'a t -> bool t
+
+  val (+) : int t -> int t -> int t
+  val (-) : int t -> int t -> int t
+  val ( * ) : int t -> int t -> int t
+  val ( / ) : int t -> int t -> int t
+
+  val (&&) : bool t -> bool t -> bool t
+  val (||) : bool t -> bool t -> bool t
 end = struct
   type 'a t = value
-  let concrete v = v
+  let get_reference v = Value v
   let bool b = Bool b
   let int i = Int i
   let string s = String s
   let get_type v = Not_null (value_type v)
+
+  let binop op = fun a b -> Binop (op, a, b)
+  let comp op = binop (Comp, op)
+  let logic op = binop (Logic, op)
+  let arith op = binop (Arith, op)
+  let (<), (<=), (>), (>=), (<>), (=) =
+    comp "<", comp "<=", comp ">", comp ">=", comp "<>", comp "="
+
+  let (+), (-), ( * ), (/) =
+    arith "+", arith "-", arith "*", arith "/"
+      
+  let (&&), (||) = logic "&&", logic "||"
 end
 
 let nullable = function
@@ -186,14 +217,12 @@ and string_of_query q =
   sprintf "SELECT %s%s%s"
     (string_of_row q.select)
     (if q.from = [] then "" else " FROM " ^ string_of_list string_of_table ", " q.from)
-    (if q.where = [] then "" else " WHERE " ^ string_of_list string_of_condition " AND " q.where)
+    (if q.where = [] then "" else " WHERE " ^ string_of_list string_of_reference " AND " q.where)
 and string_of_row = function
 | Tuple tup ->
     if tup = [] then "NULL"
     else string_of_list string_of_binding ", " tup
 | Row _ -> invalid_arg "string_of_row : non-flattened query"
-and string_of_condition = function
-| Comp (Eq, a, b) -> sprintf "%s = %s" (string_of_reference a) (string_of_reference b)
 and string_of_binding (name, value) =
   let v = string_of_reference value in
   match value with
@@ -206,6 +235,9 @@ and string_of_reference = function
 | Value (String s) -> sprintf "'%s'" (String.escaped s)
 | Value (Bool b) -> string_of_bool b
 | Null -> "NULL"
+| Value (Binop (op, a, b)) -> sprintf "(%s %s %s)"
+    (string_of_reference (Value a)) (string_of_op op) (string_of_reference (Value b))
+and string_of_op (_, op_str) = op_str
 and string_of_field (row, name) = match name with
   | field_name when true -> sprintf "%s.%s" row field_name
   | _ -> assert false

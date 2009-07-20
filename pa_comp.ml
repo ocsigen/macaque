@@ -50,7 +50,7 @@ let () =
 
   let infix op a b = match op with
     | <:expr@_loc< $lid:op$ >> ->
-      <:expr< Sql.Infix.$lid:op$ $a$ $b$ >>
+      <:expr< Sql.Value.$lid:op$ $a$ $b$ >>
     | _ -> invalid_arg "infix" in
 
   EXTEND CompGram
@@ -72,10 +72,6 @@ let () =
                  | v = value -> (_loc, Value v)
                  | "{"; e = expr; "}" -> (_loc, Value e)
                  | r = row -> (_loc, Row_ref r) ]];
-
-   infixop6: [[ x = ["||"] -> <:expr< $lid:x$ >> ]];
-   infixop5: [[ x = ["&&"] -> <:expr< $lid:x$ >> ]];
-
    expr:
      [ "top" RIGHTA [ ]
      | "||" RIGHTA [ e1 = SELF; op = infixop6; e2 = SELF -> infix op e1 e2 ]
@@ -86,24 +82,13 @@ let () =
      | "*"  LEFTA [ e1 = SELF; op = infixop3; e2 = SELF -> infix op e1 e2 ]
      | "**" RIGHTA [ e1 = SELF; op = infixop4; e2 = SELF -> infix op e1 e2 ]
      | "apply" LEFTA [ ]
-     | "~-" NONA  [ f = prefixop; e = SELF ->
-                      <:expr< Sql.Infix.$exp:f$ $e$ >> ]
+     | "~-" NONA  [ f = prefixop; e = SELF -> <:expr< Sql.Value.$exp:f$ $e$ >> ]
      | "." LEFTA [ ]
-     | "simple"
-       [ `ANTIQUOT((""|"value"), v) -> quote _loc v
-       | `ANTIQUOT( (* PGOcaml data types *)
-           ( "int" | "int16" | "int32" | "int64"
-           | "unit" | "bool" | "point" | "float"
-           | "bytea"| "string" | "int32_array"
-           | "date" | "time" | "timestamp" | "timestampz" | "interval" )
-         as type_name, v) ->
-           <:expr< Sql.Value.$lid:type_name$ $quote _loc v$ >>
-       | `INT(i, _) -> <:expr< Sql.Value.int $`int:i$ >>
-       | `STRING(_, s) -> <:expr< Sql.Value.string $`str:s$ >>
-       | "true" -> <:expr< Sql.Value.bool True >>
-       | "false" -> <:expr< Sql.Value.bool False >>
-       | "("; e = SELF; ")" -> e ]];
+     | "simple" [ v = value -> <:expr< $v$ >> ]];
    
+   infixop6: [[ x = ["||"] -> <:expr< $lid:x$ >> ]];
+   infixop5: [[ x = ["&&"] -> <:expr< $lid:x$ >> ]];
+
    value: [[ `ANTIQUOT((""|"value"), v) -> quote _loc v
            | `INT(i, _) -> <:expr< Sql.Value.int $`int:i$ >>
            | `STRING(_, s) -> <:expr< Sql.Value.string $`str:s$ >>
@@ -245,7 +230,7 @@ and reference_of_comp env (_loc, r) =
     let reference _loc = function
       | Row_ref row -> <:expr< Sql.Row_ref $reference_of_row env (_loc, row)$ >>
       | Field ((_,row), path) ->  <:expr< Sql.Field ($str:row$, $camlp4_path _loc path$) >>
-      | Value v -> <:expr< Sql.Value (Sql.Value.concrete $v$) >> in
+      | Value v -> <:expr< Sql.Value.get_reference $v$ >> in
     match r with
       | Nullable_ref None -> <:expr< Sql.Null >>
       | Ref r -> reference _loc r

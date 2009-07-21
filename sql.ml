@@ -2,7 +2,7 @@ type +'a view =
   { descr : types_descr;
     result_parser : 'a result_parser;
     concrete : concrete_view }
-    
+
 and concrete_view =
   | Table of table_name
   | Query of query
@@ -96,7 +96,7 @@ let option_field_parser (field_parser : unsafe_parser) : unsafe_parser =
 let null_field_parser = option_field_parser error_field_parser
 
 let row_field_parser row_parser =
-  unsafe_parser row_parser  
+  unsafe_parser row_parser
 
 let parser_of_type =
   let parser_of_sql_type = function
@@ -160,7 +160,7 @@ end = struct
 
   let (+), (-), ( * ), (/) =
     arith "+", arith "-", arith "*", arith "/"
-      
+
   let (&&), (||) = logic "&&", logic "||"
 end
 

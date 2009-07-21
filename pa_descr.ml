@@ -34,7 +34,7 @@ let () =
     sql_type: [[ "integer" -> TInt | "text" -> TString ]];
     nullable: [[ "NOT"; "NULL" -> false
                | "NULL" -> true
-               | -> true ]]; 
+               | -> true ]];
     table_name: [[ schema = LIDENT; ".";  name = LIDENT -> (Some schema, name)
                   | name = LIDENT -> (None, name) ]];
   END;;
@@ -57,7 +57,7 @@ let table_of_descr (_loc, (name, fields)) =
         else <:expr< Sql.Nullable (Some $_type$) >> in
       <:expr< ($str:name$, $output_sql_type$) >> in
     camlp4_list _loc (List.map field_descr fields) in
-  let obj = 
+  let obj =
     let field_meth (name, sql_type, nullable) =
       let output_caml_type =
         let _type = match sql_type with

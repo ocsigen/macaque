@@ -26,7 +26,7 @@ and ident = string
 (** Syntaxic form parsing *)
 module CompGram = MakeGram(Lexer)
 let comp = CompGram.Entry.mk "comprehension"
-let value = CompGram.Entry.mk "sql_value" 
+let value = CompGram.Entry.mk "sql_value"
 
 let () =
   Camlp4_config.antiquotations := true;
@@ -38,7 +38,7 @@ let () =
     (fun input ->
        try Syntax.Gram.parse_tokens_after_filter entry input
        with _ -> raise Stream.Failure) in
-  
+
   let infixop4 = compentry Syntax.infixop4 in
   let infixop3 = compentry Syntax.infixop3 in
   let infixop2 = compentry Syntax.infixop2 in
@@ -54,7 +54,7 @@ let () =
   EXTEND CompGram
    GLOBAL: comp value;
    comp: [[ result = row; "|"; items = LIST0 comp_item SEP ";"; `EOI ->
-              (_loc, (result, items)) ]]; 
+              (_loc, (result, items)) ]];
    row: [[ tup = tuple -> Tuple tup
          | id = LIDENT -> Row id ]];
    tuple: [[ "("; named_fields = LIST0 binding SEP ","; ")" -> named_fields ]];
@@ -82,7 +82,7 @@ let () =
      | "~-" NONA  [ f = prefixop; e = SELF -> <:expr< Sql.Value.$exp:f$ $e$ >> ]
      | "." LEFTA [ ]
      | "simple" [ v = value -> <:expr< $v$ >> ]];
-   
+
    infixop6: [[ x = ["||"] -> <:expr< $lid:x$ >> ]];
    infixop5: [[ x = ["&&"] -> <:expr< $lid:x$ >> ]];
 
@@ -153,7 +153,7 @@ end = struct
   let row row {map=env} =
     try SMap.find row env
     with Not_found -> row
-    
+
   let new_row = unique
 end
 
@@ -191,10 +191,10 @@ and descr_of_row env (_loc, row) = match row with
         <:expr< ($str:id$, $descr_of_comp env value$) >> in
       camlp4_list _loc (List.map descr_of_item tup)
 and reference_of_row env (_loc, row) = match row with
-  | Row row -> 
+  | Row row ->
       let row = Env.row row env in
       <:expr< Sql.Row ($str:row$, $lid:row$.Sql.descr) >>
-  | Tuple tup -> 
+  | Tuple tup ->
       let reference_of_item (_loc, (id, value)) =
         <:expr< ($str:id$, $reference_of_comp env value$) >> in
       <:expr< Sql.Tuple $camlp4_list _loc (List.map reference_of_item tup)$ >>

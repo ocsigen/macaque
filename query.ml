@@ -15,7 +15,7 @@ let execute comp =
       parser_of_comp comp (Array.of_list (List.map nullable row)) in
     List.map parse (PGOCaml.execute dbh ~name ~params:[] ()) in
   PGOCaml.close dbh;
-  rows        
-  
-let iter comp f = List.iter f (execute comp) 
+  rows
+
+let iter comp f = List.iter f (execute comp)
 

@@ -1,16 +1,14 @@
 open Camlp4.PreCast
 
 (** Comprehension (syntaxic form) structure *)
-type comp = row located * comp_item list
-and row = 
+type comp = row located * comp_item located list
+and row =
   | Row of ident
   | Tuple of tuple
-and tuple = reference binding list
+and tuple = reference binding located list
 and comp_item =
   | Bind of table binding
-  | Cond of cond located
-and cond = Comp of comp_op * reference located * reference located
-and comp_op = Eq
+  | Cond of reference
 and table = Ast.expr
 and reference =
   | Ref of reference'
@@ -21,7 +19,7 @@ and reference' =
   | Value of value
 and value = Ast.expr
 and field = ident located * ident located list
-and 'a binding = (ident * 'a located) located
+and 'a binding = (ident * 'a located)
 and 'a located = (Loc.t * 'a)
 and ident = string
 
@@ -61,10 +59,9 @@ let () =
          | id = LIDENT -> Row id ]];
    tuple: [[ "("; named_fields = LIST0 binding SEP ","; ")" -> named_fields ]];
    binding: [[ id = LIDENT; "="; v = reference -> (_loc, (id, v)) ]];
-   comp_item: [[ handle = LIDENT; "<-"; table = table ->  Bind ((_loc, (handle, table)))
-               | c = cond -> Cond c ]];
+   comp_item: [[ handle = LIDENT; "<-"; table = table ->  (_loc, Bind (handle, table))
+               | (_, cond) = reference -> (_loc, Cond cond) ]];
    table: [[ `ANTIQUOT((""|"table"), t) -> (_loc, quote _loc t) ]];
-   cond: [[ a = reference; "="; b = reference -> (_loc, Comp (Eq, a, b)) ]];
    reference : [[ "Some"; r = reference' -> (_loc, Nullable_ref (Some r))
                 | "None" -> (_loc, Nullable_ref None)
                 | r = reference' -> let _loc, r = r in (_loc, Ref r) ]];
@@ -163,15 +160,11 @@ end
 
 let rec query_of_comp (_loc, (row, items)) =
   let row = (_loc, row) in
-  let comp_item (from, where, env, code_cont) = function
-    | Cond (_loc, Comp(Eq, a, b)) ->
-        let valuer, typer = reference_of_comp env, typer_of_comp env in
-        let where_item = <:expr< Sql.Comp (Sql.Eq, $valuer a$, $valuer b$) >> in
-        let code_cont =
-          let unification = unify _loc (typer a) (typer b) in
-          fun k -> code_cont <:expr< do { $unification$; $k$ } >> in
+  let comp_item (from, where, env, code_cont) (_loc, item) = match item with
+    | Cond cond ->
+        let where_item = reference_of_comp env (_loc, cond) in
         (from, where_item :: where, env, code_cont)
-    | Bind ((_loc, (name, table))) ->
+    | Bind (name, table) ->
         let name, env = Env.new_row name env in
         let from_item = <:expr< ($str:name$, $lid:name$.Sql.concrete) >> in
         let code_cont k = code_cont

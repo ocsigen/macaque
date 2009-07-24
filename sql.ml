@@ -253,8 +253,11 @@ and flatten_query q =
     from = List.map flatten_table q.from;
     where = List.map flatten_condition q.where }
 and flatten = function
+  | Field (row, []), _ -> flatten row
   | Field ((Field (row, path), _), path'), t ->
       flatten (Field (row, path @ path'), t)
+  | Field ((Tuple tup, t), field::path), _ ->
+      flatten (Field (List.assoc field tup, path), get_field_type t [field])
   | Tuple tup, t ->
       let field (name, ref) = match flatten ref with
         | Tuple tup, _ ->

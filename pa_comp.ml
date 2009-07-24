@@ -157,11 +157,8 @@ let rec query_of_comp (_loc, (row, items)) =
       ([], [], Env.empty, (fun k -> k)) items in
   code_cont
     <:expr< 
-    let descr = $descr_of_row env row$ in               
     Sql.Value.view
       $reference_of_row env row$
-      descr
-      $parser_of_row env row$
       $camlp4_list _loc (List.rev from)$
       $camlp4_list _loc (List.rev where)$ >>
 and descr_of_row env (_loc, row) = match row with
@@ -176,18 +173,22 @@ and reference_of_row env (_loc, row) = match row with
       <:expr< Sql.Value.row (Sql.Value.unsafe $str:row$) $lid:row$ >>
   | Tuple tup ->
       let fields =
-        (* field_item depends on an 'obj' object in the scope *)
-        let field_item (_loc, (name, ref)) =
-          <:expr< ($str:name$, Sql.Value.untyped $reference_of_comp env ref$) >> in
+        let field_decl (_loc, (name, ref)) =
+          <:binding< $lid:name$ = $reference_of_comp env ref$ >> in
+        Ast.biAnd_of_list (List.map field_decl tup) in
+      let field_list =
+        let field_item (_loc, (name, _)) =
+          <:expr< ($str:name$, Sql.Value.untyped $lid:name$) >> in
         camlp4_list _loc (List.map field_item tup) in
       let result_parser = 
         let obj =
           let meth (_loc, (id, _)) = <:class_str_item< method $lid:id$ = $lid:id$ >> in
           <:expr< object $Ast.crSem_of_list (List.map meth tup)$ end >> in
-        let decl (_loc, (id, _)) decls =
-          <:expr< let $lid:id$ = Sql.call descr $str:id$ input in $decls$ >> in
-        <:expr< fun input -> $List.fold_right decl tup obj$ >> in
-      <:expr< Sql.Value.tuple (Sql.Value.unsafe $fields$) (Sql.Value.unsafe $result_parser$) >>
+        let decl (_loc, (id, _)) =
+          <:binding< $lid:id$ = Sql.parse_type (Sql.Value.get_type $lid:id$) input >> in
+        <:expr< fun input -> let $Ast.biAnd_of_list (List.map decl tup)$ in $obj$ >> in
+      <:expr< let $fields$ in
+              Sql.Value.tuple (Sql.Value.unsafe $field_list$) (Sql.Value.unsafe $result_parser$) >>
 and parser_of_row env (_loc, row) = match row with
   | Row row -> <:expr< $lid:Env.row row env$.Sql.result_parser >>
   | Tuple tup ->

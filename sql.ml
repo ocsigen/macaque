@@ -103,8 +103,8 @@ let parser_of_type =
   | Nullable None -> null_field_parser
   | Nullable (Some typ) -> option_field_parser (parser_of_sql_type typ)
 
-let call descr field_name input =
-  use_unsafe_parser (parser_of_type (get_field_type descr [field_name])) input
+let parse_type field_type input =
+  use_unsafe_parser (parser_of_type field_type) input
 
 let rec value_type = function
   | Int _ -> TInt
@@ -152,13 +152,7 @@ module Value : sig
   val (||) : (bool, 'n) t -> (bool, 'n) t -> (bool, 'n) t
 
   (** view builder *)
-  val view : 
-    ('a, non_nullable) t
-    -> types_descr
-    -> 'a result_parser
-    -> from
-    -> where
-    -> 'a view
+  val view :  (< ..> as 'a, 'n) t -> from -> where -> 'a view
               
 end = struct
   type nullable
@@ -235,10 +229,15 @@ end = struct
   let (||) = logic "||"
   let (+) = arith "+"
 
-  let view (select, _) descr result_parser from where =
-    { descr = descr;
-      result_parser = result_parser;
-      concrete = Query { select = select; from = from; where = where } }
+  let view select from where =
+    let query = { select = get_reference select; from = from; where = where } in
+    match get_type select with
+      | Non_nullable (TRecord (descr, result_parser))
+      | Nullable (Some (TRecord (descr, result_parser))) ->
+          { descr = descr;
+            result_parser = use_unsafe_parser result_parser;
+            concrete = Query query }
+      | _ -> assert false
 end
 
 (** SQL composite types flattening *)

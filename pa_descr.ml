@@ -69,7 +69,8 @@ let table_of_descr (_loc, (name, fields)) =
     <:expr< object $Ast.crSem_of_list (List.map field_meth fields)$ end >> in
   let result_parser =
     let decl (name, _, _) decls =
-      <:expr< let $lid:name$ = Sql.call descr $str:name$ input in $decls$ >> in
+      (* TODO Sql.parse_type *)
+      <:expr< let $lid:name$ = Sql.parse_type (List.assoc $str:name$ descr) input in $decls$ >> in
     <:expr< fun input -> $List.fold_right decl fields obj$ >> in
   let name_expr = match name with
     | (None, table) -> <:expr< (None, $str:table$) >>

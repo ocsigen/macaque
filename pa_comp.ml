@@ -155,18 +155,10 @@ let rec query_of_comp (_loc, (row, items)) =
   let (from, where, env, code_cont) =
     List.fold_left comp_item
       ([], [], Env.empty, (fun k -> k)) items in
-  code_cont
-    <:expr< 
-    Sql.Value.view
-      $reference_of_row env row$
-      $camlp4_list _loc (List.rev from)$
-      $camlp4_list _loc (List.rev where)$ >>
-and descr_of_row env (_loc, row) = match row with
-  | Row row -> <:expr< $lid:Env.row row env$.Sql.descr >>
-  | Tuple tup ->
-      let descr_of_item (_loc, (id, value)) =
-        <:expr< ($str:id$, $descr_of_comp env value$) >> in
-      camlp4_list _loc (List.map descr_of_item tup)
+  code_cont <:expr< Sql.Value.view
+                      $reference_of_row env row$
+                      $camlp4_list _loc (List.rev from)$
+                      $camlp4_list _loc (List.rev where)$ >>
 and reference_of_row env (_loc, row) = match row with
   | Row row ->
       let row = Env.row row env in
@@ -189,15 +181,6 @@ and reference_of_row env (_loc, row) = match row with
         <:expr< fun input -> let $Ast.biAnd_of_list (List.map decl tup)$ in $obj$ >> in
       <:expr< let $fields$ in
               Sql.Value.tuple (Sql.Value.unsafe $field_list$) (Sql.Value.unsafe $result_parser$) >>
-and parser_of_row env (_loc, row) = match row with
-  | Row row -> <:expr< $lid:Env.row row env$.Sql.result_parser >>
-  | Tuple tup ->
-      let obj =
-        let meth (_loc, (id, _)) = <:class_str_item< method $lid:id$ = $lid:id$ >> in
-        <:expr< object $Ast.crSem_of_list (List.map meth tup)$ end >> in
-      let decl (_loc, (id, _)) decls =
-        <:expr< let $lid:id$ = Sql.call descr $str:id$ input in $decls$ >> in
-      <:expr< fun input -> $List.fold_right decl tup obj$ >>
 and reference_of_comp env (_loc, r) = match r with
   | Row_ref row -> reference_of_row env (_loc, row)
   | Value v -> v
@@ -209,14 +192,6 @@ and reference_of_comp env (_loc, r) = match r with
       let call obj (_loc, meth_id) = <:expr< $obj$ # $lid:meth_id$ >> in
       <:expr< Sql.Value.field (Sql.Value.unsafe ($str:row_name$, $camlp4_path _loc path$))
         $row_val$ (fun t -> (Sql.Value.unsafe $List.fold_left call <:expr< t >> path$)) >>
-and descr_of_comp env (_loc, r) = match r with
-  | Value _
-  | Op _
-  | Field _ -> <:expr< Sql.Value.get_type $reference_of_comp env (_loc, r)$ >>
-  | Row_ref row ->
-      let parser_expr = <:expr< Sql.unsafe_parser $parser_of_row env (_loc, row)$ >> in
-      <:expr< let descr = $descr_of_row env (_loc, row)$ in
-              Sql.Non_nullable (Sql.TRecord (descr, $parser_expr$ )) >>
 and table_of_comp (_loc, table) = table
 
 (** Quotations setup *)

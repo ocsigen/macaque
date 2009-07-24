@@ -72,8 +72,8 @@ let () =
      | "+"  LEFTA [ e1 = SELF; op = infixop2; e2 = SELF -> operation _loc op [e1; e2] ]
      | "*"  LEFTA [ e1 = SELF; op = infixop3; e2 = SELF -> operation _loc op [e1; e2] ]
      | "**" RIGHTA [ e1 = SELF; op = infixop4; e2 = SELF -> operation _loc op [e1; e2] ]
-     | "apply" LEFTA [ id = ["nullable"]; e = SELF ->
-                         operation _loc (make_op _loc id) [e] ]
+     | "apply" LEFTA [ LIDENT "nullable"; e = SELF ->
+                         operation _loc (make_op _loc "nullable") [e] ]
      | "~-" NONA  [ op = prefixop; e = SELF -> operation _loc op [e] ]
      | "." LEFTA
          [ row = LIDENT; "."; path = LIST0 [id = LIDENT -> (_loc, id)] SEP "." ->
@@ -82,7 +82,7 @@ let () =
          [ v = value -> (_loc, Value v)
          | r = row -> (_loc, Row_ref r)
          | "("; e = SELF; ")" -> (_loc, snd e)
-         | id = ["null"] -> operation _loc (make_op _loc id) [] ]];
+         | LIDENT "null" -> operation _loc (make_op _loc "null") [] ]];
 
    infixop6: [[ x = ["||"] -> <:expr< $lid:x$ >> ]];
    infixop5: [[ x = ["&&"] -> <:expr< $lid:x$ >> ]];
@@ -101,25 +101,6 @@ let () =
  END;;
 
 (** Code emission from the syntaxic form *)
-let new_tvar =
-  let count = ref (-1) in
-  let rec tvar n =
-    if n < 26 then Printf.sprintf "%c" (char_of_int (n + int_of_char 'a'))
-    else tvar (n / 26 - 1) ^ tvar (n mod 26) in
-  fun _loc ->
-    incr count;
-    <:ctyp< '$"fresh_" ^ tvar !count$ >>
-
-let unify _loc a_typer b_typer =
-  let tvar = new_tvar _loc in
-  <:expr< do { $a_typer tvar$; $b_typer tvar$ } >>
-
-let generic_typer _loc v t =
-  <:expr< ignore ($v$ : $t$) >>
-
-let type_unifier _loc ta tb =
-  <:expr< ignore ((None : option $ta$) : option $tb$) >>
-
 let camlp4_list _loc =
   let rec to_list = function
     | [] -> <:expr< [] >>
@@ -174,17 +155,15 @@ let rec query_of_comp (_loc, (row, items)) =
   let (from, where, env, code_cont) =
     List.fold_left comp_item
       ([], [], Env.empty, (fun k -> k)) items in
-  let result_type = new_tvar _loc in
   code_cont
-    <:expr< do { $typer_of_row env row result_type$;
-                 let descr = $descr_of_row env row$ in
-                 { Sql.descr = descr;
-                   Sql.result_parser = ($parser_of_row env row$
-                                       : Sql.result_parser $result_type$);
-                   Sql.concrete = Sql.Query
-                     { Sql.select = $reference_of_row env row$;
-                       Sql.from = $camlp4_list _loc (List.rev from)$;
-                       Sql.$lid:"where"$ = $camlp4_list _loc (List.rev where)$ }}} >>
+    <:expr< 
+    let descr = $descr_of_row env row$ in               
+    Sql.Value.view
+      $reference_of_row env row$
+      descr
+      $parser_of_row env row$
+      $camlp4_list _loc (List.rev from)$
+      $camlp4_list _loc (List.rev where)$ >>
 and descr_of_row env (_loc, row) = match row with
   | Row row -> <:expr< $lid:Env.row row env$.Sql.descr >>
   | Tuple tup ->
@@ -194,23 +173,27 @@ and descr_of_row env (_loc, row) = match row with
 and reference_of_row env (_loc, row) = match row with
   | Row row ->
       let row = Env.row row env in
-      <:expr< Sql.Row ($str:row$, $lid:row$.Sql.descr) >>
+      <:expr< Sql.Value.row (Sql.Value.unsafe $str:row$) $lid:row$ >>
   | Tuple tup ->
-      let reference_of_item (_loc, (id, value)) =
-        <:expr< ($str:id$, Sql.Value.get_reference $reference_of_comp env value$) >> in
-      <:expr< Sql.Tuple $camlp4_list _loc (List.map reference_of_item tup)$ >>
-and typer_of_row env (_loc, row) t = match row with
-  | Row row ->
-      generic_typer _loc <:expr< $lid:Env.row row env$ >> <:ctyp< Sql.view $t$ >>
-  | Tuple tup ->
-      let item_typers, tuple_t =
-        let item (_loc, (id, value)) =
-          let item_t = new_tvar _loc in
-          typer_of_comp env value item_t,
-          <:ctyp< $lid:id$ : $item_t$ >> in
-        List.split (List.map item tup) in
-      <:expr< do { $Ast.exSem_of_list item_typers$;
-                   $type_unifier _loc t <:ctyp< < $Ast.tySem_of_list tuple_t$ > >>$ } >>
+      let obj =
+        let field_meth (_loc, (name, ref)) =
+          <:class_str_item< method $lid:name$ = $reference_of_comp env ref$ >> in
+        <:expr< object $Ast.crSem_of_list (List.map field_meth tup)$ end >> in
+      let fields =
+        (* field_item depends on an 'obj' object in the scope *)
+        let field_item (_loc, (name, _)) =
+          <:expr< ($str:name$, Sql.Value.untyped obj#$lid:name$) >> in
+        camlp4_list _loc (List.map field_item tup) in
+      let checker =
+        (* checker_meth depends on 'obj' and an 'extractor' function *)
+        let checker_meth (_loc, (name, _)) =
+          <:class_str_item< method $lid:name$ = extractor.Sql.Value.extract (obj#$lid:name$) >> in
+        <:expr< object $Ast.crSem_of_list (List.map checker_meth tup)$ end >> in
+      <:expr< let obj = $obj$ in
+              Sql.Value.tuple (Sql.Value.unsafe $fields$)
+                (fun extractor ->
+                   (* camlp4 "func $object ... end$" bug workaround *)
+                   let checker = $checker$ in Sql.Value.unsafe checker) >>
 and parser_of_row env (_loc, row) = match row with
   | Row row -> <:expr< $lid:Env.row row env$.Sql.result_parser >>
   | Tuple tup ->
@@ -221,7 +204,7 @@ and parser_of_row env (_loc, row) = match row with
         <:expr< let $lid:id$ = Sql.call descr $str:id$ input in $decls$ >> in
       <:expr< fun input -> $List.fold_right decl tup obj$ >>
 and reference_of_comp env (_loc, r) = match r with
-  | Row_ref row -> <:expr< Sql.Row_ref $reference_of_row env (_loc, row)$ >>
+  | Row_ref row -> reference_of_row env (_loc, row)
   | Value v -> v
   | Op (op, operands) ->
       let operation expr e = <:expr< $expr$ $reference_of_comp env e$ >> in
@@ -229,16 +212,8 @@ and reference_of_comp env (_loc, r) = match r with
   | Field ((row_loc, row_name), path) -> 
       let row_val = <:expr@row_loc< $lid:Env.row row_name env$ >> in
       let call obj (_loc, meth_id) = <:expr< $obj$ # $lid:meth_id$ >> in
-      <:expr< Sql.Value.field $str:row_name$ $camlp4_path _loc path$
-        $row_val$ (fun t -> $List.fold_left call <:expr< t >> path$) >>
-and typer_of_comp env (_loc, r) t = match r with
-  | Row_ref row -> typer_of_row env (_loc, row) t
-  | Value v -> generic_typer _loc v <:ctyp< Sql.Value.t $t$ _ >>
-  | Op (_, _) -> generic_typer _loc (reference_of_comp env (_loc, r)) <:ctyp< Sql.Value.t $t$ _ >>
-  | Field (row, path) ->
-      let row = let _loc, row = row in <:expr< $lid:Env.row row env$ >> in
-      let meth (_loc, id) t = <:ctyp< < $lid:id$ : $t$; .. > >> in
-      generic_typer _loc row <:ctyp< Sql.view $List.fold_right meth path t$ >>
+      <:expr< Sql.Value.field (Sql.Value.unsafe ($str:row_name$, $camlp4_path _loc path$))
+        $row_val$ (fun t -> (Sql.Value.unsafe $List.fold_left call <:expr< t >> path$)) >>
 and descr_of_comp env (_loc, r) = match r with
   | Value _
   | Op _

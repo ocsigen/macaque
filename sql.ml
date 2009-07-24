@@ -5,18 +5,18 @@ type +'a view =
 and concrete_view =
   | Table of table_name
   | Query of query
-and query = { select : row;
-              from : (row_name * concrete_view) list;
-              where : reference list }
-and row =
-  | Row of (row_name * types_descr)
-  | Tuple of reference tuple
+and query = { select : select; from : from; where : where }
+and select = row
+and from = (row_name * concrete_view) list
+and where = reference list
+and row = reference
 and reference =
   | Null
-  | Row_ref of row
+  | Value of value
   | Field of field
   | Binop of binop * reference * reference
-  | Value of value
+  | Row of (row_name * untyped view)
+  | Tuple of reference tuple
 and field = row_name * field_name list
 and value =
   | Int of int
@@ -28,7 +28,6 @@ and table_name = string option * string
 and row_name = string
 and 'a tuple = (field_name * 'a) list
 and field_name = string
-
 and 'a descr = types_descr * 'a result_parser
 and 'a result_parser = string array * int ref -> 'a
 and types_descr = field_type tuple
@@ -39,9 +38,8 @@ and sql_type =
   | TInt
   | TString
   | TBool
-  | TRecord of unsafe_descr
-and unsafe_descr = Obj.t descr
-and unsafe_parser = Obj.t result_parser
+  | TRecord of untyped descr
+and untyped = Obj.t
 
 let rec get_field_type descr = function
   | [] -> invalid_arg "get_field_type"
@@ -66,7 +64,7 @@ let string_of_sql_type = function
   | TRecord (_, _) -> "record"
 
 (** untyped parsers *)
-let unsafe_parser input_parser : unsafe_parser =
+let unsafe_parser input_parser : untyped result_parser =
   fun input -> Obj.repr (input_parser input)
 
 let (&&&) ptr_action safe_parser (input, input_ptr) =
@@ -86,7 +84,7 @@ let int_field_parser = unsafe_parser (incr &&& PGOCaml.int_of_string)
 let string_field_parser = unsafe_parser (incr &&& PGOCaml.string_of_string)
 let error_field_parser= unsafe_parser (ignore &&& (fun _ -> failwith "Error parser"))
 
-let option_field_parser (field_parser : unsafe_parser) : unsafe_parser =
+let option_field_parser (field_parser : untyped result_parser) : untyped result_parser =
   unsafe_parser
     (function (input_tab, input_ptr) as input ->
        if input_tab.(!input_ptr) = "NULL" then (incr input_ptr; None)
@@ -113,6 +111,10 @@ let rec value_type = function
   | String _ -> TString
   | Bool _ -> TBool
 
+
+let unsafe_view view =
+  { view with result_parser = unsafe_parser view.result_parser }
+
 (** Sql-representable values *)
 module Value : sig
   type nullable
@@ -121,7 +123,8 @@ module Value : sig
 
   (** type machinery *)
   val nullable : ('a, non_nullable) t -> ('a option, nullable) t
-
+  val untyped : ('a, 'b) t -> (untyped, untyped) t
+ 
   (** access *)
   val get_reference : ('a, 'n) t -> reference
   val get_type : ('a, 'n) t -> field_type
@@ -133,18 +136,36 @@ module Value : sig
   val null : ('a, nullable) t
 
   (** unsafe constructors *)
-  val field : string -> string list -> 'a view -> ('a -> 'b) -> ('b, 'n) t
+  type 'a unsafe
+  type extractor = { extract : 'a 'b . ('a, 'b) t -> 'a }
+  val unsafe : 'a -> 'a unsafe
+  val field : (string * string list) unsafe -> 'a view -> ('a -> 'b unsafe) -> ('b, 'n) t
+  val row : string unsafe -> 'a view -> ('a, non_nullable) t
+  val tuple :
+    (string * (untyped, untyped) t) list unsafe
+    -> (extractor -> 'obj unsafe)
+    -> ('obj, non_nullable) t
 
   (** data operations *)
   val (<) : ('a, 'n) t -> ('a, 'n) t -> (bool, 'n) t
   val (=) : ('a, 'n) t -> ('a, 'n) t -> (bool, 'n) t
   val (+) : (int, 'n) t -> (int, 'n) t -> (int, 'n) t
   val (||) : (bool, 'n) t -> (bool, 'n) t -> (bool, 'n) t
+
+  (** view builder *)
+  val view : 
+    ('a, non_nullable) t
+    -> types_descr
+    -> 'a result_parser
+    -> from
+    -> where
+    -> 'a view
+              
 end = struct
   type nullable
   type non_nullable
-  type typed_reference = reference * field_type
-  type ('a, 'b) t = typed_reference
+  type ('a, 'b) t = reference * field_type
+  type extractor = { extract : 'a 'b . ('a, 'b) t -> 'a }
 
   let nullable (r, t) =
     let t = match t with
@@ -155,8 +176,27 @@ end = struct
   let get_reference (r, _) = r
   let get_type (_, t) = t
 
-  let field row path view _ =
+  type 'a unsafe = 'a
+  let unsafe x = x
+
+  let untyped x = x
+
+  type unsafe_t = (untyped, untyped) t unsafe
+  let field (row, path) view checker =
+    ignore checker;
     (Field (row, path), get_field_type view.descr path)
+
+  let row name view =
+    let view = unsafe_view view in
+    Row (name, view),
+    Non_nullable (TRecord (view.descr, view.result_parser))
+
+  let tuple fields checker =
+    ignore checker;
+    let field_ref (name, field) = (name, get_reference field) in
+    let field_typ (name, field) = (name, get_type field) in
+    let record_type = List.map field_typ fields, error_field_parser in (* TODO parser problem *)
+    (Tuple (List.map field_ref fields), Non_nullable (TRecord record_type))
 
   let bool b = Value (Bool b), Non_nullable TBool
   let int i = Value (Int i), Non_nullable TInt
@@ -197,6 +237,11 @@ end = struct
   let (<), (=) = comp "<", comp "="
   let (||) = logic "||"
   let (+) = arith "+"
+
+  let view (select, _) descr result_parser from where =
+    { descr = descr;
+      result_parser = result_parser;
+      concrete = Query { select = select; from = from; where = where } }
 end
 
 (** SQL composite types flattening *)
@@ -208,29 +253,31 @@ and flatten_query q =
     from = List.map flatten_table q.from;
     where = List.map flatten_condition q.where }
 and flatten_row = function
-  | Row (table_name, descr) ->
+  | Row (table_name, {descr=table_descr}) ->
       let rec field acc (field_name, field_type) =
         let acc = field_name :: acc in
         match field_type with
           | Non_nullable (TRecord (descr, _))
           | Nullable (Some (TRecord (descr, _))) ->
-              (field_name, Row_ref (flatten_descr acc descr))
+              (field_name, flatten_descr acc descr)
           | _ ->
               let path = String.concat "__" (List.rev acc) in
               (field_name, Field (table_name, [path]))
       and flatten_descr acc descr = Tuple (List.map (field acc) descr) in
-      flatten_row (flatten_descr [] descr)
+      flatten_row (flatten_descr [] table_descr)
   | Tuple tup ->
       let field (field_name, field_val) = match field_val with
-        | Row_ref row ->
+        | (Row _ | Tuple _) as row ->
             (match flatten_row row with
                | Row _ -> assert false (* flatten result must be tuple *)
                | Tuple child_tup ->
                    let children (child_name, child_val) =
                      (field_name ^ "__" ^ child_name, child_val) in
-                   (List.map children child_tup))
+                   (List.map children child_tup)
+               | _ -> assert false)
         | flat_value -> [(field_name, flat_value)] in
       Tuple (List.flatten (List.map field tup))
+  | _ -> assert false
 and flatten_table (name, comp) = (name, flatten_concrete comp)
 and flatten_condition c = c (* TODO *)
 
@@ -249,25 +296,24 @@ and string_of_query q =
     (string_of_row q.select)
     (if q.from = [] then "" else " FROM " ^ string_of_list string_of_table ", " q.from)
     (if q.where = [] then "" else " WHERE " ^ string_of_list string_of_reference " AND " q.where)
-and string_of_row = function
-| Tuple tup ->
-    if tup = [] then "NULL"
-    else string_of_list string_of_binding ", " tup
-| Row _ -> invalid_arg "string_of_row : non-flattened query"
+and string_of_row row = string_of_reference row
 and string_of_binding (name, value) =
   let v = string_of_reference value in
   match value with
-    | Row_ref _ -> v (* flattened -> no binding *)
+    | (Row _ | Tuple _) -> v (* flattened -> no binding *)
     | _ -> sprintf "%s AS %s" v name
 and string_of_reference = function
-| Row_ref row -> string_of_row row
-| Field (table, fields) -> sprintf "%s.%s" table (String.concat "__" fields)
 | Value (Int i) -> string_of_int i
 | Value (String s) -> sprintf "'%s'" (String.escaped s)
 | Value (Bool b) -> string_of_bool b
 | Null -> "NULL"
 | Binop (op, a, b) -> sprintf "(%s %s %s)"
     (string_of_reference a) (string_of_op op) (string_of_reference b)
+| Field (table, fields) -> sprintf "%s.%s" table (String.concat "__" fields)
+| Row _ -> invalid_arg "string_of_row : non-flattened query"
+| Tuple tup ->
+    if tup = [] then "NULL"
+    else string_of_list string_of_binding ", " tup
 and string_of_op (_, op_str) = op_str
 and string_of_field (row, name) = match name with
   | field_name when true -> sprintf "%s.%s" row field_name

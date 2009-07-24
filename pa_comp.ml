@@ -11,12 +11,10 @@ and comp_item =
   | Cond of reference
 and table = Ast.expr
 and reference =
-  | Ref of reference'
-  | Nullable_ref of reference' located option
-and reference' =
   | Row_ref of row
   | Field of field
   | Value of value
+  | Op of string * reference located list
 and value = Ast.expr
 and field = ident located * ident located list
 and 'a binding = (ident * 'a located)
@@ -46,10 +44,13 @@ let () =
   let infixop0 = compentry Syntax.infixop0 in
   let prefixop = compentry Syntax.prefixop in
 
-  let infix op a b = match op with
-    | <:expr@_loc< $lid:op$ >> ->
-      <:expr< Sql.Value.$lid:op$ $a$ $b$ >>
-    | _ -> invalid_arg "infix" in
+  let make_op _loc id = <:expr< $lid:id$ >> in
+  
+  let operation _loc op operands =
+    let op_id = match op with
+      | <:expr< $lid:id$ >> -> id
+      | _ -> assert false in
+    (_loc, Op (op_id, operands)) in
 
   EXTEND CompGram
    GLOBAL: comp value;
@@ -57,36 +58,36 @@ let () =
               (_loc, (result, items)) ]];
    row: [[ tup = tuple -> Tuple tup
          | id = LIDENT -> Row id ]];
-   tuple: [[ "("; named_fields = LIST0 binding SEP ","; ")" -> named_fields ]];
+   tuple: [[ "{"; named_fields = LIST0 binding SEP ";"; "}" -> named_fields ]];
    binding: [[ id = LIDENT; "="; v = reference -> (_loc, (id, v)) ]];
    comp_item: [[ handle = LIDENT; "<-"; table = table ->  (_loc, Bind (handle, table))
                | (_, cond) = reference -> (_loc, Cond cond) ]];
    table: [[ `ANTIQUOT((""|"table"), t) -> (_loc, quote _loc t) ]];
-   reference : [[ "Some"; r = reference' -> (_loc, Nullable_ref (Some r))
-                | "None" -> (_loc, Nullable_ref None)
-                | r = reference' -> let _loc, r = r in (_loc, Ref r) ]];
-   reference' : [[ f = field -> (_loc, Field f)
-                 | v = value -> (_loc, Value v)
-                 | "{"; e = expr; "}" -> (_loc, Value e)
-                 | r = row -> (_loc, Row_ref r) ]];
-   expr:
+   reference:
      [ "top" RIGHTA [ ]
-     | "||" RIGHTA [ e1 = SELF; op = infixop6; e2 = SELF -> infix op e1 e2 ]
-     | "&&" RIGHTA [ e1 = SELF; op = infixop5; e2 = SELF -> infix op e1 e2 ]
-     | "<"  LEFTA [ e1 = SELF; op = infixop0; e2 = SELF -> infix op e1 e2 ]
-     | "^"  RIGHTA [ e1 = SELF; op = infixop1; e2 = SELF -> infix op e1 e2 ]
-     | "+"  LEFTA [ e1 = SELF; op = infixop2; e2 = SELF -> infix op e1 e2 ]
-     | "*"  LEFTA [ e1 = SELF; op = infixop3; e2 = SELF -> infix op e1 e2 ]
-     | "**" RIGHTA [ e1 = SELF; op = infixop4; e2 = SELF -> infix op e1 e2 ]
-     | "apply" LEFTA [ ]
-     | "~-" NONA  [ f = prefixop; e = SELF -> <:expr< Sql.Value.$exp:f$ $e$ >> ]
-     | "." LEFTA [ ]
-     | "simple" [ v = value -> <:expr< $v$ >> ]];
+     | "||" RIGHTA [ e1 = SELF; op = infixop6; e2 = SELF -> operation _loc op [e1; e2] ]
+     | "&&" RIGHTA [ e1 = SELF; op = infixop5; e2 = SELF -> operation _loc op [e1; e2] ]
+     | "<"  LEFTA [ e1 = SELF; op = infixop0; e2 = SELF -> operation _loc op [e1; e2] ]
+     | "^"  RIGHTA [ e1 = SELF; op = infixop1; e2 = SELF -> operation _loc op [e1; e2] ]
+     | "+"  LEFTA [ e1 = SELF; op = infixop2; e2 = SELF -> operation _loc op [e1; e2] ]
+     | "*"  LEFTA [ e1 = SELF; op = infixop3; e2 = SELF -> operation _loc op [e1; e2] ]
+     | "**" RIGHTA [ e1 = SELF; op = infixop4; e2 = SELF -> operation _loc op [e1; e2] ]
+     | "apply" LEFTA [ id = ["nullable"]; e = SELF ->
+                         operation _loc (make_op _loc id) [e] ]
+     | "~-" NONA  [ op = prefixop; e = SELF -> operation _loc op [e] ]
+     | "." LEFTA
+         [ row = LIDENT; "."; path = LIST0 [id = LIDENT -> (_loc, id)] SEP "." ->
+             (_loc, Field ((_loc, row), path)) ]
+     | "simple"
+         [ v = value -> (_loc, Value v)
+         | r = row -> (_loc, Row_ref r)
+         | "("; e = SELF; ")" -> (_loc, snd e)
+         | id = ["null"] -> operation _loc (make_op _loc id) [] ]];
 
    infixop6: [[ x = ["||"] -> <:expr< $lid:x$ >> ]];
    infixop5: [[ x = ["&&"] -> <:expr< $lid:x$ >> ]];
 
-   value: [[ `ANTIQUOT((""|"value"), v) -> quote _loc v
+   value: [[ `ANTIQUOT("", v) -> quote _loc v
            | `INT(i, _) -> <:expr< Sql.Value.int $`int:i$ >>
            | `STRING(_, s) -> <:expr< Sql.Value.string $`str:s$ >>
            | "true" -> <:expr< Sql.Value.bool True >>
@@ -97,7 +98,6 @@ let () =
                | "bytea"| "string" | "int32_array"
                | "date" | "time" | "timestamp" | "timestampz" | "interval" )
                as type_name, v) -> <:expr< Sql.Value.$lid:type_name$ $quote _loc v$ >> ]];
-   field: [[ row = LIDENT; "."; path = LIST0 [id = LIDENT -> (_loc, id)] SEP "." -> ((_loc, row), path) ]];
  END;;
 
 (** Code emission from the syntaxic form *)
@@ -162,7 +162,8 @@ let rec query_of_comp (_loc, (row, items)) =
   let row = (_loc, row) in
   let comp_item (from, where, env, code_cont) (_loc, item) = match item with
     | Cond cond ->
-        let where_item = reference_of_comp env (_loc, cond) in
+        let where_item =
+          <:expr< Sql.Value.get_reference $reference_of_comp env (_loc, cond)$ >> in
         (from, where_item :: where, env, code_cont)
     | Bind (name, table) ->
         let name, env = Env.new_row name env in
@@ -196,7 +197,7 @@ and reference_of_row env (_loc, row) = match row with
       <:expr< Sql.Row ($str:row$, $lid:row$.Sql.descr) >>
   | Tuple tup ->
       let reference_of_item (_loc, (id, value)) =
-        <:expr< ($str:id$, $reference_of_comp env value$) >> in
+        <:expr< ($str:id$, Sql.Value.get_reference $reference_of_comp env value$) >> in
       <:expr< Sql.Tuple $camlp4_list _loc (List.map reference_of_item tup)$ >>
 and typer_of_row env (_loc, row) t = match row with
   | Row row ->
@@ -219,46 +220,33 @@ and parser_of_row env (_loc, row) = match row with
       let decl (_loc, (id, _)) decls =
         <:expr< let $lid:id$ = Sql.call descr $str:id$ input in $decls$ >> in
       <:expr< fun input -> $List.fold_right decl tup obj$ >>
-and reference_of_comp env (_loc, r) =
-    let reference _loc = function
-      | Row_ref row -> <:expr< Sql.Row_ref $reference_of_row env (_loc, row)$ >>
-      | Field ((_,row), path) ->  <:expr< Sql.Field ($str:row$, $camlp4_path _loc path$) >>
-      | Value v -> <:expr< Sql.Value.get_reference $v$ >> in
-    match r with
-      | Nullable_ref None -> <:expr< Sql.Null >>
-      | Ref r -> reference _loc r
-      | Nullable_ref (Some (_loc, r)) -> reference _loc r
-and typer_of_comp env (_loc, r) t =
-    let typer t _loc = function
-      | Row_ref row -> typer_of_row env (_loc, row) t
-      | Value v -> generic_typer _loc v <:ctyp< Sql.Value.t $t$ >>
-      | Field (row, path) ->
-          let row = let _loc, row = row in <:expr< $lid:Env.row row env$ >> in
-          let meth (_loc, id) t = <:ctyp< < $lid:id$ : $t$; .. > >> in
-          generic_typer _loc row <:ctyp< Sql.view $List.fold_right meth path t$ >> in
-    match r with
-      | Ref v -> typer t _loc v
-      | Nullable_ref None -> type_unifier _loc t <:ctyp< option _ >>
-      | Nullable_ref (Some (loc, v)) ->
-          let some_t = new_tvar loc in
-          <:expr< do { $typer some_t loc v$;
-                       $type_unifier loc t <:ctyp@loc< option $some_t$ >>$ } >>
-and descr_of_comp env (_loc, r) =
-    let descr_of_val _loc = function
-      | Value v -> <:expr< Sql.Value.get_type $v$ >>
-      | Row_ref row ->
-          <:expr< let descr = $descr_of_row env (_loc, row)$ in
-                  Sql.Not_null (Sql.TRecord
-                    (descr, Sql.unsafe_parser $parser_of_row env (_loc, row)$)) >>
-      | Field (row, path) ->
-          let row_descr =
-            let _loc, row = row in
-            <:expr< $lid:Env.row row env$.Sql.descr >> in
-          <:expr< Sql.get_field_type $row_descr$ $camlp4_path _loc path$ >> in
-    match r with
-      | Ref v -> descr_of_val _loc v
-      | Nullable_ref None -> <:expr< Sql.Nullable None >>
-      | Nullable_ref (Some (loc, v)) -> <:expr< Sql.nullable $descr_of_val loc v$ >>
+and reference_of_comp env (_loc, r) = match r with
+  | Row_ref row -> <:expr< Sql.Row_ref $reference_of_row env (_loc, row)$ >>
+  | Value v -> v
+  | Op (op, operands) ->
+      let operation expr e = <:expr< $expr$ $reference_of_comp env e$ >> in
+      List.fold_left operation <:expr< Sql.Value.$lid:op$ >> operands
+  | Field ((row_loc, row_name), path) -> 
+      let row_val = <:expr@row_loc< $lid:Env.row row_name env$ >> in
+      let call obj (_loc, meth_id) = <:expr< $obj$ # $lid:meth_id$ >> in
+      <:expr< Sql.Value.field $str:row_name$ $camlp4_path _loc path$
+        $row_val$ (fun t -> $List.fold_left call <:expr< t >> path$) >>
+and typer_of_comp env (_loc, r) t = match r with
+  | Row_ref row -> typer_of_row env (_loc, row) t
+  | Value v -> generic_typer _loc v <:ctyp< Sql.Value.t $t$ _ >>
+  | Op (_, _) -> generic_typer _loc (reference_of_comp env (_loc, r)) <:ctyp< Sql.Value.t $t$ _ >>
+  | Field (row, path) ->
+      let row = let _loc, row = row in <:expr< $lid:Env.row row env$ >> in
+      let meth (_loc, id) t = <:ctyp< < $lid:id$ : $t$; .. > >> in
+      generic_typer _loc row <:ctyp< Sql.view $List.fold_right meth path t$ >>
+and descr_of_comp env (_loc, r) = match r with
+  | Value _
+  | Op _
+  | Field _ -> <:expr< Sql.Value.get_type $reference_of_comp env (_loc, r)$ >>
+  | Row_ref row ->
+      let parser_expr = <:expr< Sql.unsafe_parser $parser_of_row env (_loc, row)$ >> in
+      <:expr< let descr = $descr_of_row env (_loc, row)$ in
+              Sql.Non_nullable (Sql.TRecord (descr, $parser_expr$ )) >>
 and table_of_comp (_loc, table) = table
 
 (** Quotations setup *)

@@ -2,7 +2,6 @@ type +'a view =
   { descr : types_descr;
     result_parser : 'a result_parser;
     concrete : concrete_view }
-
 and concrete_view =
   | Table of table_name
   | Query of query
@@ -16,13 +15,13 @@ and reference =
   | Null
   | Row_ref of row
   | Field of field
+  | Binop of binop * reference * reference
   | Value of value
 and field = row_name * field_name list
 and value =
   | Int of int
   | String of string
   | Bool of bool
-  | Binop of binop * value * value
 and binop = op_type * string
 and op_type = Logic | Comp | Arith
 and table_name = string option * string
@@ -34,7 +33,7 @@ and 'a descr = types_descr * 'a result_parser
 and 'a result_parser = string array * int ref -> 'a
 and types_descr = field_type tuple
 and field_type =
-  | Not_null of sql_type
+  | Non_nullable of sql_type
   | Nullable of sql_type option
 and sql_type =
   | TInt
@@ -50,7 +49,7 @@ let rec get_field_type descr = function
   | record_name :: path_rest ->
       match List.assoc record_name descr with
         | Nullable None -> Nullable None
-        | Not_null (TRecord (descr_rest, _))
+        | Non_nullable (TRecord (descr_rest, _))
         | Nullable Some (TRecord (descr_rest, _)) ->
             get_field_type descr_rest path_rest
         | _ -> invalid_arg "get_field_type"
@@ -95,17 +94,14 @@ let option_field_parser (field_parser : unsafe_parser) : unsafe_parser =
 
 let null_field_parser = option_field_parser error_field_parser
 
-let row_field_parser row_parser =
-  unsafe_parser row_parser
-
 let parser_of_type =
   let parser_of_sql_type = function
     | TInt -> int_field_parser
     | TString -> string_field_parser
     | TBool -> bool_field_parser
-    | TRecord (descr, row_parser) -> row_field_parser row_parser in
+    | TRecord (_, row_parser) -> row_parser in
   function
-  | Not_null typ -> parser_of_sql_type typ
+  | Non_nullable typ -> parser_of_sql_type typ
   | Nullable None -> null_field_parser
   | Nullable (Some typ) -> option_field_parser (parser_of_sql_type typ)
 
@@ -116,57 +112,92 @@ let rec value_type = function
   | Int _ -> TInt
   | String _ -> TString
   | Bool _ -> TBool
-  | Binop ((op, _), a, _) -> match op with
-      | Logic | Comp -> TBool
-      | Arith -> value_type a
 
 (** Sql-representable values *)
 module Value : sig
-  type 'a t
-  val get_reference : 'a t -> reference
-  val get_type : 'a t -> field_type
-  val bool : bool -> bool t
-  val int : int -> int t
-  val string : string -> string t
+  type nullable
+  type non_nullable
+  type ('a, 'nullability) t
 
-  val (<) : 'a t -> 'a t -> bool t
-  val (<=) : 'a t -> 'a t -> bool t
-  val (<>) : 'a t -> 'a t -> bool t
-  val (=) : 'a t -> 'a t -> bool t
-  val (>) : 'a t -> 'a t -> bool t
-  val (>=) : 'a t -> 'a t -> bool t
+  (** type machinery *)
+  val nullable : ('a, non_nullable) t -> ('a option, nullable) t
 
-  val (+) : int t -> int t -> int t
-  val (-) : int t -> int t -> int t
-  val ( * ) : int t -> int t -> int t
-  val ( / ) : int t -> int t -> int t
+  (** access *)
+  val get_reference : ('a, 'n) t -> reference
+  val get_type : ('a, 'n) t -> field_type
 
-  val (&&) : bool t -> bool t -> bool t
-  val (||) : bool t -> bool t -> bool t
+  (** data constructors *)
+  val bool : bool -> (bool, non_nullable) t
+  val int : int -> (int, non_nullable) t
+  val string : string -> (string, non_nullable) t
+  val null : ('a, nullable) t
+
+  (** unsafe constructors *)
+  val field : string -> string list -> 'a view -> ('a -> 'b) -> ('b, 'n) t
+
+  (** data operations *)
+  val (<) : ('a, 'n) t -> ('a, 'n) t -> (bool, 'n) t
+  val (=) : ('a, 'n) t -> ('a, 'n) t -> (bool, 'n) t
+  val (+) : (int, 'n) t -> (int, 'n) t -> (int, 'n) t
+  val (||) : (bool, 'n) t -> (bool, 'n) t -> (bool, 'n) t
 end = struct
-  type 'a t = value
-  let get_reference v = Value v
-  let bool b = Bool b
-  let int i = Int i
-  let string s = String s
-  let get_type v = Not_null (value_type v)
+  type nullable
+  type non_nullable
+  type typed_reference = reference * field_type
+  type ('a, 'b) t = typed_reference
 
-  let binop op = fun a b -> Binop (op, a, b)
-  let comp op = binop (Comp, op)
-  let logic op = binop (Logic, op)
-  let arith op = binop (Arith, op)
-  let (<), (<=), (>), (>=), (<>), (=) =
-    comp "<", comp "<=", comp ">", comp ">=", comp "<>", comp "="
+  let nullable (r, t) =
+    let t = match t with
+      | Non_nullable t -> Nullable (Some t)
+      | Nullable t -> Nullable t in
+    r, t
 
-  let (+), (-), ( * ), (/) =
-    arith "+", arith "-", arith "*", arith "/"
+  let get_reference (r, _) = r
+  let get_type (_, t) = t
 
-  let (&&), (||) = logic "&&", logic "||"
+  let field row path view _ =
+    (Field (row, path), get_field_type view.descr path)
+
+  let bool b = Value (Bool b), Non_nullable TBool
+  let int i = Value (Int i), Non_nullable TInt
+  let string s = Value (String s), Non_nullable TString
+
+  let null = Null, Nullable None
+  let option constr = function
+    | None -> null
+    | Some x -> nullable (constr x)
+
+  let op type_fun op (a, t) (b, t') =
+    match t, t' with
+      | Non_nullable t, Non_nullable t' ->
+          (* none is nullable *)
+          assert (t = t');
+          Binop(op, a, b), Non_nullable (type_fun t)
+      | _ ->
+          (* at least one of them is nullable *)
+          let some_t = function
+            | Non_nullable t | Nullable (Some t) -> Some t
+            | Nullable None -> None in
+          let op, t = match some_t t, some_t t' with
+            | Some t, Some t' ->
+                assert (t = t');
+                Binop(op, a, b), Some (type_fun t)
+            | Some t, None | None, Some t ->
+                Binop(op, a, b), Some (type_fun t)
+            | None, None -> Null, None in
+          op, Nullable t
+
+  let mono_op t = op (fun t' -> assert (t = t'); t)
+  let poly_op return_t = op (fun _ -> return_t)
+
+  let comp op = poly_op TBool (Comp, op)
+  let logic op = mono_op TBool (Logic, op)
+  let arith op = mono_op TInt (Arith, op)
+
+  let (<), (=) = comp "<", comp "="
+  let (||) = logic "||"
+  let (+) = arith "+"
 end
-
-let nullable = function
-  | Nullable t -> Nullable t
-  | Not_null t -> Nullable (Some t)
 
 (** SQL composite types flattening *)
 let rec flatten_concrete = function
@@ -181,7 +212,7 @@ and flatten_row = function
       let rec field acc (field_name, field_type) =
         let acc = field_name :: acc in
         match field_type with
-          | Not_null (TRecord (descr, _))
+          | Non_nullable (TRecord (descr, _))
           | Nullable (Some (TRecord (descr, _))) ->
               (field_name, Row_ref (flatten_descr acc descr))
           | _ ->
@@ -235,8 +266,8 @@ and string_of_reference = function
 | Value (String s) -> sprintf "'%s'" (String.escaped s)
 | Value (Bool b) -> string_of_bool b
 | Null -> "NULL"
-| Value (Binop (op, a, b)) -> sprintf "(%s %s %s)"
-    (string_of_reference (Value a)) (string_of_op op) (string_of_reference (Value b))
+| Binop (op, a, b) -> sprintf "(%s %s %s)"
+    (string_of_reference a) (string_of_op op) (string_of_reference b)
 and string_of_op (_, op_str) = op_str
 and string_of_field (row, name) = match name with
   | field_name when true -> sprintf "%s.%s" row field_name

@@ -53,7 +53,7 @@ let table_of_descr (_loc, (name, fields)) =
         let _type = match sql_type with
         | TInt -> <:expr< Sql.TInt >>
         | TString -> <:expr< Sql.TString >> in
-        if not nullable then <:expr< Sql.Not_null $_type$ >>
+        if not nullable then <:expr< Sql.Non_nullable $_type$ >>
         else <:expr< Sql.Nullable (Some $_type$) >> in
       <:expr< ($str:name$, $output_sql_type$) >> in
     camlp4_list _loc (List.map field_descr fields) in

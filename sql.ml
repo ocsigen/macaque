@@ -137,13 +137,12 @@ module Value : sig
 
   (** unsafe constructors *)
   type 'a unsafe
-  type extractor = { extract : 'a 'b . ('a, 'b) t -> 'a }
   val unsafe : 'a -> 'a unsafe
   val field : (string * string list) unsafe -> 'a view -> ('a -> 'b unsafe) -> ('b, 'n) t
   val row : string unsafe -> 'a view -> ('a, non_nullable) t
   val tuple :
     (string * (untyped, untyped) t) list unsafe
-    -> (extractor -> 'obj unsafe)
+    -> 'obj result_parser unsafe
     -> ('obj, non_nullable) t
 
   (** data operations *)
@@ -165,7 +164,6 @@ end = struct
   type nullable
   type non_nullable
   type ('a, 'b) t = reference * field_type
-  type extractor = { extract : 'a 'b . ('a, 'b) t -> 'a }
 
   let nullable (r, t) =
     let t = match t with
@@ -191,11 +189,10 @@ end = struct
     Row (name, view),
     Non_nullable (TRecord (view.descr, view.result_parser))
 
-  let tuple fields checker =
-    ignore checker;
+  let tuple fields result_parser =
     let field_ref (name, field) = (name, get_reference field) in
     let field_typ (name, field) = (name, get_type field) in
-    let record_type = List.map field_typ fields, error_field_parser in (* TODO parser problem *)
+    let record_type = List.map field_typ fields, unsafe_parser result_parser in
     (Tuple (List.map field_ref fields), Non_nullable (TRecord record_type))
 
   let bool b = Value (Bool b), Non_nullable TBool

@@ -175,25 +175,19 @@ and reference_of_row env (_loc, row) = match row with
       let row = Env.row row env in
       <:expr< Sql.Value.row (Sql.Value.unsafe $str:row$) $lid:row$ >>
   | Tuple tup ->
-      let obj =
-        let field_meth (_loc, (name, ref)) =
-          <:class_str_item< method $lid:name$ = $reference_of_comp env ref$ >> in
-        <:expr< object $Ast.crSem_of_list (List.map field_meth tup)$ end >> in
       let fields =
         (* field_item depends on an 'obj' object in the scope *)
-        let field_item (_loc, (name, _)) =
-          <:expr< ($str:name$, Sql.Value.untyped obj#$lid:name$) >> in
+        let field_item (_loc, (name, ref)) =
+          <:expr< ($str:name$, Sql.Value.untyped $reference_of_comp env ref$) >> in
         camlp4_list _loc (List.map field_item tup) in
-      let checker =
-        (* checker_meth depends on 'obj' and an 'extractor' function *)
-        let checker_meth (_loc, (name, _)) =
-          <:class_str_item< method $lid:name$ = extractor.Sql.Value.extract (obj#$lid:name$) >> in
-        <:expr< object $Ast.crSem_of_list (List.map checker_meth tup)$ end >> in
-      <:expr< let obj = $obj$ in
-              Sql.Value.tuple (Sql.Value.unsafe $fields$)
-                (fun extractor ->
-                   (* camlp4 "func $object ... end$" bug workaround *)
-                   let checker = $checker$ in Sql.Value.unsafe checker) >>
+      let result_parser = 
+        let obj =
+          let meth (_loc, (id, _)) = <:class_str_item< method $lid:id$ = $lid:id$ >> in
+          <:expr< object $Ast.crSem_of_list (List.map meth tup)$ end >> in
+        let decl (_loc, (id, _)) decls =
+          <:expr< let $lid:id$ = Sql.call descr $str:id$ input in $decls$ >> in
+        <:expr< fun input -> $List.fold_right decl tup obj$ >> in
+      <:expr< Sql.Value.tuple (Sql.Value.unsafe $fields$) (Sql.Value.unsafe $result_parser$) >>
 and parser_of_row env (_loc, row) = match row with
   | Row row -> <:expr< $lid:Env.row row env$.Sql.result_parser >>
   | Tuple tup ->

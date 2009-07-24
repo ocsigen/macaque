@@ -13,11 +13,10 @@ and row = reference
 and reference =
   | Null
   | Value of value
-  | Field of field
+  | Field of reference * field_name list
   | Binop of binop * reference * reference
   | Row of (row_name * untyped view)
   | Tuple of reference tuple
-and field = row_name * field_name list
 and value =
   | Int of int
   | String of string
@@ -41,15 +40,14 @@ and sql_type =
   | TRecord of untyped descr
 and untyped = Obj.t
 
-let rec get_field_type descr = function
-  | [] -> invalid_arg "get_field_type"
-  | [name] -> List.assoc name descr
-  | record_name :: path_rest ->
-      match List.assoc record_name descr with
+let rec get_field_type ref_type = function
+  | [] -> ref_type
+  | name :: path_rest ->
+      match ref_type with
         | Nullable None -> Nullable None
-        | Non_nullable (TRecord (descr_rest, _))
-        | Nullable Some (TRecord (descr_rest, _)) ->
-            get_field_type descr_rest path_rest
+        | Non_nullable (TRecord (descr, _))
+        | Nullable Some (TRecord (descr, _)) ->
+            get_field_type (List.assoc name descr) path_rest
         | _ -> invalid_arg "get_field_type"
 
 let sql_type_of_string = function
@@ -120,14 +118,14 @@ module Value : sig
 
   (** type machinery *)
   val nullable : ('a, non_nullable) t -> ('a option, nullable) t
-  val untyped : ('a, 'b) t -> (untyped, untyped) t
- 
+  val untyped : (_, _) t -> (untyped, untyped) t
+
   (** access *)
-  val get_reference : ('a, 'n) t -> reference
-  val get_type : ('a, 'n) t -> field_type
+  val get_reference : ('a, _) t -> reference
+  val get_type : ('a, _) t -> field_type
 
   (** parser *)
-  val parse : ('a, 'n) t -> 'a result_parser
+  val parse : ('a, _) t -> 'a result_parser
 
   (** data constructors *)
   val bool : bool -> (bool, non_nullable) t
@@ -138,7 +136,7 @@ module Value : sig
   (** unsafe constructors *)
   type 'a unsafe
   val unsafe : 'a -> 'a unsafe
-  val field : (string * string list) unsafe -> 'a view -> ('a -> 'b unsafe) -> ('b, 'n) t
+  val field : ('a, _) t -> string list unsafe -> ('a -> 'b) unsafe -> ('b, _) t
   val row : string unsafe -> 'a view -> ('a, non_nullable) t
   val tuple :
     (string * (untyped, untyped) t) list unsafe
@@ -152,8 +150,8 @@ module Value : sig
   val (||) : (bool, 'n) t -> (bool, 'n) t -> (bool, 'n) t
 
   (** view builder *)
-  val view :  (< ..> as 'a, 'n) t -> from -> where -> 'a view
-              
+  val view :  (< ..> as 'a, _) t -> from -> where -> 'a view
+
 end = struct
   type nullable
   type non_nullable
@@ -177,9 +175,11 @@ end = struct
   let untyped x = x
 
   type unsafe_t = (untyped, untyped) t unsafe
-  let field (row, path) view checker =
+
+  let field row path checker =
     ignore checker;
-    (Field (row, path), get_field_type view.descr path)
+    (Field (get_reference row, path),
+     get_field_type (get_type row) path)
 
   let row name view =
     let view = unsafe_view view in
@@ -252,7 +252,7 @@ and flatten_query q =
     from = List.map flatten_table q.from;
     where = List.map flatten_condition q.where }
 and flatten_row = function
-  | Row (table_name, {descr=table_descr}) ->
+  | Row (table_name, {descr=table_descr}) as row ->
       let rec field acc (field_name, field_type) =
         let acc = field_name :: acc in
         match field_type with
@@ -261,7 +261,7 @@ and flatten_row = function
               (field_name, flatten_descr acc descr)
           | _ ->
               let path = String.concat "__" (List.rev acc) in
-              (field_name, Field (table_name, [path]))
+              (field_name, Field (row, [path]))
       and flatten_descr acc descr = Tuple (List.map (field acc) descr) in
       flatten_row (flatten_descr [] table_descr)
   | Tuple tup ->
@@ -308,7 +308,9 @@ and string_of_reference = function
 | Null -> "NULL"
 | Binop (op, a, b) -> sprintf "(%s %s %s)"
     (string_of_reference a) (string_of_op op) (string_of_reference b)
-| Field (table, fields) -> sprintf "%s.%s" table (String.concat "__" fields)
+| Field (Row (row_name, _), fields) ->
+    sprintf "%s.%s" row_name (String.concat "__" fields)
+| Field (_, _) -> invalid_arg "string_of_row : invalid field access"
 | Row _ -> invalid_arg "string_of_row : non-flattened query"
 | Tuple tup ->
     if tup = [] then "NULL"

@@ -45,7 +45,7 @@ let () =
   let prefixop = compentry Syntax.prefixop in
 
   let make_op _loc id = <:expr< $lid:id$ >> in
-  
+
   let operation _loc op operands =
     let op_id = match op with
       | <:expr< $lid:id$ >> -> id
@@ -148,9 +148,11 @@ let rec query_of_comp (_loc, (row, items)) =
         (from, where_item :: where, env, code_cont)
     | Bind (name, table) ->
         let name, env = Env.new_row name env in
-        let from_item = <:expr< ($str:name$, $lid:name$.Sql.concrete) >> in
-        let code_cont k = code_cont
-          <:expr< let $lid:name$ = $table_of_comp table$ in $k$ >> in
+        let from_item = <:expr< ($str:name$, $table_of_comp table$.Sql.concrete) >> in
+        let code_cont k =
+            let runtime_name = <:expr< Sql.Value.unsafe $str:name$ >> in
+            code_cont
+              <:expr< let $lid:name$ = Sql.Value.row $runtime_name$ $table_of_comp table$ in $k$ >> in
         (from_item :: from, where, env, code_cont) in
   let (from, where, env, code_cont) =
     List.fold_left comp_item
@@ -160,9 +162,7 @@ let rec query_of_comp (_loc, (row, items)) =
                       $camlp4_list _loc (List.rev from)$
                       $camlp4_list _loc (List.rev where)$ >>
 and reference_of_row env (_loc, row) = match row with
-  | Row row ->
-      let row = Env.row row env in
-      <:expr< Sql.Value.row (Sql.Value.unsafe $str:row$) $lid:row$ >>
+  | Row row -> <:expr< $lid:Env.row row env$ >>
   | Tuple tup ->
       let fields =
         let field_decl (_loc, (name, ref)) =
@@ -172,7 +172,7 @@ and reference_of_row env (_loc, row) = match row with
         let field_item (_loc, (name, _)) =
           <:expr< ($str:name$, Sql.Value.untyped $lid:name$) >> in
         camlp4_list _loc (List.map field_item tup) in
-      let result_parser = 
+      let result_parser =
         let obj =
           let meth (_loc, (id, _)) = <:class_str_item< method $lid:id$ = $lid:id$ >> in
           <:expr< object $Ast.crSem_of_list (List.map meth tup)$ end >> in
@@ -187,11 +187,11 @@ and reference_of_comp env (_loc, r) = match r with
   | Op (op, operands) ->
       let operation expr e = <:expr< $expr$ $reference_of_comp env e$ >> in
       List.fold_left operation <:expr< Sql.Value.$lid:op$ >> operands
-  | Field ((row_loc, row_name), path) -> 
-      let row_val = <:expr@row_loc< $lid:Env.row row_name env$ >> in
+  | Field ((row_loc, row_name), path) ->
+      let row_val = reference_of_comp env (row_loc, Row_ref (Row row_name)) in
       let call obj (_loc, meth_id) = <:expr< $obj$ # $lid:meth_id$ >> in
-      <:expr< Sql.Value.field (Sql.Value.unsafe ($str:row_name$, $camlp4_path _loc path$))
-        $row_val$ (fun t -> (Sql.Value.unsafe $List.fold_left call <:expr< t >> path$)) >>
+      <:expr< Sql.Value.field $row_val$ (Sql.Value.unsafe $camlp4_path _loc path$)
+                (Sql.Value.unsafe (fun t -> $List.fold_left call <:expr< t >> path$)) >>
 and table_of_comp (_loc, table) = table
 
 (** Quotations setup *)

@@ -10,7 +10,8 @@ and select = row
 and from = (row_name * concrete_view) list
 and where = reference list
 and row = reference
-and reference =
+and reference = reference' * field_type
+and reference' =
   | Null
   | Value of value
   | Field of reference * field_name list
@@ -155,7 +156,7 @@ module Value : sig
 end = struct
   type nullable
   type non_nullable
-  type ('a, 'b) t = reference * field_type
+  type ('a, 'b) t = reference
 
   let nullable (r, t) =
     let t = match t with
@@ -163,7 +164,7 @@ end = struct
       | Nullable t -> Nullable t in
     r, t
 
-  let get_reference (r, _) = r
+  let get_reference r = r
   let get_type (_, t) = t
 
   let parse ref input =
@@ -201,13 +202,13 @@ end = struct
     | None -> null
     | Some x -> nullable (constr x)
 
-  let op type_fun op (a, t) (b, t') =
-    match t, t' with
+  let op type_fun op a b =
+    match get_type a, get_type b with
       | Non_nullable t, Non_nullable t' ->
           (* none is nullable *)
           assert (t = t');
           Binop(op, a, b), Non_nullable (type_fun t)
-      | _ ->
+      | t, t' ->
           (* at least one of them is nullable *)
           let some_t = function
             | Non_nullable t | Nullable (Some t) -> Some t
@@ -248,35 +249,25 @@ let rec flatten_concrete = function
   | Query q -> Query (flatten_query q)
   | Table t -> Table t
 and flatten_query q =
-  { select = flatten_row q.select;
+  { select = flatten q.select;
     from = List.map flatten_table q.from;
     where = List.map flatten_condition q.where }
-and flatten_row = function
-  | Row (table_name, {descr=table_descr}) as row ->
-      let rec field acc (field_name, field_type) =
-        let acc = field_name :: acc in
-        match field_type with
-          | Non_nullable (TRecord (descr, _))
-          | Nullable (Some (TRecord (descr, _))) ->
-              (field_name, flatten_descr acc descr)
-          | _ ->
-              let path = String.concat "__" (List.rev acc) in
-              (field_name, Field (row, [path]))
-      and flatten_descr acc descr = Tuple (List.map (field acc) descr) in
-      flatten_row (flatten_descr [] table_descr)
-  | Tuple tup ->
-      let field (field_name, field_val) = match field_val with
-        | (Row _ | Tuple _) as row ->
-            (match flatten_row row with
-               | Row _ -> assert false (* flatten result must be tuple *)
-               | Tuple child_tup ->
-                   let children (child_name, child_val) =
-                     (field_name ^ "__" ^ child_name, child_val) in
-                   (List.map children child_tup)
-               | _ -> assert false)
-        | flat_value -> [(field_name, flat_value)] in
-      Tuple (List.flatten (List.map field tup))
-  | _ -> assert false
+and flatten = function
+  | Field ((Field (row, path), _), path'), t ->
+      flatten (Field (row, path @ path'), t)
+  | Tuple tup, t ->
+      let field (name, ref) = match flatten ref with
+        | Tuple tup, _ ->
+            let child (child_name, child_ref) =
+              (name ^ "__" ^ child_name, child_ref) in
+            List.map child tup
+        | flat_val -> [(name, flat_val)] in
+      Tuple (List.flatten (List.map field tup)), t
+  | row, ((Non_nullable (TRecord(descr, _))
+         | Nullable (Some (TRecord(descr, _))))  as t) ->
+      let field (name, child_t) = name, (Field ((row, t), [name]), child_t) in
+      flatten (Tuple (List.map field descr), t)
+  | flat_ref, flat_t -> flat_ref, flat_t
 and flatten_table (name, comp) = (name, flatten_concrete comp)
 and flatten_condition c = c (* TODO *)
 
@@ -299,16 +290,16 @@ and string_of_row row = string_of_reference row
 and string_of_binding (name, value) =
   let v = string_of_reference value in
   match value with
-    | (Row _ | Tuple _) -> v (* flattened -> no binding *)
+    | (Row _ | Tuple _), _ -> v (* flattened -> no binding *)
     | _ -> sprintf "%s AS %s" v name
-and string_of_reference = function
+and string_of_reference (ref, _) = match ref with
 | Value (Int i) -> string_of_int i
 | Value (String s) -> sprintf "'%s'" (String.escaped s)
 | Value (Bool b) -> string_of_bool b
 | Null -> "NULL"
 | Binop (op, a, b) -> sprintf "(%s %s %s)"
     (string_of_reference a) (string_of_op op) (string_of_reference b)
-| Field (Row (row_name, _), fields) ->
+| Field ((Row (row_name, _), _), fields) ->
     sprintf "%s.%s" row_name (String.concat "__" fields)
 | Field (_, _) -> invalid_arg "string_of_row : invalid field access"
 | Row _ -> invalid_arg "string_of_row : non-flattened query"

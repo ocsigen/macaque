@@ -103,9 +103,6 @@ let parser_of_type =
   | Nullable None -> null_field_parser
   | Nullable (Some typ) -> option_field_parser (parser_of_sql_type typ)
 
-let parse_type field_type input =
-  use_unsafe_parser (parser_of_type field_type) input
-
 let rec value_type = function
   | Int _ -> TInt
   | String _ -> TString
@@ -128,6 +125,9 @@ module Value : sig
   (** access *)
   val get_reference : ('a, 'n) t -> reference
   val get_type : ('a, 'n) t -> field_type
+
+  (** parser *)
+  val parse : ('a, 'n) t -> 'a result_parser
 
   (** data constructors *)
   val bool : bool -> (bool, non_nullable) t
@@ -167,6 +167,9 @@ end = struct
 
   let get_reference (r, _) = r
   let get_type (_, t) = t
+
+  let parse ref input =
+    use_unsafe_parser (parser_of_type (get_type ref)) input
 
   type 'a unsafe = 'a
   let unsafe x = x

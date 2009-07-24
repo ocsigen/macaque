@@ -24,7 +24,7 @@ and ident = string
 (** Syntaxic form parsing *)
 module CompGram = MakeGram(Lexer)
 let comp = CompGram.Entry.mk "comprehension"
-let value = CompGram.Entry.mk "sql_value"
+let reference = CompGram.Entry.mk "sql_value"
 
 let () =
   Camlp4_config.antiquotations := true;
@@ -53,7 +53,7 @@ let () =
     (_loc, Op (op_id, operands)) in
 
   EXTEND CompGram
-   GLOBAL: comp value;
+   GLOBAL: comp reference;
    comp: [[ result = row; "|"; items = LIST0 comp_item SEP ";"; `EOI ->
               (_loc, (result, items)) ]];
    row: [[ tup = tuple -> Tuple tup
@@ -177,7 +177,7 @@ and reference_of_row env (_loc, row) = match row with
           let meth (_loc, (id, _)) = <:class_str_item< method $lid:id$ = $lid:id$ >> in
           <:expr< object $Ast.crSem_of_list (List.map meth tup)$ end >> in
         let decl (_loc, (id, _)) =
-          <:binding< $lid:id$ = Sql.parse_type (Sql.Value.get_type $lid:id$) input >> in
+          <:binding< $lid:id$ = Sql.Value.parse $lid:id$ input >> in
         <:expr< fun input -> let $Ast.biAnd_of_list (List.map decl tup)$ in $obj$ >> in
       <:expr< let $fields$ in
               Sql.Value.tuple (Sql.Value.unsafe $field_list$) (Sql.Value.unsafe $result_parser$) >>
@@ -197,7 +197,9 @@ and table_of_comp (_loc, table) = table
 (** Quotations setup *)
 let () =
   Syntax.Quotation.add "sql" Syntax.Quotation.DynAst.expr_tag
-    (fun loc _ quote -> query_of_comp (CompGram.parse_string comp loc quote));
+    (fun loc _ quote ->
+       query_of_comp (CompGram.parse_string comp loc quote));
   Syntax.Quotation.add "sql_val" Syntax.Quotation.DynAst.expr_tag
-    (fun loc _ quote -> CompGram.parse_string value loc quote);
+    (fun loc _ quote ->
+       reference_of_comp Env.empty (CompGram.parse_string reference loc quote));
   Syntax.Quotation.default := "sql"

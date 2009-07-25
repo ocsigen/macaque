@@ -205,7 +205,7 @@ end = struct
   let op type_fun op a b =
     match get_type a, get_type b with
       | Non_nullable t, Non_nullable t' ->
-          (* none is nullable *)
+          (* none of them is nullable *)
           assert (t = t');
           Binop(op, a, b), Non_nullable (type_fun t)
       | t, t' ->
@@ -252,29 +252,46 @@ and flatten_query q =
   { select = flatten q.select;
     from = List.map flatten_table q.from;
     where = List.map flatten_condition q.where }
-and flatten = function
-  | Field (row, []), _ -> flatten row
-  | Field ((Field (row, path), _), path'), t ->
-      flatten (Field (row, path @ path'), t)
-  | Field ((Tuple tup, t), field::path), _ ->
-      flatten (Field (List.assoc field tup, path), get_field_type t [field])
-  | Tuple tup, t ->
-      let field (name, ref) = match flatten ref with
-        | Tuple tup, _ ->
-            let child (child_name, child_ref) =
-              (name ^ "__" ^ child_name, child_ref) in
-            List.map child tup
-        | flat_val -> [(name, flat_val)] in
-      Tuple (List.flatten (List.map field tup)), t
-  | row, ((Non_nullable (TRecord(descr, _))
-         | Nullable (Some (TRecord(descr, _))))  as t) ->
-      let field (name, child_t) = name, (Field ((row, t), [name]), child_t) in
-      flatten (Tuple (List.map field descr), t)
-  | flat_ref, flat_t -> flat_ref, flat_t
+and flatten reference =
+  let rec flatten = function
+    | Null, t -> Null, t
+    (* termination : those first recursive calls have inferior
+       reference depth *)
+    | Field (row, []), _ -> flatten row
+    | Field ((Tuple tup, t), field::path), _ ->
+        flatten (Field (List.assoc field tup, path),
+                 get_field_type t [field])
+    | Field ((Field (row, path), _), path'), t ->
+        flatten (Field (row, path @ path'), t)
+    | Tuple tup, t ->
+        let field (name, ref) = match flatten ref with
+          | Tuple tup, _ ->
+              let child (child_name, child_ref) =
+                (name ^ "__" ^ child_name, child_ref) in
+              List.map child tup
+          | flat_val -> [(name, flat_val)] in
+        Tuple (List.flatten (List.map field tup)), t
+    (* termination : this pattern case will never match more than once
+       on the same row, because we change the row type to Null *)
+    | row, (( Non_nullable (TRecord(descr, _))
+            | Nullable (Some (TRecord(descr, _))))  as t) ->
+        let field (name, child_t) =
+          name, flatten (Field ((row, Nullable None), [name]), child_t) in
+        Tuple (List.map field descr), t
+    (* row whose type was set Null before *)
+    | (Row _), _ as flattened_row -> flattened_row
+    | Value v, flat_t -> Value v, flat_t
+    (* termination : subcalls on inferior reference depth *)
+    | Binop (op, a, b), t ->
+        Binop (op, flatten a, flatten b), t
+    | Field (row, path), t ->
+        match flatten row with
+          | (Tuple _ | Field _), _ as reductible ->
+              flatten (Field (reductible, path), t)
+          | final -> Field (final, path), t in
+  flatten reference
 and flatten_table (name, comp) = (name, flatten_concrete comp)
 and flatten_condition c = c (* TODO *)
-
-let flatten = flatten_concrete
 
 (** SQL Query printing *)
 open Printf
@@ -319,6 +336,6 @@ and string_of_table_name = function
   | (None, table) -> table
   | (Some schema, table) -> sprintf "%s.%s" schema table
 
-let sql_of_comp comp = string_of_concrete (flatten comp.concrete)
+let sql_of_comp comp = string_of_concrete (flatten_concrete comp.concrete)
 let parser_of_comp comp input_tab =
   comp.result_parser (input_tab, ref 0)

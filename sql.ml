@@ -1,4 +1,4 @@
-type +'a view =
+type 'a view =
   { descr : types_descr;
     result_parser : 'a result_parser;
     concrete : concrete_view }
@@ -67,14 +67,13 @@ let unsafe_parser input_parser : untyped result_parser =
   fun input -> Obj.repr (input_parser input)
 
 let (&&&) ptr_action safe_parser (input, input_ptr) =
-  let res =
-    let input_str = input.(!input_ptr) in
-    try safe_parser input_str
-    with exn -> failwith
-      (Printf.sprintf "Parser error [%s] on input %d [%s]"
-         (Printexc.to_string exn) !input_ptr input_str) in
+  let cur_ptr = !input_ptr in
   ptr_action input_ptr;
-  res
+  let input_str = input.(cur_ptr) in
+  try safe_parser input_str
+  with exn -> failwith
+    (Printf.sprintf "Parser error [%s] on input %d [%s]"
+       (Printexc.to_string exn) cur_ptr input_str)
 
 let use_unsafe_parser unsafe_parser input = Obj.obj (unsafe_parser input)
 
@@ -304,8 +303,10 @@ let rec string_of_concrete = function
 and string_of_query q =
   sprintf "SELECT %s%s%s"
     (string_of_row q.select)
-    (if q.from = [] then "" else " FROM " ^ string_of_list string_of_table ", " q.from)
-    (if q.where = [] then "" else " WHERE " ^ string_of_list string_of_reference " AND " q.where)
+    (if q.from = [] then ""
+     else " FROM " ^ string_of_list string_of_table ", " q.from)
+    (if q.where = [] then ""
+     else " WHERE " ^ string_of_list string_of_reference " AND " q.where)
 and string_of_row row = string_of_reference row
 and string_of_binding (name, value) =
   let v = string_of_reference value in

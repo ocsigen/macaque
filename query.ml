@@ -5,7 +5,7 @@ let nullable = function
   | Some str -> str
 
 let execute comp =
-  let dbh = PGOCaml.connect ~host:"myhost" ~database:"base" () in
+  let dbh = PGOCaml.connect ~database:"base" () in
   let query = sql_of_comp comp in
   print_endline query;
   let name = "query_result" in

@@ -192,10 +192,10 @@ and table_of_comp (_loc, table) = table
 
 (** Quotations setup *)
 let () =
-  Syntax.Quotation.add "sql" Syntax.Quotation.DynAst.expr_tag
+  Syntax.Quotation.add "select" Syntax.Quotation.DynAst.expr_tag
     (fun loc _ quote ->
        query_of_comp (CompGram.parse_string comp loc quote));
-  Syntax.Quotation.add "sql_val" Syntax.Quotation.DynAst.expr_tag
+  Syntax.Quotation.add "value" Syntax.Quotation.DynAst.expr_tag
     (fun loc _ quote ->
        reference_of_comp Env.empty (CompGram.parse_string reference loc quote));
-  Syntax.Quotation.default := "sql"
+  Syntax.Quotation.default := "select"

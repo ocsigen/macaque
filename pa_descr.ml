@@ -26,7 +26,7 @@ let table_descr = DescrGram.Entry.mk "table_description"
 let () =
   EXTEND DescrGram
     GLOBAL: table_descr;
-    table_descr: [[ "TABLE"; name = table_name;
+    table_descr: [[ name = table_name;
                     "("; fields = LIST0 field_descr SEP ","; ")" ->
                       (_loc, (name, fields)) ]];
     field_descr: [[ name = LIDENT; typ = sql_type; is_null = nullable ->
@@ -88,5 +88,5 @@ let table_of_descr (_loc, (name, fields)) =
 
 (** Quotations setup *)
 let () =
-  Syntax.Quotation.add "sql_table_descr" Syntax.Quotation.DynAst.expr_tag
+  Syntax.Quotation.add "table" Syntax.Quotation.DynAst.expr_tag
     (fun loc _ quote -> table_of_descr (DescrGram.parse_string table_descr loc quote));

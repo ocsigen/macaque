@@ -6,7 +6,10 @@ and concrete_view =
   | Table of table_name
   | Query of query
 and query = { select : select; from : from; where : where }
-and select = row
+and select =
+  | Select of row
+  | Group_by of row * row
+and group_by = (row * row)
 and from = (row_name * concrete_view) list
 and where = reference list
 and row = reference
@@ -16,6 +19,7 @@ and reference' =
   | Value of value
   | Field of reference * field_name list
   | Binop of binop * reference * reference
+  | Unop of string * reference
   | Row of (row_name * untyped view)
   | Tuple of reference tuple
 and value =
@@ -23,7 +27,7 @@ and value =
   | String of string
   | Bool of bool
 and binop = op_type * string
-and op_type = Logic | Comp | Arith
+and op_type = Logic | Comp | Arith (* TODO : useless ? clean that up *)
 and table_name = string option * string
 and row_name = string
 and 'a tuple = (field_name * 'a) list
@@ -143,14 +147,28 @@ module Value : sig
     -> 'obj result_parser unsafe
     -> ('obj, non_nullable) t
 
+  (** select and view building *)
+  type 'a result
+  val view :  'a result -> from -> where -> 'a view
+
+  val select : ('a, _) t -> 'a result
+
+  (** group by and accumulators *)
+
+  type grouped_row
+  val grouped_row : grouped_row
+
+  type ('a, 'n) group
+  val accumulate : ('a, 'n) t -> ('a, 'n) group
+  val count : ('a, 'n) group -> (int, non_nullable) t
+
+  val group : ('group_const, _) t -> ('res, _) t -> 'res result
+
   (** data operations *)
   val (<) : ('a, 'n) t -> ('a, 'n) t -> (bool, 'n) t
   val (=) : ('a, 'n) t -> ('a, 'n) t -> (bool, 'n) t
   val (+) : (int, 'n) t -> (int, 'n) t -> (int, 'n) t
   val (||) : (bool, 'n) t -> (bool, 'n) t -> (bool, 'n) t
-
-  (** view builder *)
-  val view :  (< ..> as 'a, _) t -> from -> where -> 'a view
 
 end = struct
   type nullable
@@ -232,26 +250,45 @@ end = struct
   let (||) = logic "||"
   let (+) = arith "+"
 
-  let view select from where =
-    let query = { select = get_reference select; from = from; where = where } in
-    match get_type select with
+  type 'a result = select * field_type
+
+  let view (select, select_type) from where =
+    let query = { select = select; from = from; where = where } in
+    match select_type with
       | Non_nullable (TRecord (descr, result_parser))
       | Nullable (Some (TRecord (descr, result_parser))) ->
           { descr = descr;
             result_parser = use_unsafe_parser result_parser;
             concrete = Query query }
       | _ -> assert false
+
+  let select row = Select (get_reference row), get_type row
+
+  type grouped_row = unit
+  let grouped_row = ()
+
+  type ('a, 'n) group = ('a, 'n) t
+
+  let accumulate x = x
+  let count x = Unop ("count", x), Non_nullable TInt
+
+  let group group_part result_part =
+    Group_by (result_part, group_part), get_type result_part
 end
 
 (** SQL composite types flattening *)
 let rec flatten_concrete = function
-  | Query q -> Query (flatten_query q)
   | Table t -> Table t
+  | Query q -> Query (flatten_query q)
 and flatten_query q =
-  { select = flatten q.select;
+  { select = flatten_select q.select;
     from = List.map flatten_table q.from;
     where = List.map flatten_condition q.where }
-and flatten reference =
+and flatten_select = function
+  | Select row -> Select (flatten_reference row)
+  | Group_by (result, group) ->
+      Group_by (flatten_reference result, flatten_reference group)
+and flatten_reference ref =
   let rec flatten = function
     | Null, t -> Null, t
     (* termination : those first recursive calls have inferior
@@ -281,6 +318,7 @@ and flatten reference =
     | (Row _), _ as flattened_row -> flattened_row
     | Value v, flat_t -> Value v, flat_t
     (* termination : subcalls on inferior reference depth *)
+    | Unop (op, a), t -> Unop (op, flatten a), t
     | Binop (op, a, b), t ->
         Binop (op, flatten a, flatten b), t
     | Field (row, path), t ->
@@ -288,7 +326,7 @@ and flatten reference =
           | (Tuple _ | Field _), _ as reductible ->
               flatten (Field (reductible, path), t)
           | final -> Field (final, path), t in
-  flatten reference
+  flatten ref
 and flatten_table (name, comp) = (name, flatten_concrete comp)
 and flatten_condition c = c (* TODO *)
 
@@ -298,15 +336,22 @@ open Printf
 let string_of_list printer sep li = String.concat sep (List.map printer li)
 
 let rec string_of_concrete = function
-| Query q -> sprintf "(%s)" (string_of_query q)
+| Query q -> sprintf "(%s)" (string_of_select_query q)
 | Table table_name -> string_of_table_name table_name
-and string_of_query q =
-  sprintf "SELECT %s%s%s"
-    (string_of_row q.select)
+and string_of_select_query q =
+  sprintf "SELECT %s%s%s%s"
+    (string_of_row (match q.select with
+                      | Select result
+                      | Group_by (result, _) -> result))
     (if q.from = [] then ""
      else " FROM " ^ string_of_list string_of_table ", " q.from)
     (if q.where = [] then ""
      else " WHERE " ^ string_of_list string_of_reference " AND " q.where)
+    (match q.select with
+       | Group_by (result, (Tuple const, _)) ->
+           " GROUP BY " ^
+             string_of_list (fun (_, r) -> string_of_reference r) ", " const
+       | _ -> "")
 and string_of_row row = string_of_reference row
 and string_of_binding (name, value) =
   let v = string_of_reference value in
@@ -318,8 +363,9 @@ and string_of_reference (ref, _) = match ref with
 | Value (String s) -> sprintf "'%s'" (String.escaped s)
 | Value (Bool b) -> string_of_bool b
 | Null -> "NULL"
-| Binop (op, a, b) -> sprintf "(%s %s %s)"
-    (string_of_reference a) (string_of_op op) (string_of_reference b)
+| Unop (op, a) -> sprintf "%s(%s)" op (string_of_reference a)
+| Binop ((_, op), a, b) -> sprintf "(%s %s %s)"
+    (string_of_reference a) op (string_of_reference b)
 | Field ((Row (row_name, _), _), fields) ->
     sprintf "%s.%s" row_name (String.concat "__" fields)
 | Field (_, _) -> invalid_arg "string_of_row : invalid field access"
@@ -327,7 +373,6 @@ and string_of_reference (ref, _) = match ref with
 | Tuple tup ->
     if tup = [] then "NULL"
     else string_of_list string_of_binding ", " tup
-and string_of_op (_, op_str) = op_str
 and string_of_field (row, name) = match name with
   | field_name when true -> sprintf "%s.%s" row field_name
   | _ -> assert false

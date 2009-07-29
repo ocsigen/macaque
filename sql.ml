@@ -4,10 +4,10 @@ type 'a view =
     concrete : concrete_view }
 and concrete_view =
   | Table of table_name
-  | Query of query
-and query = { select : select; from : from; where : where }
-and select =
-  | Select of row
+  | Selection of select
+and select = { select : select_result; from : from; where : where }
+and select_result =
+  | Simple_select of row
   | Group_by of row * row
 and group_by = (row * row)
 and from = (row_name * concrete_view) list
@@ -45,6 +45,12 @@ and sql_type =
   | TRecord of untyped descr
 and untyped = Obj.t
 
+type 'a query =
+  | Select of concrete_view
+  | Insert of (table_name * concrete_view)
+  | Delete of (table_name * row_name * where)
+  | Update of (table_name * row_name * reference * where)
+
 let rec get_field_type ref_type = function
   | [] -> ref_type
   | name :: path_rest ->
@@ -66,6 +72,7 @@ let string_of_sql_type = function
   | TBool -> "boolean"
   | TRecord (_, _) -> "record"
 
+
 (** untyped parsers *)
 let unsafe_parser input_parser : untyped result_parser =
   fun input -> Obj.repr (input_parser input)
@@ -114,6 +121,7 @@ let rec value_type = function
 let unsafe_view view =
   { view with result_parser = unsafe_parser view.result_parser }
 
+
 (** Sql-representable values *)
 module Value : sig
   type nullable
@@ -147,14 +155,19 @@ module Value : sig
     -> 'obj result_parser unsafe
     -> ('obj, non_nullable) t
 
+  (** data operations *)
+  val (<) : ('a, 'n) t -> ('a, 'n) t -> (bool, 'n) t
+  val (=) : ('a, 'n) t -> ('a, 'n) t -> (bool, 'n) t
+  val (+) : (int, 'n) t -> (int, 'n) t -> (int, 'n) t
+  val (||) : (bool, 'n) t -> (bool, 'n) t -> (bool, 'n) t
+
   (** select and view building *)
   type 'a result
   val view :  'a result -> from -> where -> 'a view
 
-  val select : ('a, _) t -> 'a result
+  val simple_select : ('a, _) t -> 'a result
 
   (** group by and accumulators *)
-
   type grouped_row
   val grouped_row : grouped_row
 
@@ -164,12 +177,15 @@ module Value : sig
 
   val group : ('group_const, _) t -> ('res, _) t -> 'res result
 
-  (** data operations *)
-  val (<) : ('a, 'n) t -> ('a, 'n) t -> (bool, 'n) t
-  val (=) : ('a, 'n) t -> ('a, 'n) t -> (bool, 'n) t
-  val (+) : (int, 'n) t -> (int, 'n) t -> (int, 'n) t
-  val (||) : (bool, 'n) t -> (bool, 'n) t -> (bool, 'n) t
-
+  (** final query building *)
+  val select : 'a view -> 'a query
+  val insert : 'a view -> 'a view -> int query
+  val delete : 'a view -> string unsafe -> (bool, _) t list -> int query
+  val update :
+    'a view -> string unsafe
+    -> ('b, _) t -> ('a -> 'b) unsafe
+    -> (bool, _) t list
+    -> int query
 end = struct
   type nullable
   type non_nullable
@@ -250,7 +266,7 @@ end = struct
   let (||) = logic "||"
   let (+) = arith "+"
 
-  type 'a result = select * field_type
+  type 'a result = select_result * field_type
 
   let view (select, select_type) from where =
     let query = { select = select; from = from; where = where } in
@@ -259,10 +275,10 @@ end = struct
       | Nullable (Some (TRecord (descr, result_parser))) ->
           { descr = descr;
             result_parser = use_unsafe_parser result_parser;
-            concrete = Query query }
+            concrete = Selection query }
       | _ -> assert false
 
-  let select row = Select (get_reference row), get_type row
+  let simple_select row = Simple_select (get_reference row), get_type row
 
   type grouped_row = unit
   let grouped_row = ()
@@ -274,18 +290,40 @@ end = struct
 
   let group group_part result_part =
     Group_by (result_part, group_part), get_type result_part
+
+  let get_table_name = function
+    | {concrete = Table name} -> name
+    | _ -> invalid_arg "get_table_name"
+  let get_where = List.map get_reference
+
+  let select view = Select view.concrete
+  let insert table inserted_view =
+    Insert (get_table_name table, inserted_view.concrete)
+  let delete table row where =
+    Delete (get_table_name table, row, get_where where)
+  let update table row set subtype_witness where =
+    ignore subtype_witness;
+    Update (get_table_name table, row, get_reference set, get_where where)
 end
 
+
 (** SQL composite types flattening *)
-let rec flatten_concrete = function
+let rec flatten_query = function
+  | Select concrete -> Select (flatten_concrete concrete)
+  | Insert (table, concrete) -> Insert (table, flatten_concrete concrete)
+  | Delete (table, row, where) -> Delete (table, row, flatten_where where)
+  | Update (table, row, set, where) ->
+      Update (table, row, flatten_reference set, flatten_where where)
+and flatten_concrete = function
   | Table t -> Table t
-  | Query q -> Query (flatten_query q)
-and flatten_query q =
+  | Selection q -> Selection (flatten_selection q)
+and flatten_selection q =
   { select = flatten_select q.select;
     from = List.map flatten_table q.from;
-    where = List.map flatten_condition q.where }
+    where = flatten_where q.where }
+and flatten_where w = List.map flatten_reference w
 and flatten_select = function
-  | Select row -> Select (flatten_reference row)
+  | Simple_select row -> Simple_select (flatten_reference row)
   | Group_by (result, group) ->
       Group_by (flatten_reference result, flatten_reference group)
 and flatten_reference ref =
@@ -328,30 +366,54 @@ and flatten_reference ref =
           | final -> Field (final, path), t in
   flatten ref
 and flatten_table (name, comp) = (name, flatten_concrete comp)
-and flatten_condition c = c (* TODO *)
 
+
 (** SQL Query printing *)
 open Printf
 
 let string_of_list printer sep li = String.concat sep (List.map printer li)
 
-let rec string_of_concrete = function
-| Query q -> sprintf "(%s)" (string_of_select_query q)
+let rec string_of_query = function
+  | Select view -> string_of_concrete_view view
+  | Insert (table, view) ->
+      sprintf "INSERT INTO %s (%s)"
+        (string_of_table_name table)
+        (string_of_concrete_view view)
+  | Delete (table, row, where) ->
+      sprintf "DELETE FROM %s AS %s%s"
+        (string_of_table_name table) row
+        (string_of_where where)
+  | Update (table, row, set, where) ->
+      sprintf "UPDATE %s AS %s SET %s%s"
+        (string_of_table_name table) row
+        (match set with
+           | Tuple tup, _ ->
+               let string_of_binding (id, v) =
+                 sprintf "%s = %s" id (string_of_reference v) in
+               string_of_list string_of_binding ", " tup
+           | _ -> assert false)
+        (string_of_where where)
+and string_of_concrete_view = function
+| Selection q -> sprintf "(%s)" (string_of_selection q)
 | Table table_name -> string_of_table_name table_name
-and string_of_select_query q =
+and string_of_selection q =
   sprintf "SELECT %s%s%s%s"
     (string_of_row (match q.select with
-                      | Select result
+                      | Simple_select result
                       | Group_by (result, _) -> result))
-    (if q.from = [] then ""
-     else " FROM " ^ string_of_list string_of_table ", " q.from)
-    (if q.where = [] then ""
-     else " WHERE " ^ string_of_list string_of_reference " AND " q.where)
+    (string_of_from q.from)
+    (string_of_where q.where)
     (match q.select with
-       | Group_by (result, (Tuple const, _)) ->
+       | Group_by (result, (Tuple (_::_ as const), _)) ->
            " GROUP BY " ^
              string_of_list (fun (_, r) -> string_of_reference r) ", " const
        | _ -> "")
+and string_of_from = function
+  | [] -> ""
+  | from -> " FROM " ^ string_of_list string_of_table ", " from
+and string_of_where = function
+  | [] -> ""
+  | where -> " WHERE " ^ string_of_list string_of_reference " AND " where
 and string_of_row row = string_of_reference row
 and string_of_binding (name, value) =
   let v = string_of_reference value in
@@ -377,11 +439,11 @@ and string_of_field (row, name) = match name with
   | field_name when true -> sprintf "%s.%s" row field_name
   | _ -> assert false
 and string_of_table (row_name, table) =
-  sprintf "%s AS %s" (string_of_concrete table) row_name
+  sprintf "%s AS %s" (string_of_concrete_view table) row_name
 and string_of_table_name = function
   | (None, table) -> table
   | (Some schema, table) -> sprintf "%s.%s" schema table
 
-let sql_of_comp comp = string_of_concrete (flatten_concrete comp.concrete)
+let sql_of_query q = string_of_query (flatten_query q)
 let parser_of_comp comp input_tab =
   comp.result_parser (input_tab, ref 0)

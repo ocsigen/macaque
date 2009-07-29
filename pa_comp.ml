@@ -1,33 +1,42 @@
 open Camlp4.PreCast
 
 (** Comprehension (syntaxic form) structure *)
-type comp = result located * comp_item located list
-and result =
-  | Select of reference
+type comp =
+  | Select of select
+  | Insert of insert
+  | Delete of delete
+  | Update of update
+and insert = table located * select located
+and delete = table binding located * where located
+and update = table binding located * value located * where located
+and where = value located list
+and select = select_result located * comp_item located list
+and select_result =
+  | Simple_select of value
   | Group_by of tuple located * tuple located
 and comp_item =
   | Bind of table binding
-  | Cond of reference
+  | Cond of value
 and table = Ast.expr
-and reference =
+and value =
   | Field of field
-  | Value of value
+  | Value of Ast.expr
   | Op of op
   | Row of ident
   | Tuple of tuple
-  | Accum of reference located
-and tuple = reference binding located list
-and value = Ast.expr
-and op = string * reference located list
-and field = reference located * ident located list
+  | Accum of value located
+and tuple = value binding located list
+and op = string * value located list
+and field = value located * ident located list
 and 'a binding = (ident * 'a located)
 and 'a located = (Loc.t * 'a)
 and ident = string
 
 (** Syntaxic form parsing *)
 module CompGram = MakeGram(Lexer)
-let comp = CompGram.Entry.mk "comprehension"
-let reference = CompGram.Entry.mk "sql_value"
+let value, view_eoi, select_eoi, insert_eoi, delete_eoi, update_eoi =
+  let mk = CompGram.Entry.mk in
+  mk "value", mk "view", mk "select", mk "insert", mk "delete", mk "update"
 
 let () =
   Camlp4_config.antiquotations := true;
@@ -56,16 +65,28 @@ let () =
     (_loc, Op (op_id, operands)) in
 
   EXTEND CompGram
-   GLOBAL: comp reference;
-   comp: [[ result = result; "|"; items = LIST0 comp_item SEP ";"; `EOI ->
+   GLOBAL: value view_eoi select_eoi insert_eoi delete_eoi update_eoi;
+
+   select_eoi: [[ (_, s) = view; `EOI -> (_loc, Select s) ]];
+   view_eoi: [[ (_, s) = view; `EOI -> (_loc, s) ]];
+   insert_eoi: [[ tab = table; ":="; sel = view; `EOI ->
+                    (_loc, Insert (tab, sel)) ]];
+   delete_eoi: [[ bind = row_binding;
+                  "|"; items = LIST0 value SEP ";"; `EOI ->
+                    (_loc, Delete (bind, (_loc, items))) ]];
+   update_eoi: [[ bind = row_binding; ":="; res = value;
+                  "|"; items = LIST0 value SEP ";"; `EOI ->
+                    (_loc, Update (bind, res, (_loc, items))) ]];
+   view: [[ result = result; "|"; items = LIST0 comp_item SEP ";" ->
               (_loc, (result, items)) ]];
-   result: [[ (_, select) = reference -> (_loc, Select select)
+   result: [[ (_, v) = value -> (_loc, Simple_select v)
             | "group"; group = tuple; "by"; by = tuple ->
                 (_loc, Group_by (group, by)) ]];
-   comp_item: [[ handle = LIDENT; "<-"; table = table ->  (_loc, Bind (handle, table))
-               | (_, cond) = reference -> (_loc, Cond cond) ]];
+   comp_item: [[ (_, binding) = row_binding -> (_loc, Bind binding)
+               | (_, cond) = value -> (_loc, Cond cond) ]];
+   row_binding: [[ handle = LIDENT; "<-"; table = table ->  (_loc, (handle, table)) ]];
    table: [[ `ANTIQUOT((""|"table"), t) -> (_loc, quote _loc t) ]];
-   reference:
+   value:
      [ "top" RIGHTA [ ]
      | "||" RIGHTA [ e1 = SELF; op = infixop6; e2 = SELF -> operation _loc op [e1; e2] ]
      | "&&" RIGHTA [ e1 = SELF; op = infixop5; e2 = SELF -> operation _loc op [e1; e2] ]
@@ -84,7 +105,7 @@ let () =
          [ row = SELF; "."; path = LIST0 [id = LIDENT -> (_loc, id)] SEP "." ->
              (_loc, Field (row, path)) ]
      | "simple"
-         [ v = value -> (_loc, Value v)
+         [ v = atom -> (_loc, Value v)
          | (_, tup) = tuple -> (_loc, Tuple tup)
          | LIDENT "null" -> operation _loc (make_op _loc "null") []
          | r = LIDENT -> (_loc, Row r)
@@ -96,9 +117,9 @@ let () =
 
    tuple: [[ "{"; (_, named_fields) = binding_list; "}" -> (_loc, named_fields) ]];
    binding_list: [[ bindings = LIST0 binding SEP ";" -> (_loc, bindings) ]];
-   binding: [[ id = LIDENT; "="; v = reference -> (_loc, (id, v)) ]];
+   binding: [[ id = LIDENT; "="; v = value -> (_loc, (id, v)) ]];
 
-   value: [[ `ANTIQUOT("", v) -> quote _loc v
+   atom: [[ `ANTIQUOT("", v) -> quote _loc v
            | `INT(i, _) -> <:expr< Sql.Value.int $`int:i$ >>
            | `STRING(_, s) -> <:expr< Sql.Value.string $`str:s$ >>
            | "true" -> <:expr< Sql.Value.bool True >>
@@ -153,7 +174,7 @@ end = struct
 end
 
 
-let rec query_of_comp (_loc, (result, items)) =
+let rec view_of_comp (_loc, (result, items)) =
   let comp_item (from, where, env, code_cont) (_loc, item) = match item with
     | Cond cond ->
         let where_item =
@@ -175,7 +196,7 @@ let rec query_of_comp (_loc, (result, items)) =
                       $camlp4_list _loc (List.rev from)$
                       $camlp4_list _loc (List.rev where)$ >>
 and result_of_comp env (_loc, r) = match r with
-  | Select row -> reference_of_comp env (_loc, row)
+  | Simple_select row -> <:expr< Sql.Value.simple_select $reference_of_comp env (_loc, row)$ >>
   | Group_by (group, by) ->
       let bindings_of_comp bindings_comp =
         let bind (_loc, (id, v)) =
@@ -256,12 +277,49 @@ and reference_of_comp env (_loc, r) = match r with
   | Accum expr -> reference_of_comp env expr
 and table_of_comp (_loc, table) = table
 
+let rec query_of_comp (_loc, query) = match query with
+  | Select select ->
+      <:expr< Sql.Value.select $view_of_comp (_loc, select)$ >>
+  | Insert (table, select) ->
+      <:expr< Sql.Value.insert $snd table$ $view_of_comp select$ >>
+  | Delete (binding, where) ->
+        let table, row_name, binding = query_binding binding in
+        let where = query_where where in
+        <:expr< let $binding$ in
+                Sql.Value.delete $table$ $row_name$ $where$ >>
+  | Update (binding, set, where) ->
+      let table, row_name, binding = query_binding binding in
+      let where = query_where where in
+      <:expr< let $binding$ in
+              Sql.Value.update $table$ $row_name$
+                               $query_reference set$
+                               (Sql.Value.unsafe (fun _ -> assert False)(*TODO*))
+                               $where$ >>
+and query_where (_loc, conds) =
+  camlp4_list _loc (List.map query_reference conds)
+and query_reference (_loc, ref) =
+  reference_of_comp Env.empty (_loc, ref)
+and query_binding (_loc, (name, (_, table))) =
+  (* TODO factorize comp_items binding *)
+  let name_str = <:expr< Sql.Value.unsafe $str:name$ >> in
+  table, name_str,
+  <:binding< $lid:name$ = Sql.Value.row $name_str$ $table$ >>
+
 (** Quotations setup *)
 let () =
-  Syntax.Quotation.add "select" Syntax.Quotation.DynAst.expr_tag
-    (fun loc _ quote ->
-       query_of_comp (CompGram.parse_string comp loc quote));
   Syntax.Quotation.add "value" Syntax.Quotation.DynAst.expr_tag
     (fun loc _ quote ->
-       reference_of_comp Env.empty (CompGram.parse_string reference loc quote));
-  Syntax.Quotation.default := "select"
+       reference_of_comp Env.empty (CompGram.parse_string value loc quote));
+  Syntax.Quotation.add "view" Syntax.Quotation.DynAst.expr_tag
+    (fun loc _ quote ->
+       view_of_comp (CompGram.parse_string view_eoi loc quote));
+  List.iter
+    (fun (name, gram_rule) ->
+       Syntax.Quotation.add name Syntax.Quotation.DynAst.expr_tag
+         (fun loc _ quote ->
+            query_of_comp (CompGram.parse_string gram_rule loc quote)))
+    ["select", select_eoi;
+     "insert", insert_eoi;
+     "delete", delete_eoi;
+     "update", update_eoi];
+  Syntax.Quotation.default := "view"

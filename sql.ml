@@ -386,12 +386,9 @@ let rec string_of_query = function
   | Update (table, row, set, where) ->
       sprintf "UPDATE %s AS %s SET %s%s"
         (string_of_table_name table) row
-        (match set with
-           | Tuple tup, _ ->
-               let string_of_binding (id, v) =
-                 sprintf "%s = %s" id (string_of_reference v) in
-               string_of_list string_of_binding ", " tup
-           | _ -> assert false)
+        (let string_of_binding (id, v) =
+           sprintf "%s = %s" id (string_of_reference v) in
+         string_of_reference ~string_of_binding set)
         (string_of_where where)
 and string_of_concrete_view = function
 | Selection q -> sprintf "(%s)" (string_of_selection q)
@@ -420,21 +417,26 @@ and string_of_binding (name, value) =
   match value with
     | (Row _ | Tuple _), _ -> v (* flattened -> no binding *)
     | _ -> sprintf "%s AS %s" v name
-and string_of_reference (ref, _) = match ref with
-| Value (Int i) -> string_of_int i
-| Value (String s) -> sprintf "'%s'" (String.escaped s)
-| Value (Bool b) -> string_of_bool b
-| Null -> "NULL"
-| Unop (op, a) -> sprintf "%s(%s)" op (string_of_reference a)
-| Binop ((_, op), a, b) -> sprintf "(%s %s %s)"
-    (string_of_reference a) op (string_of_reference b)
-| Field ((Row (row_name, _), _), fields) ->
-    sprintf "%s.%s" row_name (String.concat "__" fields)
-| Field (_, _) -> invalid_arg "string_of_row : invalid field access"
-| Row _ -> invalid_arg "string_of_row : non-flattened query"
-| Tuple tup ->
-    if tup = [] then "NULL"
-    else string_of_list string_of_binding ", " tup
+and string_of_reference ?(string_of_binding = string_of_binding) (ref, _) =
+  let silent_string_of_reference =
+        let string_of_biding (name, value) = string_of_reference value in
+        string_of_reference ~string_of_binding in
+  match ref with
+    | Value (Int i) -> string_of_int i
+    | Value (String s) -> sprintf "'%s'" (String.escaped s)
+    | Value (Bool b) -> string_of_bool b
+    | Null -> "NULL"
+    | Unop (op, a) ->
+        sprintf "%s(%s)" op (silent_string_of_reference a)
+    | Binop ((_, op), a, b) -> sprintf "(%s %s %s)"
+        (silent_string_of_reference a) op (silent_string_of_reference b)
+    | Field ((Row (row_name, _), _), fields) ->
+        sprintf "%s.%s" row_name (String.concat "__" fields)
+    | Field (_, _) -> invalid_arg "string_of_row : invalid field access"
+    | Row _ -> invalid_arg "string_of_row : non-flattened query"
+    | Tuple tup ->
+        if tup = [] then "NULL"
+        else string_of_list string_of_binding ", " tup
 and string_of_field (row, name) = match name with
   | field_name when true -> sprintf "%s.%s" row field_name
   | _ -> assert false
@@ -445,5 +447,6 @@ and string_of_table_name = function
   | (Some schema, table) -> sprintf "%s.%s" schema table
 
 let sql_of_query q = string_of_query (flatten_query q)
+let sql_of_comp v = sql_of_query (Select v.concrete)
 let parser_of_comp comp input_tab =
   comp.result_parser (input_tab, ref 0)

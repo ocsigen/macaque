@@ -1,5 +1,14 @@
 open Camlp4.PreCast
 
+(** Command-line options *)
+let warn_undetermined_update = ref true
+let () =
+  Camlp4.Options.add "-sql-nowarn-undetermined-update"
+    (Arg.Clear warn_undetermined_update)
+    "warning for compile-time undetermined update tuple type (see documentation)"
+let warn_undetermined_update_message =
+  "Warning UPDATE SET : undetermined update tuple, exhaustive update assumed"
+
 (** Comprehension (syntaxic form) structure *)
 type comp =
   | Select of select
@@ -287,13 +296,25 @@ let rec query_of_comp (_loc, query) = match query with
         let where = query_where where in
         <:expr< let $binding$ in
                 Sql.Value.delete $table$ $row_name$ $where$ >>
-  | Update (binding, set, where) ->
+  | Update (binding, set_ast, where) ->
       let table, row_name, binding = query_binding binding in
       let where = query_where where in
+      let set = query_reference set_ast in
+      let subtyping_witness = match set_ast with
+        | (_loc, Tuple tup) ->
+            let set_type =
+              let bind (_loc, (name, _)) = <:ctyp< $lid:name$ : 'name >> in
+              Ast.tySem_of_list (List.map bind tup) in
+            <:expr< fun (t : Sql.Value.t < $set_type$; ..> _ as 'a) ->
+                        ($set$ : Sql.Value.t < $set_type$ > _) >>
+        | (_loc, _) ->
+            if !warn_undetermined_update then
+              Syntax.print_warning _loc warn_undetermined_update_message;
+            <:expr< fun t -> t >> in
       <:expr< let $binding$ in
               Sql.Value.update $table$ $row_name$
-                               $query_reference set$
-                               (Sql.Value.unsafe (fun _ -> assert False)(*TODO*))
+                               $set$
+                               (Sql.Value.unsafe $subtyping_witness$)
                                $where$ >>
 and query_where (_loc, conds) =
   camlp4_list _loc (List.map query_reference conds)

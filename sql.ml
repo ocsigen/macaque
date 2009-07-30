@@ -183,7 +183,7 @@ module Value : sig
   val delete : 'a view -> string unsafe -> (bool, _) t list -> int query
   val update :
     'a view -> string unsafe
-    -> ('b, _) t -> ('a -> 'b) unsafe
+    -> ((_, _) t as 'b) -> (('a, _) t -> 'b) unsafe
     -> (bool, _) t list
     -> int query
 end = struct

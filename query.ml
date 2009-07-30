@@ -4,9 +4,6 @@ let nullable = function
   | None -> "NULL"
   | Some str -> str
 
-let view dbh view =
-  query dbh (Select (unsafe_view view))
-
 let query dbh (sql_query : 'a query) : 'a =
   let query = sql_of_query sql_query in
   print_endline query;
@@ -25,3 +22,6 @@ let query dbh (sql_query : 'a query) : 'a =
           parser_of_comp comp (Array.of_list (List.map nullable row)) in
         Obj.magic (List.map parse result)
     | _ -> Obj.magic ()
+
+let view dbh view =
+  query dbh (Sql.Value.select view)

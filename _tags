@@ -1,0 +1,6 @@
+true: pkg_pgocaml
+<base.ml>: camlp4o, use_comp, use_descr
+<check.ml>: camlp4o, use_comp, use_descr
+<tests/*>: camlp4o, use_comp, use_descr
+<test.*>: camlp4o, use_comp, use_descr
+<pa_*> : pkg_camlp4, pp(camlp4orf)

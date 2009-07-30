@@ -24,8 +24,10 @@ and reference' =
   | Tuple of reference tuple
 and value =
   | Int of int
+  | Float of float
   | String of string
   | Bool of bool
+  | Record of untyped * (untyped -> reference)
 and binop = op_type * string
 and op_type = Logic | Comp | Arith (* TODO : useless ? clean that up *)
 and table_name = string option * string
@@ -40,9 +42,10 @@ and field_type =
   | Nullable of sql_type option
 and sql_type =
   | TInt
+  | TFloat
   | TString
   | TBool
-  | TRecord of untyped descr
+  | TRecord of untyped descr * (untyped -> reference)
 and untyped = Obj.t
 
 type 'a query =
@@ -56,8 +59,8 @@ let rec get_field_type ref_type = function
   | name :: path_rest ->
       match ref_type with
         | Nullable None -> Nullable None
-        | Non_nullable (TRecord (descr, _))
-        | Nullable Some (TRecord (descr, _)) ->
+        | Non_nullable (TRecord ((descr, _), _))
+        | Nullable Some (TRecord ((descr, _), _)) ->
             get_field_type (List.assoc name descr) path_rest
         | _ -> invalid_arg "get_field_type"
 
@@ -65,11 +68,13 @@ let sql_type_of_string = function
   | "integer" -> TInt
   | "text" -> TString
   | "boolean" -> TBool
+  | "double" -> TFloat
   | other -> failwith ("unknown sql type " ^ other)
 let string_of_sql_type = function
   | TInt -> "integer"
   | TString -> "text"
   | TBool -> "boolean"
+  | TFloat -> "double"
   | TRecord (_, _) -> "record"
 
 
@@ -88,34 +93,59 @@ let (&&&) ptr_action safe_parser (input, input_ptr) =
 
 let use_unsafe_parser unsafe_parser input = Obj.obj (unsafe_parser input)
 
-let bool_field_parser = unsafe_parser (incr &&& PGOCaml.bool_of_string)
-let int_field_parser = unsafe_parser (incr &&& PGOCaml.int_of_string)
-let string_field_parser = unsafe_parser (incr &&& PGOCaml.string_of_string)
+let pack value value_type = Value value, Non_nullable value_type
+
+let stringref_of_string s =
+  pack (String (PGOCaml.string_of_string s)) TString 
+let intref_of_string s =
+  pack (Int (PGOCaml.int_of_string s)) TInt
+let floatref_of_string s =
+  pack (Float (PGOCaml.float_of_string s)) TFloat
+let boolref_of_string s =
+  pack (Bool (PGOCaml.bool_of_string s)) TBool
+
+let bool_field_parser = unsafe_parser (incr &&& boolref_of_string)
+let int_field_parser = unsafe_parser (incr &&& intref_of_string)
+let float_field_parser = unsafe_parser (incr &&& floatref_of_string)
+let string_field_parser = unsafe_parser (incr &&& stringref_of_string)
 let error_field_parser= unsafe_parser (ignore &&& (fun _ -> failwith "Error parser"))
 
 let option_field_parser (field_parser : untyped result_parser) : untyped result_parser =
   unsafe_parser
     (function (input_tab, input_ptr) as input ->
-       if input_tab.(!input_ptr) = "NULL" then (incr input_ptr; None)
-       else Some (use_unsafe_parser field_parser input))
+       if input_tab.(!input_ptr) = "NULL" then (incr input_ptr; (Null, Nullable None))
+       else
+         let r, t = use_unsafe_parser field_parser input in
+         r, match t with
+            | Non_nullable t -> Nullable (Some t) 
+            | _ -> invalid_arg "option_field_parser")
 
 let null_field_parser = option_field_parser error_field_parser
+
+let record_parser (descr, row_parser) ast_builder =
+  unsafe_parser
+    (fun input ->
+       Value (Record (Obj.repr (row_parser input), ast_builder)),
+       TRecord ((descr, row_parser), ast_builder))
 
 let parser_of_type =
   let parser_of_sql_type = function
     | TInt -> int_field_parser
+    | TFloat -> float_field_parser
     | TString -> string_field_parser
     | TBool -> bool_field_parser
-    | TRecord (_, row_parser) -> row_parser in
+    | TRecord (full_descr, ast_builder) ->
+        record_parser full_descr ast_builder in
   function
   | Non_nullable typ -> parser_of_sql_type typ
   | Nullable None -> null_field_parser
   | Nullable (Some typ) -> option_field_parser (parser_of_sql_type typ)
 
-let rec value_type = function
-  | Int _ -> TInt
-  | String _ -> TString
-  | Bool _ -> TBool
+(* let rec value_type = function *)
+(*   | Int _ -> TInt *)
+(*   | String _ -> TString *)
+(*   | Bool _ -> TBool *)
+(*   | Float _ -> TFloat *)
 
 
 let unsafe_view view =
@@ -123,73 +153,93 @@ let unsafe_view view =
 
 
 (** Sql-representable values *)
+type true_t
+type false_t
+
 module Value : sig
-  type nullable
-  type non_nullable
-  type ('a, 'nullability) t
+  type +'a t
 
-  (** type machinery *)
-  val nullable : ('a, non_nullable) t -> ('a option, nullable) t
-  val untyped : (_, _) t -> (untyped, untyped) t
+  (** access functions *)
+  val get : < t : 't; gettable : true_t; nullable : false_t; .. > t -> 't
+  val getn : < t : 't; gettable : true_t; nullable : true_t; .. > t -> 't option
 
-  (** access *)
-  val get_reference : ('a, _) t -> reference
-  val get_type : ('a, _) t -> field_type
+  (** parse function *)
+  val parse : 'a t -> 'a t result_parser
 
-  (** parser *)
-  val parse : ('a, _) t -> 'a result_parser
+  (** standard data types *)
+  val int : int -> < t : int; numeric : true_t; nullable : false_t; gettable : true_t > t
+  val bool : bool -> < t : bool; numeric : false_t; nullable : false_t; gettable : true_t > t
+  val float : float -> < t : float; numeric : true_t; nullable : false_t; gettable : true_t > t
+  val string : string -> < t : string; numeric : false_t; nullable : false_t; gettable : true_t > t 
 
-  (** data constructors *)
-  val bool : bool -> (bool, non_nullable) t
-  val int : int -> (int, non_nullable) t
-  val string : string -> (string, non_nullable) t
-  val null : ('a, nullable) t
+  (** nullability *)
+  val null : < nullable : true_t; t : _; numeric : _; gettable : true_t > t
+  val nullable :
+    < t : 't; numeric : 'n; gettable : 'g; nullable : false_t > t ->
+    < t : 't; numeric : 'n; gettable : 'g; nullable : true_t > t
+
+  (** standard operators *)
+  val (+) :
+    (< numeric : true_t; t : 't; nullable : 'n; gettable : _ > as 'a) t -> 'a t ->
+     < numeric : true_t; t : 't; nullable : 'n; gettable : false_t > t
+  val (=) :
+    (< nullable : 'n; t : _; numeric : _; gettable : _ > as 'a) t -> 'a t ->
+     < nullable : 'n; t : bool; numeric : false_t; gettable : false_t > t
+  val (&&) : (< t : bool; .. > as 'a) t -> 'a t -> 'a t
+
+  (** untyped access *)
+  val untyped : 'a t -> untyped t
+  val get_reference : _ t -> reference
+  val get_type : _ t -> field_type
 
   (** unsafe constructors *)
-  type 'a unsafe
+  type +'a unsafe
   val unsafe : 'a -> 'a unsafe
-  val field : ('a, _) t -> string list unsafe -> ('a -> 'b) unsafe -> ('b, _) t
-  val row : string unsafe -> 'a view -> ('a, non_nullable) t
-  val tuple :
-    (string * (untyped, untyped) t) list unsafe
-    -> 'obj result_parser unsafe
-    -> ('obj, non_nullable) t
 
-  (** data operations *)
-  val (<) : ('a, 'n) t -> ('a, 'n) t -> (bool, 'n) t
-  val (=) : ('a, 'n) t -> ('a, 'n) t -> (bool, 'n) t
-  val (+) : (int, 'n) t -> (int, 'n) t -> (int, 'n) t
-  val (||) : (bool, 'n) t -> (bool, 'n) t -> (bool, 'n) t
+  val force_gettable :
+    < t : 't; nullable : 'nul; numeric : 'num; gettable : _ > t unsafe ->
+    < t : 't; nullable : 'nul; numeric : 'num; gettable : true_t > t
+
+  val field : < t : 'a; nullable : false_t; .. > t -> string list unsafe -> ('a -> 'b t) unsafe -> 'b t
+  val row :
+    string unsafe ->
+    'row view ->
+    < t : 'row; numeric : false_t; nullable : false_t; gettable : false_t > t
+  val tuple :
+    (string * untyped t) list unsafe ->
+    'tup result_parser unsafe ->
+    < t : 'tup; numeric : false_t; nullable : false_t; gettable : false_t > t
+
 
   (** select and view building *)
   type 'a result
-  val view :  'a result -> from -> where -> 'a view
-
-  val simple_select : ('a, _) t -> 'a result
+  val view : 'a result -> from -> where -> 'a view
+  val simple_select : < t : 'a; .. > t -> 'a result
 
   (** group by and accumulators *)
   type grouped_row
   val grouped_row : grouped_row
 
-  type ('a, 'n) group
-  val accumulate : ('a, 'n) t -> ('a, 'n) group
-  val count : ('a, 'n) group -> (int, non_nullable) t
+  type 'a group
+  val accumulate : 'a t -> 'a group
+  val count : 'a group ->
+    < t : int; numeric : true_t; nullable : false_t; gettable : true_t > t
 
-  val group : ('group_const, _) t -> ('res, _) t -> 'res result
+  val group : 'group_const t -> 'res t -> 'res result
 
   (** final query building *)
   val select : 'a view -> 'a query
   val insert : 'a view -> 'a view -> int query
-  val delete : 'a view -> string unsafe -> (bool, _) t list -> int query
+  val delete : 'a view -> string unsafe -> < t : bool; .. > t list -> int query
   val update :
-    'a view -> string unsafe
-    -> ((_, _) t as 'b) -> (('a, _) t -> 'b) unsafe
-    -> (bool, _) t list
-    -> int query
+    'a view ->
+    string unsafe ->
+    'b t ->
+    (< t : 'a; .. > t -> 'b t) unsafe ->
+    < t : bool; .. > t list ->
+    int query
 end = struct
-  type nullable
-  type non_nullable
-  type ('a, 'b) t = reference
+  type 'a t = reference
 
   let nullable (r, t) =
     let t = match t with
@@ -200,15 +250,32 @@ end = struct
   let get_reference r = r
   let get_type (_, t) = t
 
-  let parse ref input =
-    use_unsafe_parser (parser_of_type (get_type ref)) input
+  let get_val =
+    let (!?) = Obj.magic in
+    function
+      | Int i -> !?i
+      | Float x -> !?x
+      | Bool b -> !?b
+      | String s -> !?s
+      | Record (o, _) -> !?o
+
+  let get (r, t) =
+    match r with
+      | Value v -> get_val v
+      | _ -> invalid_arg "get"
+
+  let getn (r, t) = match r with
+      | Null -> None
+      | Value v -> Some (get_val v)
+      | _ -> invalid_arg "getn"
+
+  let parse ref =
+    use_unsafe_parser (parser_of_type (get_type ref))
 
   type 'a unsafe = 'a
   let unsafe x = x
-
   let untyped x = x
-
-  type unsafe_t = (untyped, untyped) t unsafe
+  let force_gettable x = x
 
   let field row path checker =
     ignore checker;
@@ -217,17 +284,27 @@ end = struct
 
   let row name view =
     let view = unsafe_view view in
-    Row (name, view),
-    Non_nullable (TRecord (view.descr, view.result_parser))
+    let descr = (view.descr, view.result_parser) in
+    (* we need a recursive value, as the vast_builder has to return
+       the value itself *)
+    let rec reference =
+      (Row (name, view),
+       Non_nullable (TRecord (descr, fun _ -> reference))) in
+    reference
 
   let tuple fields result_parser =
     let field_ref (name, field) = (name, get_reference field) in
     let field_typ (name, field) = (name, get_type field) in
-    let record_type = List.map field_typ fields, unsafe_parser result_parser in
-    (Tuple (List.map field_ref fields), Non_nullable (TRecord record_type))
+    let descr = List.map field_typ fields, unsafe_parser result_parser in
+    (* rec : see "row" comment *)
+    let rec reference =
+      (Tuple (List.map field_ref fields),
+       Non_nullable (TRecord (descr, fun _ -> reference))) in
+    reference
 
   let bool b = Value (Bool b), Non_nullable TBool
   let int i = Value (Int i), Non_nullable TInt
+  let float x = Value (Float x), Non_nullable TFloat
   let string s = Value (String s), Non_nullable TString
 
   let null = Null, Nullable None
@@ -263,6 +340,7 @@ end = struct
   let arith op = mono_op TInt (Arith, op)
 
   let (<), (=) = comp "<", comp "="
+  let (&&) = logic "&&"
   let (||) = logic "||"
   let (+) = arith "+"
 
@@ -271,8 +349,8 @@ end = struct
   let view (select, select_type) from where =
     let query = { select = select; from = from; where = where } in
     match select_type with
-      | Non_nullable (TRecord (descr, result_parser))
-      | Nullable (Some (TRecord (descr, result_parser))) ->
+      | Non_nullable (TRecord ((descr, result_parser), _))
+      | Nullable (Some (TRecord ((descr, result_parser), _))) ->
           { descr = descr;
             result_parser = use_unsafe_parser result_parser;
             concrete = Selection query }
@@ -283,7 +361,7 @@ end = struct
   type grouped_row = unit
   let grouped_row = ()
 
-  type ('a, 'n) group = ('a, 'n) t
+  type 'a group = 'a t
 
   let accumulate x = x
   let count x = Unop ("count", x), Non_nullable TInt
@@ -347,8 +425,8 @@ and flatten_reference ref =
         Tuple (List.flatten (List.map field tup)), t
     (* termination : this pattern case will never match more than once
        on the same row, because we change the row type to Null *)
-    | row, (( Non_nullable (TRecord(descr, _))
-            | Nullable (Some (TRecord(descr, _))))  as t) ->
+    | row, (( Non_nullable (TRecord((descr, _), _))
+            | Nullable (Some (TRecord((descr, _), _))))  as t) ->
         let field (name, child_t) =
           name, flatten (Field ((row, Nullable None), [name]), child_t) in
         Tuple (List.map field descr), t
@@ -419,12 +497,10 @@ and string_of_binding (name, value) =
     | _ -> sprintf "%s AS %s" v name
 and string_of_reference ?(string_of_binding = string_of_binding) (ref, _) =
   let silent_string_of_reference =
-        let string_of_biding (name, value) = string_of_reference value in
+        let string_of_binding (name, value) = string_of_reference value in
         string_of_reference ~string_of_binding in
   match ref with
-    | Value (Int i) -> string_of_int i
-    | Value (String s) -> sprintf "'%s'" (String.escaped s)
-    | Value (Bool b) -> string_of_bool b
+    | Value v -> string_of_value v
     | Null -> "NULL"
     | Unop (op, a) ->
         sprintf "%s(%s)" op (silent_string_of_reference a)
@@ -445,6 +521,12 @@ and string_of_table (row_name, table) =
 and string_of_table_name = function
   | (None, table) -> table
   | (Some schema, table) -> sprintf "%s.%s" schema table
+and string_of_value = function
+  | Int i -> string_of_int i
+  | String s -> sprintf "'%s'" (String.escaped s)
+  | Bool b -> string_of_bool b
+  | Float x -> string_of_float x
+  | Record (obj, ast_builder) -> string_of_reference (ast_builder obj)
 
 let sql_of_query q = string_of_query (flatten_query q)
 let sql_of_comp v = sql_of_query (Select v.concrete)

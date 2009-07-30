@@ -268,7 +268,8 @@ and reference_of_comp env (_loc, r) = match r with
   | Tuple tup ->
       let fields =
         let field_decl (_loc, (name, ref)) =
-          <:binding< $lid:name$ = $reference_of_comp env ref$ >> in
+          let expr = reference_of_comp env ref in
+          <:binding< $lid:name$ = Sql.Value.force_gettable (Sql.Value.unsafe $expr$) >> in
         Ast.biAnd_of_list (List.map field_decl tup) in
       let field_list =
         let field_item (_loc, (name, _)) =
@@ -305,8 +306,8 @@ let rec query_of_comp (_loc, query) = match query with
             let set_type =
               let bind (_loc, (name, _)) = <:ctyp< $lid:name$ : 'name >> in
               Ast.tySem_of_list (List.map bind tup) in
-            <:expr< fun (t : Sql.Value.t < $set_type$; ..> _ as 'a) ->
-                        ($set$ : Sql.Value.t < $set_type$ > _) >>
+            <:expr< fun (t : Sql.Value.t < t : < $set_type$; .. > as 'a; .. >) ->
+                        ($set$ : Sql.Value.t < t : < $set_type$ >; .. > ) >>
         | (_loc, _) ->
             if !warn_undetermined_update then
               Syntax.print_warning _loc warn_undetermined_update_message;

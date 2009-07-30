@@ -49,7 +49,7 @@ and sql_type =
 and untyped = Obj.t
 
 type 'a query =
-  | Select of concrete_view
+  | Select of untyped view
   | Insert of (table_name * concrete_view)
   | Delete of (table_name * row_name * where)
   | Update of (table_name * row_name * reference * where)
@@ -228,16 +228,16 @@ module Value : sig
   val group : 'group_const t -> 'res t -> 'res result
 
   (** final query building *)
-  val select : 'a view -> 'a query
-  val insert : 'a view -> 'a view -> int query
-  val delete : 'a view -> string unsafe -> < t : bool; .. > t list -> int query
+  val select : 'a view -> 'a list query
+  val insert : 'a view -> 'a view -> unit query
+  val delete : 'a view -> string unsafe -> < t : bool; .. > t list -> unit query
   val update :
     'a view ->
     string unsafe ->
     'b t ->
     (< t : 'a; .. > t -> 'b t) unsafe ->
     < t : bool; .. > t list ->
-    int query
+    unit query
 end = struct
   type 'a t = reference
 
@@ -374,7 +374,7 @@ end = struct
     | _ -> invalid_arg "get_table_name"
   let get_where = List.map get_reference
 
-  let select view = Select view.concrete
+  let select view = Select (unsafe_view view)
   let insert table inserted_view =
     Insert (get_table_name table, inserted_view.concrete)
   let delete table row where =
@@ -387,7 +387,7 @@ end
 
 (** SQL composite types flattening *)
 let rec flatten_query = function
-  | Select concrete -> Select (flatten_concrete concrete)
+  | Select view -> Select {view with concrete = flatten_concrete view.concrete}
   | Insert (table, concrete) -> Insert (table, flatten_concrete concrete)
   | Delete (table, row, where) -> Delete (table, row, flatten_where where)
   | Update (table, row, set, where) ->
@@ -452,7 +452,7 @@ open Printf
 let string_of_list printer sep li = String.concat sep (List.map printer li)
 
 let rec string_of_query = function
-  | Select view -> string_of_concrete_view view
+  | Select view -> string_of_concrete_view view.concrete
   | Insert (table, view) ->
       sprintf "INSERT INTO %s (%s)"
         (string_of_table_name table)
@@ -529,6 +529,6 @@ and string_of_value = function
   | Record (obj, ast_builder) -> string_of_reference (ast_builder obj)
 
 let sql_of_query q = string_of_query (flatten_query q)
-let sql_of_comp v = sql_of_query (Select v.concrete)
+let sql_of_comp v = sql_of_query (Select (unsafe_view v))
 let parser_of_comp comp input_tab =
   comp.result_parser (input_tab, ref 0)

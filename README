@@ -1,0 +1,312 @@
+= MaCaQue : Macros for Caml Queries
+
+== Introduction
+
+MaCaQue (or macaque) is a DSL for SQL Queries in Caml.
+
+It has the following objectives :
+- be highly compositional
+- use expressive types to avoid runtime errors
+
+macaque is still a work in progress, please send feedback to
+`bluestorm dot dylc (gmail)`. I'm interested in bug reports,
+reasonable feature requests and good meals.
+
+
+== Compilation, Installation
+
+Nothing provided for now. I use ocamlbuild internally so "ocamlbuild
+bla.cmo" should work, and there are "exec.sh" and "infer.sh" scripts
+(particularly useful for tests/*.ml files), use "sh exec.sh
+tests/foo.ml" for example. I guess if you want to use macaque for now,
+you'll have to manually link the .cmo.
+
+Feel free to contribute a Makefile and/or a META file !
+
+== Use
+
+macaque builds SQL queries at three different levels :
+
+- /query/ : macaque queries represent SELECT, INSERT, DELETE and
+  UPDATE queries. They can not be composed.
+
+  Examples :
+    <:select< row | row <- $sql_table$; row.id < 50 >>
+    Select all rows from table 'sql_table' whose 'id' is inferior to '50'
+
+    <:delete< row <- $sql_table$ | row.id > 50 >>
+    Delete all rows from 'sql_table' whose 'id' is superior to '50'    
+    
+  Type : macaques queries have type 'a Sql.query, where 'a is the
+  return type of the query : a row list for SELECT queries, unit
+  otherwise.
+
+
+- /view/ : views represent SQL tables, views and (sub-)-SELECT
+  results; view are composable and can be used nearly anywhere a SQL
+  table can.
+
+  Examples :  
+  <:view< {user = u.name; category = cat.name} |
+          u <- $table_users$;
+          u.id > 32 + 10;
+          cat <- $table_categories$;
+          cat.id = u.cat >>
+  User name and category of the user with id superior to '42'
+
+  <:view< {name = row.user} | row <- $prev_view$; row.category = "simple user" >>
+  Names of all simple users of the 'prev_view' table/view (for example
+  the previous example)
+  
+  let names view = <:view< {name = t.name} | t <- $view$ >>
+  Generic function that will project any table/view on its "name" column
+  
+  Type : 'a Sql.view, where 'a is the type of a row (considered as a value).
+
+  Note : views and select queries are distinct objects (view= reusable
+  set of rows, select= final query), but views are very common so
+  a specific library function is provided to directly send a view to
+  the SQL server, without having to manually build a select query
+  first.
+
+- /value/ level : values represent SQL values and expressions : int,
+  float, string, and results of SQL data functions and operators.
+  
+  Examples :
+  <:value< 1 + 1 >>
+  2 (as a Sql Value, not a Caml int)
+
+  <:value< 1 = 1 >>
+  true (as a Sql Value, not a Caml bool)
+
+  <:value< nullable foo.id >>
+  field 'id' of table 'foo', considered as a nullable value (wich can
+  take the NULL value)
+  
+  let double (n : int) = <:value< 2 * $int:n$ >>
+  returns twice the given int, as a Sql value
+
+  <:value< { foo = 1; bar = "baz" } >>
+  returns the immediate row with column 'foo' and 'bar' of values 1 and 'baz'
+
+  Type : 'a Sql.t, the most pervasive type in macaque. 'a is actually
+  a rich type representing the value type (int, string, a row, etc.)
+  but also several phantom types witnessing different properties of
+  the value (detailed description in the last section of this
+  README). View rows are also values, and rows can be nested at will :
+  let strange_pack foo = <:value< { a = 1; b = { c = 2; d = $foo$ } } >>
+
+
+To actually send requests to the SQL server, you have to use the Query
+modules. Query.query takes a query, and Query.view a view. You get the
+result in the form of a list of macaque sql values ('a Sql.t) (or unit
+for imperative queries). To get usable caml values from such sql
+values, you have to use the Sql.get and Sql.getn accessors functions,
+briefly mentioned in the 'Phantom types' section of this README.
+
+
+=== pa_comp syntax
+
+macaque use the Camlp4 quotations system to integrate Domain-specific
+syntaxes into the Objective Caml language. General principles are as follows :
+
+- quotations : <:foo< ... >> is a quotation using the `foo` syntax
+  expander.
+  macaque provides 6 syntax expanders :
+  - select, insert, delete, update : queries syntax expanders
+  - view : view syntax expander
+  - value : value syntax expander
+  View is the default syntax expander :  << ... >> is equivalent to <:view< ... >>
+
+- antiquotations : inside a quotations, $foo$ is an antiquotation with
+  denotes a caml-level value :
+    let value v = <:value< $v$ >> (* the identity function on values *)
+  antiquotations can also be named in specific context :
+    let int n = <:value< $int:n$ + 0 >> 
+    (* transforming a caml int into a Sql.t value *)
+
+Loosely defined syntax (camlp4 quotations symbols are not represented)
+        select ::= view
+        insert ::= table ":=" value "|" comprehension_item list
+        delete ::= row name "<-" table "|" guard list
+        update ::= row name "<-" table ":=" value "|" guard list
+        view ::= value "|" comprehension_item list
+               | "group" tuple "by" tuple "|" comprehension_item list
+        comprehension_item ::= row_binding
+                             | guard
+        row_binding ::= row name "<-" view
+        guard ::= boolean value
+        
+        value ::= litteral constants
+                | 0-ary operator : "null"
+                | 1-ary operator : "nullable" value
+                | infix binary operator : value "+" value
+                | *row) tuple : "{" field name "=" value ";" ... "}"
+                | field access : value "." field name list
+
+In non-select queries, "table" are actually views that denotate
+a concrete table, and not any other kind of view; this is currently
+implemented as a runtime check, but will hopefully be a type
+constraint soon (phantom types to the rescue !). Concrete table views
+are built using the pa_descr table description syntax presented in
+a further section of this README.
+
+You can use antiquoted caml values in all places where a "view",
+"table" (view) or "value" (including rows, but not operators, row
+names or field names) is accepted.
+
+tuples, comprehension and guard lists can be empty :
+        <:view< $row$ | >> is the view with only one line, wich is 'row'
+        <:insert< $table$ := $row$ | >> inserts a single row
+        <:delete< row <- $table$ | >> delete a whole table
+        <:update< row <- $table$ := $value$ | >> updates a whole table
+
+It is planned to make the ending "|" optional.
+
+
+=== sql functions, operators and data types
+
+macaque can use all function and operators defined in the Sql.Op
+module, using the standard ocaml syntax (and operator associativities
+and precedences) :
+    <:value< $a$ + $b$ >> is equivalent to `Sql.Op.(+) a b`
+    <:value< nullable $foo$ >> is equivalent to `Sql.Op.nullable foo`
+
+macaque supports some SQL data types, some of them having a litteral
+syntax (ints and string : <:value< 2 >>, <:value< "foo" >>). They can
+all be constructed by using named antiquotations :
+    <:value< $bool:true$ >>
+    <:value< $float:cos 1.2$ >>
+
+More generally, the type constructors are the values in Sql.Data :
+     <:value< $foo:bar$ >> is equivalent to `Sql.Data.foo bar`
+
+
+=== pa_descr syntax
+
+pa_descr syntax is used for making existing database tables accessible
+as macaque views. The syntax is a far relative of SQL CREATE TABLE
+statements, and can be discovered in the base.ml file. Currently, no
+other information that name, type and nullability are accepted.
+
+pa_descr is not a table creation tool : it does not free you from the
+need of creating your tables in the database (with a potentially
+richer description : foreign keys, etc.). If you change a table
+description, you will have to repeat the changes in the caml
+description as well.
+
+To help you with the pa_descr/database synchronization, the check.ml
+file implements a coherence check. It will raise errors if the
+caml-side description is not faithful to the real table structure. It
+is possible to enforce an automatic runtime check of every
+pa_descr-defined table with the '-check_tables' command line option
+(camlp4 time).
+
+
+=== phantom types
+
+Sql.t types sure are heavy. You *will* be confronted to cluttered
+error messages with ugly as hell unification problems. Hopes this
+section helps.
+
+Sql values are packed in a phantom type providing several information
+about the value. It is an object type with a field "t" whose type
+reflect the type of the underlying value : < t: int; .. > Sql.t is
+a SQL int.
+
+phantom_types rely on type-level bools, two abstract 'true_t' and
+'false_t' types declared at the beginning of sql.ml.
+
+Besides 't', the following fields are provided :
+
+- 'nullable', phantom type propaging nullability information :
+   is true_t if the value can be NULL, false_t otherwise
+
+- 'numeric' : true for some data types for arithmetic operators
+  overloading purposes : true_t if arithmetic operations (+ - / *
+  etc.) can be applied to values of that type, false_t otherwise
+
+- 'gettable' : just-built sql values (<:value< 1 >>, etc.) or values
+  retrieved from a SQL query are 'gettable' : you can ask for their
+  values using the two accessors 'get' and 'getn' (get nullable) functions :
+         get : < t : 'a; nullable : false_t; gettable : true_t; .. > Sql.t -> 'a
+         getn : < t : 'a; nullable : true_t; gettable : true_t; .. > Sql.t -> 'a option
+  On the contrary, values built from SQL operators or field access can
+  not be transformed back into caml values without being first sent to
+  the SQL server as part of a query : they have gettable : false_t.
+
+Now, you probably understand why the error messages tends to be
+slightly longer than usual. And all sql values carry such information,
+including (nested) rows...
+
+
+=== Specific fourberies
+
+macaque being strongly (and intricately) typed, you will often find
+yourself confronted to hostile error messages, wich means someone has
+done something wrong. I hope that you will more often be wrong than
+macaque. There are nonetheless some specificites that you should be
+aware of.
+
+
+==== Sql interface safety
+
+pa_comp and pa_descr extensions transform user code into complicated
+caml code. But the produced codes still lies outside macaque module
+boundaries, and has access to the same information that the user
+has. Concretely, as most of the operations needed by those extensions
+are not typable inside the OCaml type system (for example dynamic
+construction of an object based on a list of field names and values),
+some unsafe operations had to be exposed through Sql interface
+[1]. They are marked with the "unsafe" parametrized type (wich is only
+there for documentation purposes) and you should NOT use them : every
+function having an "unsafe" type somewhere in its interface is
+considered forbidden. All the other functions should be type-safe,
+otherwise it's a bug.
+
+[1] and there is some Obj magic behind the scene; but it's protected
+by typing and you won't get a segfault, I hope I hope I hope
+
+
+==== Update subtyping problem
+
+An example of update syntax is << t <- $tab$ := {amount = t.amout + 1} >>,
+wich increment the "amout" column of all rows in table `tab`. Table
+`tab` probably has more fields than just the "amount" colum, so the
+type of the tuple on the right should be a subtype of `table` row
+type.
+
+The problem is that polymorphic subtyping quantification is not
+available in OCaml type system : subtype relations have to be
+explicitely constructed from the object types. This is fine when, as
+in the given example, the right tuple object type is known as
+camlp4-time (an object with only one field 'amout'), but not when the
+corresponding value is an antiquotation :
+             
+        let update table value predicate =
+           <:update< row <- $table$ := $value row$ | $predicate row$ >>
+
+In this case, the update syntax is used to define a generic update
+operation [2] : I know of know syntaxic way to impose that the right
+tuple type be a subtype of the table row type.
+
+To keep things simple, there is an ad-hoc rule for the specific update
+problem : when tuple type is known as camlp4-time, a subtyping
+relation is used, but when there is a quotation, the two values types
+are unified : the set tuple has to have exactly the same columns as
+the table, no less.
+
+This loss of generality could surprise the innocent user. In order to
+prevent hair scratching, a warning is emitted by pa_comp at
+camlp4-time when an antiquoted caml value is used for the update
+tuple. This warning can be disabled using
+the -sql-nowarn-undetermined-update command line option.
+
+Of course, it is always possible to manually expand an antiquotated
+value, when the fields name are known at development-time :
+   <:update< t <- $table$ := $tup$ | ... >> rewrites to
+   <:update< t <- $table$ := { foo = $tup$.foo; bar = $tup$.bar } | ... >>
+
+[2] notice how `value` and `predicate` are actually functions
+depending on `row` values; this kind of thing can greatly improve code
+factorization among your SQL queries

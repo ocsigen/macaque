@@ -1,9 +1,8 @@
 let test =
-  let dbh = PGOCaml.connect ~database:"base" () in
+  let dbh = PGOCaml.connect () in
   fun comp ->
     Printf.printf "%s --> %d result rows\n"
-      (Sql.string_of_concrete_view comp.Sql.concrete)
-      (List.length (Query.view dbh comp))
+      (Sql.sql_of_view comp) (List.length (Query.view dbh comp))
 
 let () =
   test << {} | >> ;

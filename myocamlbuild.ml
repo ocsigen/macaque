@@ -43,6 +43,7 @@ struct
        	* compiling, computing dependencies, generating documentation and
        	* linking. *)
        List.iter begin fun pkg ->
+         flag ["ocaml"; "infer_interface";  "pkg_"^pkg] & S[A"-package"; A pkg];
          flag ["ocaml"; "compile";  "pkg_"^pkg] & S[A"-package"; A pkg];
          flag ["ocaml"; "ocamldep"; "pkg_"^pkg] & S[A"-package"; A pkg];
          flag ["ocaml"; "doc";      "pkg_"^pkg] & S[A"-package"; A pkg];
@@ -52,6 +53,7 @@ struct
        (* Like -package but for extensions syntax. Morover -syntax is useless
        	* when linking. *)
        List.iter begin fun syntax ->
+         flag ["ocaml"; "infer_interface";  "syntax_"^syntax] & S[A"-syntax"; A syntax];
          flag ["ocaml"; "compile";  "syntax_"^syntax] & S[A"-syntax"; A syntax];
          flag ["ocaml"; "ocamldep"; "syntax_"^syntax] & S[A"-syntax"; A syntax];
          flag ["ocaml"; "doc";      "syntax_"^syntax] & S[A"-syntax"; A syntax];
@@ -74,7 +76,7 @@ module Sql_syntax = struct
   let before_options () = ()
   let after_rules () =
     flag ["ocaml"; "pp"; "use_comp"] (A"pa_comp.cmo");
-    flag ["ocaml"; "pp"; "use_descr"] (S[A"pa_descr.cmo"]);
+    flag ["ocaml"; "pp"; "use_descr"] (A"pa_descr.cmo");
     dep ["ocaml"; "ocamldep"; "use_comp"] ["pa_comp.cmo"];
     dep ["ocaml"; "ocamldep"; "use_descr"] ["pa_descr.cmo"];
     ()

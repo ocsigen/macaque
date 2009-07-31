@@ -17,7 +17,7 @@ let null = << {null = null} | >>
 *)
 
 let () =
-  let dbh = PGOCaml.connect ~database:"base" () in
-  List.iter (fun r -> ignore (Sql.Value.getn r#null = None)) (Query.view dbh null);
-  List.iter (fun r -> ignore (Sql.Value.getn r#value = Some 1))
+  let dbh = PGOCaml.connect () in
+  List.iter (fun r -> ignore (Sql.getn r#null = None)) (Query.view dbh null);
+  List.iter (fun r -> ignore (Sql.getn r#value = Some 1))
     (Query.view dbh (singleton_option <:value< 1 >>))

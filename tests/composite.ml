@@ -8,14 +8,14 @@ let pack3 = <:select<
                    c_row = {d = 4; d2 = 4};
                    c_row2 = {e = 5; e2 = 5}} | >> $ >>
 
-let (!) = Sql.Value.get
+let (!) = Sql.get
 
 
 let () =
   let dbh = PGOCaml.connect ~database:"base" () in
   List.iter
   (fun x ->
-     match Sql.Value.getn x#row with
+     match Sql.getn x#row with
        | None -> assert false
        | Some row ->
            Printf.printf "a:%d\tb:%d\tc:%d\td:%d\n%!"

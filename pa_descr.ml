@@ -51,10 +51,10 @@ let table_of_descr (_loc, (name, fields)) =
     let field_descr (name, sql_type, nullable) =
       let output_sql_type =
         let _type = match sql_type with
-        | TInt -> <:expr< Sql.TInt >>
-        | TString -> <:expr< Sql.TString >> in
-        if not nullable then <:expr< Sql.Non_nullable $_type$ >>
-        else <:expr< Sql.Nullable (Some $_type$) >> in
+        | TInt -> <:expr< Inner_sql.TInt >>
+        | TString -> <:expr< Inner_sql.TString >> in
+        if not nullable then <:expr< Inner_sql.Non_nullable $_type$ >>
+        else <:expr< Inner_sql.Nullable (Some $_type$) >> in
       <:expr< ($str:name$, $output_sql_type$) >> in
     camlp4_list _loc (List.map field_descr fields) in
   let obj =
@@ -64,22 +64,24 @@ let table_of_descr (_loc, (name, fields)) =
           | true -> <:ctyp< Sql.true_t >>
           | false -> <:ctyp< Sql.false_t >> in
         match sql_type with
-          | TInt -> <:ctyp< Sql.Value.t < t : int;
-                                          gettable : Sql.true_t;
-                                          nullable : $bool_type nullable$;
-                                          numeric : Sql.true_t > >>
-        | TString -> <:ctyp< Sql.Value.t < t : string;
-                                           gettable : Sql.true_t;
-                                           nullable : $bool_type nullable$;
-                                           numeric : Sql.false_t > >> in
+          | TInt -> <:ctyp< Sql.t < t : int;
+                                    gettable : Sql.true_t;
+                                    nullable : $bool_type nullable$;
+                                    numeric : Sql.true_t > >>
+        | TString -> <:ctyp< Sql.t <t : string;
+                                    gettable : Sql.true_t;
+                                    nullable : $bool_type nullable$;
+                                    numeric : Sql.false_t > >> in
       <:class_str_item< method $lid:name$ : $output_caml_type$ = $lid:name$ >> in
     <:expr< object $Ast.crSem_of_list (List.map field_meth fields)$ end >> in
   let result_parser =
     let decl (name, _, _) decls =
       (* TODO proper parsing *)
       <:expr< let $lid:name$ =
-        Sql.use_unsafe_parser (Sql.parser_of_type (List.assoc $str:name$ descr))
-          input in $decls$ >> in
+        Inner_sql.use_unsafe_parser
+          (Inner_sql.parser_of_type (List.assoc $str:name$ descr))
+          input in
+      $decls$ >> in
     <:expr< fun input -> $List.fold_right decl fields obj$ >> in
   let name_expr = match name with
     | (None, table) -> <:expr< (None, $str:table$) >>
@@ -87,11 +89,15 @@ let table_of_descr (_loc, (name, fields)) =
   let table =
     <:expr<
       let descr = $descr$ in
-      { Sql.concrete = Sql.Table $name_expr$;
-        Sql.descr = descr;
-        Sql.result_parser = $result_parser$ } >> in
-  if not !coherence_check then table
-  else <:expr< let table = $table$ in do { Check.check table; table } >>
+      { Inner_sql.concrete = Inner_sql.Table $name_expr$;
+        Inner_sql.descr = descr;
+        Inner_sql.result_parser = ($result_parser$) }
+      >> in
+  let to_sql table =
+    <:expr< (Obj.magic ($table$ : Inner_sql.view 'a) : Sql.view 'a) >> in
+  if not !coherence_check then to_sql table
+  else <:expr< let table = $table$ in
+               do { Check.check table; $to_sql <:expr< table >>$ } >>
 
 (** Quotations setup *)
 let () =

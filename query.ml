@@ -2,7 +2,7 @@ let nullable = function
   | None -> "NULL"
   | Some str -> str
 
-let query dbh (sql_query : 'a Sql.query) : 'a =
+let query dbh sql_query =
   let query = Sql.sql_of_query sql_query in
   print_endline query;
   let name = "query_result" in

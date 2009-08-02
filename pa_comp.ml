@@ -50,12 +50,11 @@ and table = Ast.expr
 and value =
   | Field of field
   | Value of Ast.expr
-  | Op of op
-  | Row of ident
+  | Op of value located * value located list
+  | Ident of ident
   | Tuple of tuple
   | Accum of value located
 and tuple = value binding located list
-and op = string * value located list
 and field = value located * ident located list
 and 'a binding = (ident * 'a located)
 and 'a located = (Loc.t * 'a)
@@ -85,11 +84,9 @@ let () =
   let infixop0 = compentry Syntax.infixop0 in
   let prefixop = compentry Syntax.prefixop in
 
-  let make_op _loc id = <:expr< $lid:id$ >> in
-
   let operation _loc op operands =
     let op_id = match op with
-      | <:expr< $lid:id$ >> -> id
+      | <:expr< $lid:id$ >> -> (_loc, Ident id)
       | _ -> assert false in
     (_loc, Op (op_id, operands)) in
 
@@ -125,10 +122,7 @@ let () =
      | "*"  LEFTA [ e1 = SELF; op = infixop3; e2 = SELF -> operation _loc op [e1; e2] ]
      | "**" RIGHTA [ e1 = SELF; op = infixop4; e2 = SELF -> operation _loc op [e1; e2] ]
      | "apply" LEFTA
-         [ LIDENT "nullable"; e = SELF ->
-             operation _loc (make_op _loc "nullable") [e]
-         | LIDENT "count"; e = SELF -> (* TODO generalize ! *)
-             operation _loc (make_op _loc "count") [e] ]
+         [ id = SELF; e = SELF -> (_loc, Op (id, [e])) ]
      | "~-" NONA  [ op = prefixop; e = SELF -> operation _loc op [e] ]
      | "." LEFTA
          [ row = SELF; "."; path = LIST0 [id = LIDENT -> (_loc, id)] SEP "." ->
@@ -136,8 +130,8 @@ let () =
      | "simple"
          [ v = atom -> (_loc, Value v)
          | (_, tup) = tuple -> (_loc, Tuple tup)
-         | LIDENT "null" -> operation _loc (make_op _loc "null") []
-         | r = LIDENT -> (_loc, Row r)
+         | LIDENT "null" -> (_loc, Op ((_loc, Ident "null"), []))
+         | id = LIDENT -> (_loc, Ident id)
          | "("; (_, e) = SELF; ")" -> (_loc, e)
          | "["; e = SELF; "]" -> (_loc, Accum e) ]];
 
@@ -247,7 +241,7 @@ and result_of_comp env (_loc, r) = match r with
           let name = Printf.sprintf "accum_%d" !count in
           incr count;
           res := (_loc, (name, (_loc, expr))) :: !res;
-          Value <:expr< Sql.accumulate $lid:name$ >> in
+          Accum (_loc, Value <:expr< Sql.accum $lid:name$ >>) in
         let (!!) map (_loc, v) = (_loc, map v) in
         let rec map_tuple tup = List.map !!map_binding tup
         and map_binding (k, v) = (k, !!map_ref v)
@@ -256,7 +250,7 @@ and result_of_comp env (_loc, r) = match r with
           | Op (op, operands) -> Op (op, List.map !!map_ref operands)
           | Tuple tup -> Tuple (map_tuple tup)
           | Accum expr -> accum expr
-          | (Value _ | Row _) as v -> v in
+          | (Value _ | Ident _) as v -> v in
         let group = map_tuple group in (* side effect on `res` *)
         group, List.rev !res in
       let env_bindings =
@@ -278,10 +272,14 @@ and result_of_comp env (_loc, r) = match r with
                   $reference_of_comp env result_tuple$ >>
 and reference_of_comp env (_loc, r) = match r with
   | Value v -> v
-  | Row row -> <:expr< $lid:Env.row row env$ >>
+  | Ident row -> <:expr< $lid:Env.row row env$ >>
+  | Accum expr -> <:expr< Sql.group_of_accum $reference_of_comp env expr$ >>
   | Op (op, operands) ->
       let operation expr e = <:expr< $expr$ $reference_of_comp env e$ >> in
-      List.fold_left operation <:expr< Sql.Op.$lid:op$ >> operands
+      let operator = match op with
+        | (_loc, Ident id) -> <:expr< Sql.Op.$lid:id$ >>
+        | expr -> reference_of_comp env expr in
+      List.fold_left operation operator operands
   | Field (row, path) ->
       let call obj (_loc, meth_id) = <:expr< $obj$ # $lid:meth_id$ >> in
       <:expr< Sql.field
@@ -309,7 +307,6 @@ and reference_of_comp env (_loc, r) = match r with
               Sql.tuple
                 (Sql.unsafe $field_list$)
                 (Sql.unsafe $result_parser$) >>
-  | Accum expr -> reference_of_comp env expr
 and table_of_comp (_loc, table) = table
 
 let rec query_of_comp (_loc, query) = match query with

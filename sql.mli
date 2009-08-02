@@ -71,7 +71,9 @@ type grouped_row
 val grouped_row : grouped_row
 
 type 'a group
-val accumulate : 'a t -> 'a group
+type 'a accum
+val accum : 'a t -> 'a accum
+val group_of_accum : 'a accum -> 'a group
 
 val group : 'group_const t -> 'res t -> 'res result
 

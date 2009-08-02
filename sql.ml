@@ -160,9 +160,11 @@ let simple_select row = Simple_select (get_reference row), get_type row
 type grouped_row = unit
 let grouped_row = ()
 
+type 'a accum = 'a t
 type 'a group = 'a t
 
-let accumulate x = x
+let accum x = x
+let group_of_accum x = x
 
 let group group_part result_part =
   Group_by (result_part, group_part), get_type result_part

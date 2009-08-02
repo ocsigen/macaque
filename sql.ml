@@ -97,7 +97,6 @@ module Data = struct
 end
 
 module Op = struct
-
   let nullable (r, t) =
     r, match t with
        | Non_nullable t -> Nullable (Some t)
@@ -139,6 +138,8 @@ module Op = struct
   let (&&) = logic "&&"
   let (||) = logic "||"
   let (+) = arith "+"
+
+  let count x = Unop ("count", x), Non_nullable TInt
 end
 
 type 'a result = select_result * field_type
@@ -162,7 +163,6 @@ let grouped_row = ()
 type 'a group = 'a t
 
 let accumulate x = x
-let count x = Unop ("count", x), Non_nullable TInt
 
 let group group_part result_part =
   Group_by (result_part, group_part), get_type result_part

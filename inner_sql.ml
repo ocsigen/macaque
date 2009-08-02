@@ -248,16 +248,16 @@ and string_of_binding (name, value) =
     | (Row _ | Tuple _), _ -> v (* flattened -> no binding *)
     | _ -> sprintf "%s AS %s" v name
 and string_of_reference ?(string_of_binding = string_of_binding) (ref, _) =
-  let silent_string_of_reference =
+  let packed_string_of_reference ref =
         let string_of_binding (name, value) = string_of_reference value in
-        string_of_reference ~string_of_binding in
+        sprintf "ROW(%s)" (string_of_reference ~string_of_binding ref) in
   match ref with
     | Value v -> string_of_value v
     | Null -> "NULL"
     | Unop (op, a) ->
-        sprintf "%s(%s)" op (silent_string_of_reference a)
+        sprintf "%s(%s)" op (packed_string_of_reference a)
     | Binop (op, a, b) -> sprintf "(%s %s %s)"
-        (silent_string_of_reference a) op (silent_string_of_reference b)
+        (packed_string_of_reference a) op (packed_string_of_reference b)
     | Field ((Row (row_name, _), _), fields) ->
         sprintf "%s.%s" row_name (String.concat "__" fields)
     | Field (_, _) -> invalid_arg "string_of_row : invalid field access"

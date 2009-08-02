@@ -32,30 +32,6 @@ val getn : < t : 't; gettable : true_t; nullable : true_t; .. > t -> 't option
 (** parse function *)
 val parse : 'a t -> 'a t result_parser
 
-(** standard data types (usable from user code) *)
-module Data : sig
-  val int : int -> < t : int; numeric : true_t; nullable : false_t; gettable : true_t > t
-  val bool : bool -> < t : bool; numeric : false_t; nullable : false_t; gettable : true_t > t
-  val float : float -> < t : float; numeric : true_t; nullable : false_t; gettable : true_t > t
-  val string : string -> < t : string; numeric : false_t; nullable : false_t; gettable : true_t > t
-end
-
-(** standard operators (usable from user code) *)
-module Op : sig
-  val null : < nullable : true_t; t : _; numeric : _; gettable : true_t > t
-  val nullable :
-    < t : 't; numeric : 'n; gettable : 'g; nullable : false_t > t ->
-    < t : 't; numeric : 'n; gettable : 'g; nullable : true_t > t
-
-  val (+) :
-    (< numeric : true_t; t : 't; nullable : 'n; gettable : _ > as 'a) t -> 'a t ->
-     < numeric : true_t; t : 't; nullable : 'n; gettable : false_t > t
-  val (=) :
-    (< nullable : 'n; t : _; numeric : _; gettable : _ > as 'a) t -> 'a t ->
-     < nullable : 'n; t : bool; numeric : false_t; gettable : false_t > t
-  val (&&) : (< t : bool; .. > as 'a) t -> 'a t -> 'a t
-end
-
 (** untyped access *)
 type untyped
 val untyped : 'a t -> untyped t
@@ -96,8 +72,6 @@ val grouped_row : grouped_row
 
 type 'a group
 val accumulate : 'a t -> 'a group
-val count : 'a group ->
-  < t : int; numeric : true_t; nullable : false_t; gettable : true_t > t
 
 val group : 'group_const t -> 'res t -> 'res result
 
@@ -121,3 +95,31 @@ val sql_of_view : 'a view -> string
 
 (** handle result from PGOCaml call *)
 val handle_query_results : 'a query -> string array unsafe list -> 'a
+
+
+(** standard data types (usable from user code) *)
+module Data : sig
+  val int : int -> < t : int; numeric : true_t; nullable : false_t; gettable : true_t > t
+  val bool : bool -> < t : bool; numeric : false_t; nullable : false_t; gettable : true_t > t
+  val float : float -> < t : float; numeric : true_t; nullable : false_t; gettable : true_t > t
+  val string : string -> < t : string; numeric : false_t; nullable : false_t; gettable : true_t > t
+end
+
+(** standard operators (usable from user code) *)
+module Op : sig
+  val null : < nullable : true_t; t : _; numeric : _; gettable : true_t > t
+  val nullable :
+    < t : 't; numeric : 'n; gettable : 'g; nullable : false_t > t ->
+    < t : 't; numeric : 'n; gettable : 'g; nullable : true_t > t
+
+  val (+) :
+    (< numeric : true_t; t : 't; nullable : 'n; gettable : _ > as 'a) t -> 'a t ->
+     < numeric : true_t; t : 't; nullable : 'n; gettable : false_t > t
+  val (=) :
+    (< nullable : 'n; t : _; numeric : _; gettable : _ > as 'a) t -> 'a t ->
+     < nullable : 'n; t : bool; numeric : false_t; gettable : false_t > t
+  val (&&) : (< t : bool; .. > as 'a) t -> 'a t -> 'a t
+
+  val count : 'a group ->
+    < t : int; numeric : true_t; nullable : false_t; gettable : true_t > t
+end

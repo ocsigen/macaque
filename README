@@ -287,7 +287,7 @@ corresponding value is an antiquotation :
            <:update< row <- $table$ := $value row$ | $predicate row$ >>
 
 In this case, the update syntax is used to define a generic update
-operation [2] : I know of know syntaxic way to impose that the right
+operation [2] : I know of no syntaxic way to impose that the right
 tuple type be a subtype of the table row type.
 
 To keep things simple, there is an ad-hoc rule for the specific update

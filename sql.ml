@@ -204,9 +204,7 @@ let rec string_of_query = function
   | Update (table, row, set, where) ->
       sprintf "UPDATE %s AS %s SET %s%s"
         (string_of_table_name table) row
-        (let string_of_binding (id, v) =
-           sprintf "%s = %s" id (string_of_reference v) in
-         string_of_reference ~string_of_binding set)
+        (string_of_assoc set)
         (string_of_where where)
 
 let sql_of_query q = string_of_query (flatten_query q)

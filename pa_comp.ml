@@ -326,7 +326,7 @@ let rec query_of_comp (_loc, query) = match query with
       let subtyping_witness = match set_ast with
         | (_loc, Tuple tup) ->
             let set_type =
-              let bind (_loc, (name, _)) = <:ctyp< $lid:name$ : 'name >> in
+              let bind (_loc, (name, _)) = <:ctyp< $lid:name$ : '$lid:name$ >> in
               Ast.tySem_of_list (List.map bind tup) in
             <:expr< fun (t : Sql.t < t : < $set_type$; .. > as 'a; .. >) ->
                         ($set$ : Sql.t < t : < $set_type$ >; .. > ) >>

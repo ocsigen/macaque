@@ -241,30 +241,40 @@ and string_of_from = function
 and string_of_where = function
   | [] -> ""
   | where -> " WHERE " ^ string_of_list string_of_reference " AND " where
-and string_of_row row = string_of_reference row
-and string_of_binding (name, value) =
-  let v = string_of_reference value in
-  match value with
-    | (Row _ | Tuple _), _ -> v (* flattened -> no binding *)
-    | _ -> sprintf "%s AS %s" v name
-and string_of_reference ?(string_of_binding = string_of_binding) (ref, _) =
-  let packed_string_of_reference ref =
-        let string_of_binding (name, value) = string_of_reference value in
-        sprintf "ROW(%s)" (string_of_reference ~string_of_binding ref) in
+and string_of_row (ref, ref_type) = match ref with
+  | Tuple tup ->
+      if tup = [] then "NULL"
+      else
+        let binding (id, ref) =
+          (* recursive call instead of string_of_reference
+             as there may be flattened subtuples *)
+          let ref_str = string_of_row ref in
+          match (fst ref) with
+            | Row _ | Tuple _ -> ref_str
+            | _ -> sprintf "%s AS %s" ref_str id in
+        string_of_list binding ", " tup
+  | _ -> string_of_reference (ref, ref_type)
+and string_of_assoc (assoc, _) =
+  match assoc with
+    | Tuple tup ->
+        let binding (id, ref) = sprintf "%s = %s" id (string_of_reference ref) in
+        string_of_list binding ", " tup
+    | _ -> invalid_arg "string_of_assoc"
+and string_of_reference (ref, _) =
   match ref with
     | Value v -> string_of_value v
     | Null -> "NULL"
     | Unop (op, a) ->
-        sprintf "%s(%s)" op (packed_string_of_reference a)
+        sprintf "%s(%s)" op (string_of_reference a)
     | Binop (op, a, b) -> sprintf "(%s %s %s)"
-        (packed_string_of_reference a) op (packed_string_of_reference b)
+        (string_of_reference a) op (string_of_reference b)
     | Field ((Row (row_name, _), _), fields) ->
         sprintf "%s.%s" row_name (String.concat "__" fields)
-    | Field (_, _) -> invalid_arg "string_of_row : invalid field access"
-    | Row _ -> invalid_arg "string_of_row : non-flattened query"
+    | Field (_, _) -> failwith "string_of_reference : invalid field access"
+    | Row (row_name, _) -> row_name
     | Tuple tup ->
-        if tup = [] then "NULL"
-        else string_of_list string_of_binding ", " tup
+        sprintf "ROW(%s)"
+          (string_of_list (fun (_, r) -> string_of_reference r) ", " tup)
 and string_of_field (row, name) = match name with
   | field_name when true -> sprintf "%s.%s" row field_name
   | _ -> assert false

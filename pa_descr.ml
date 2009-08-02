@@ -88,10 +88,10 @@ let table_of_descr (_loc, (name, fields)) =
                                     gettable : Sql.true_t;
                                     nullable : $bool_type nullable$;
                                     numeric : Sql.true_t > >>
-        | TString -> <:ctyp< Sql.t <t : string;
-                                    gettable : Sql.true_t;
-                                    nullable : $bool_type nullable$;
-                                    numeric : Sql.false_t > >> in
+          | TString -> <:ctyp< Sql.t < t : string;
+                                       gettable : Sql.true_t;
+                                       nullable : $bool_type nullable$;
+                                       numeric : Sql.false_t > >> in
       <:class_str_item< method $lid:name$ : $output_caml_type$ = $lid:name$ >> in
     <:expr< object $Ast.crSem_of_list (List.map field_meth fields)$ end >> in
   let result_parser =

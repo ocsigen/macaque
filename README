@@ -15,13 +15,7 @@ reasonable feature requests and good meals.
 
 == Compilation, Installation
 
-Nothing provided for now. I use ocamlbuild internally so "ocamlbuild
-bla.cmo" should work, and there are "exec.sh" and "infer.sh" scripts
-(particularly useful for tests/*.ml files), use "sh exec.sh
-tests/foo.ml" for example. I guess if you want to use macaque for now,
-you'll have to manually link the .cmo.
-
-Feel free to contribute a Makefile and/or a META file !
+Usual makefile provided : make, make install, bleh, make uninstall
 
 == Use
 

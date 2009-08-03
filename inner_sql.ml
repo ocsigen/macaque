@@ -40,6 +40,7 @@ and reference' =
   | Field of reference * field_name list
   | Binop of string * reference * reference
   | Unop of string * reference
+  | Prefixop of string * reference
   | Row of (row_name * untyped view)
   | Tuple of reference tuple
 and value =
@@ -204,6 +205,7 @@ and flatten_reference ref =
     | Value v, flat_t -> Value v, flat_t
     (* termination : subcalls on inferior reference depth *)
     | Unop (op, a), t -> Unop (op, flatten a), t
+    | Prefixop (op, a), t -> Prefixop (op, flatten a), t
     | Binop (op, a, b), t ->
         Binop (op, flatten a, flatten b), t
     | Field (row, path), t ->
@@ -266,6 +268,7 @@ and string_of_reference (ref, _) =
     | Null -> "NULL"
     | Unop (op, a) ->
         sprintf "%s(%s)" op (string_of_reference a)
+    | Prefixop (op, a) -> sprintf "(%s %s)" (string_of_reference a) op
     | Binop (op, a, b) -> sprintf "(%s %s %s)"
         (string_of_reference a) op (string_of_reference b)
     | Field ((Row (row_name, _), _), fields) ->

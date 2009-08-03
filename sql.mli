@@ -75,7 +75,7 @@ type 'a accum
 val accum : 'a t -> 'a accum
 val group_of_accum : 'a accum -> 'a group
 
-val group : 'group_const t -> 'res t -> 'res result
+val group : < t : 'group_const; .. > t -> < t : 'res; .. > t -> 'res result
 
 (** final query building *)
 type 'a query
@@ -113,15 +113,60 @@ module Op : sig
   val nullable :
     < t : 't; numeric : 'n; gettable : 'g; nullable : false_t > t ->
     < t : 't; numeric : 'n; gettable : 'g; nullable : true_t > t
+  val is_null : < nullable : true_t; .. > t ->
+    < t : bool; numeric : false_t; gettable : false_t; nullable : false_t > t
+  val is_not_null : < nullable : true_t; .. > t ->
+    < t : bool; numeric : false_t; gettable : false_t; nullable : false_t > t
 
-  val (+) :
-    (< numeric : true_t; t : 't; nullable : 'n; gettable : _ > as 'a) t -> 'a t ->
+  type 'phant arith_op = 
+    (< numeric : true_t; t : 't; nullable : 'n; .. > as 'a) t ->
+    (< numeric : true_t; t : 't; nullable : 'n; .. > as 'b) t ->
      < numeric : true_t; t : 't; nullable : 'n; gettable : false_t > t
-  val (=) :
-    (< nullable : 'n; t : _; numeric : _; gettable : _ > as 'a) t -> 'a t ->
-     < nullable : 'n; t : bool; numeric : false_t; gettable : false_t > t
-  val (&&) : (< t : bool; .. > as 'a) t -> 'a t -> 'a t
+  constraint 'phant = < t : 't; nullable : 'n; a : 'a; b : 'b >
 
-  val count : 'a group ->
-    < t : int; numeric : true_t; nullable : false_t; gettable : true_t > t
+  val (+) : _ arith_op
+  val (-) : _ arith_op
+  val (/) : _ arith_op
+  val ( * ) : _ arith_op
+
+  type 'phant comp_op = 
+     (< nullable : 'nul; t : 't; numeric : 'num; .. > as 'a) t ->
+     (< nullable : 'nul; t : 't; numeric : 'num; .. > as 'b) t ->
+      < nullable : 'nul; t : bool; numeric : false_t; gettable : false_t > t
+  constraint 'phant = < nullable : 'nul; t : 't; numeric : 'num; a : 'a; b : 'b >
+
+  val (<) : _ comp_op
+  val (<=) : _ comp_op
+  val (=) : _ comp_op
+  val (<>) : _ comp_op
+  val (>=) : _ comp_op
+  val (>) : _ comp_op
+  val is_distinct_from :
+    < nullable : 'n; t : 't; .. > t ->
+    < nullable : 'n; t : 't; .. > t ->
+    < nullable : false_t; t : bool; gettable : false_t; numeric : false_t > t    
+  val is_not_distinct_from :
+    < nullable : 'n; t : 't; .. > t ->
+    < nullable : 'n; t : 't; .. > t ->
+    < nullable : false_t; t : bool; gettable : false_t; numeric : false_t > t
+
+  type 'phant logic_op =
+    (< t : bool; nullable : 'n; .. > as 'a) t ->
+    (< t : bool; nullable : 'n; .. > as 'b) t ->
+     < t : bool; nullable : 'n; numeric : false_t; gettable : false_t > t
+  constraint 'phant = < nullable : 'n; a : 'a; b : 'b >
+  val (&&) : _ logic_op
+  val (||) : _ logic_op
+  val not :
+    < t : bool; nullable : 'n; .. > t ->
+    < t : bool; nullable : 'n; numeric : false_t; gettable : false_t > t
+
+  val count : _ group ->
+    < t : int; numeric : true_t; nullable : false_t; gettable : false_t > t
+  val max :
+    < t : 't; numeric : true_t; nullable : 'n; gettable : _ > group ->
+    < t : 't; numeric : true_t; nullable : 'n; gettable : false_t > t
+  val sum :
+    < t : 't; numeric : true_t; nullable : 'n; gettable : _ > group ->
+    < t : 't; numeric : true_t; nullable : 'n; gettable : false_t > t
 end

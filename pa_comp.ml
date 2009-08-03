@@ -145,6 +145,7 @@ let () =
    atom: [[ `ANTIQUOT("", v) -> quote _loc v
            | `INT(i, _) -> <:expr< Sql.Data.int $`int:i$ >>
            | `STRING(_, s) -> <:expr< Sql.Data.string $`str:s$ >>
+           | `FLOAT(f, _) -> <:expr< Sql.Data.float $`flo:f$ >>
            | "true" -> <:expr< Sql.Data.bool True >>
            | "false" -> <:expr< Sql.Data.bool False >>
            | `ANTIQUOT( (* PGOcaml data types *)

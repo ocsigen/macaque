@@ -103,6 +103,9 @@ module Op = struct
        | Nullable t -> Nullable t
 
   let null = Null, Nullable None
+  let is_null ref = Prefixop("IS NULL", ref), Non_nullable TBool
+  let is_not_null ref = Prefixop("IS NOT NULL", ref), Non_nullable TBool
+
   let option constr = function
     | None -> null
     | Some x -> nullable (constr x)
@@ -127,19 +130,46 @@ module Op = struct
             | None, None -> Null, None in
           op, Nullable t
 
+  let same_op = op (fun t -> t)
   let mono_op t = op (fun t' -> assert (t = t'); t)
   let poly_op return_t = op (fun _ -> return_t)
 
-  let comp op = poly_op TBool op
-  let logic op = mono_op TBool op
-  let arith op = mono_op TInt op
+  type 'phant arith_op = 
+    (< numeric : true_t; t : 't; nullable : 'n; .. > as 'a) t ->
+    (< numeric : true_t; t : 't; nullable : 'n; .. > as 'b) t ->
+     < numeric : true_t; t : 't; nullable : 'n; gettable : false_t > t
+  constraint 'phant = < t : 't; nullable : 'n; a : 'a; b : 'b >
+  let arith op = same_op op
 
-  let (<), (=) = comp "<", comp "="
-  let (&&) = logic "&&"
-  let (||) = logic "||"
-  let (+) = arith "+"
+  let (+), (-), (/), ( * ) =
+    arith "+", arith "-", arith "/", arith "*"
+
+  type 'phant comp_op = 
+     (< nullable : 'nul; t : 't; numeric : 'num; .. > as 'a) t ->
+     (< nullable : 'nul; t : 't; numeric : 'num; .. > as 'b) t ->
+      < nullable : 'nul; t : bool; numeric : false_t; gettable : false_t > t
+  constraint 'phant = < nullable : 'nul; t : 't; numeric : 'num; a : 'a; b : 'b >
+  let comp op = poly_op TBool op
+
+  let (<), (<=), (<>), (=), (>=), (>) =
+    comp "<", comp "<=", comp "<>", comp "=", comp ">=", comp ">"
+  let is_distinct_from a b = Binop ("IS DISTINCT FROM", a, b), Non_nullable TBool
+  let is_not_distinct_from a b = Binop ("IS NOT DISTINCT FROM", a, b), Non_nullable TBool
+
+  type 'phant logic_op =
+    (< t : bool; nullable : 'n; .. > as 'a) t ->
+    (< t : bool; nullable : 'n; .. > as 'b) t ->
+     < t : bool; nullable : 'n; numeric : false_t; gettable : false_t > t
+  constraint 'phant = < nullable : 'n; a : 'a; b : 'b >
+  let logic op = mono_op TBool op
+
+  let (&&), (||) = logic "AND", logic "OR"
+
+  let not (ref, typ) = Unop ("NOT", (ref, typ)), typ
 
   let count x = Unop ("count", x), Non_nullable TInt
+  let max (v, t) = Unop ("max", (v, t)), t
+  let sum (v, t) = Unop ("sum", (v, t)), t
 end
 
 type 'a result = select_result * field_type

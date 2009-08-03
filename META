@@ -1,0 +1,13 @@
+name="macaque"
+version="BETA"
+description="MaCaQue, Macros for Caml Queries : a typed SQL DSL for Caml"
+requires="pgocaml"
+archive(byte)="macaque.cma"
+
+package "syntax" (
+  requires = "macaque,camlp4"
+  version = "BETA"
+  description = "Syntax extension: Comprehension syntax for composable SQL statements"
+  archive(syntax,preprocessor) = "pa_comp.cmo pa_descr.cmo"
+  archive(syntax,toploop) = "pa_comp.cmo pa_descr.cmo"
+)

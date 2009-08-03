@@ -134,20 +134,20 @@ module Op = struct
   let mono_op t = op (fun t' -> assert (t = t'); t)
   let poly_op return_t = op (fun _ -> return_t)
 
-  type 'phant arith_op = 
-    (< numeric : true_t; t : 't; nullable : 'n; .. > as 'a) t ->
-    (< numeric : true_t; t : 't; nullable : 'n; .. > as 'b) t ->
-     < numeric : true_t; t : 't; nullable : 'n; gettable : false_t > t
+  type 'phant arith_op = 'a t -> 'b t -> 'c t
+  constraint 'a = < numeric : true_t; t : 't; nullable : 'n; .. >
+  constraint 'b = < numeric : true_t; t : 't; nullable : 'n; .. >
+  constraint 'c = < numeric : true_t; t : 't; nullable : 'n; gettable : false_t >
   constraint 'phant = < t : 't; nullable : 'n; a : 'a; b : 'b >
   let arith op = same_op op
 
   let (+), (-), (/), ( * ) =
     arith "+", arith "-", arith "/", arith "*"
 
-  type 'phant comp_op = 
-     (< nullable : 'nul; t : 't; numeric : 'num; .. > as 'a) t ->
-     (< nullable : 'nul; t : 't; numeric : 'num; .. > as 'b) t ->
-      < nullable : 'nul; t : bool; numeric : false_t; gettable : false_t > t
+  type 'phant comp_op = 'a t -> 'b t -> 'c t
+  constraint 'a = < nullable : 'nul; t : 't; numeric : 'num; .. >
+  constraint 'b = < nullable : 'nul; t : 't; numeric : 'num; .. >
+  constraint 'c = < nullable : 'nul; t : bool; numeric : false_t; gettable : false_t >
   constraint 'phant = < nullable : 'nul; t : 't; numeric : 'num; a : 'a; b : 'b >
   let comp op = poly_op TBool op
 
@@ -156,10 +156,10 @@ module Op = struct
   let is_distinct_from a b = Binop ("IS DISTINCT FROM", a, b), Non_nullable TBool
   let is_not_distinct_from a b = Binop ("IS NOT DISTINCT FROM", a, b), Non_nullable TBool
 
-  type 'phant logic_op =
-    (< t : bool; nullable : 'n; .. > as 'a) t ->
-    (< t : bool; nullable : 'n; .. > as 'b) t ->
-     < t : bool; nullable : 'n; numeric : false_t; gettable : false_t > t
+  type 'phant logic_op = 'a t -> 'b t -> 'c t
+  constraint 'a = < t : bool; nullable : 'n; .. >
+  constraint 'b = < t : bool; nullable : 'n; .. >
+  constraint 'c = < t : bool; nullable : 'n; numeric : false_t; gettable : false_t >
   constraint 'phant = < nullable : 'n; a : 'a; b : 'b >
   let logic op = mono_op TBool op
 

@@ -118,10 +118,10 @@ module Op : sig
   val is_not_null : < nullable : true_t; .. > t ->
     < t : bool; numeric : false_t; gettable : false_t; nullable : false_t > t
 
-  type 'phant arith_op = 
-    (< numeric : true_t; t : 't; nullable : 'n; .. > as 'a) t ->
-    (< numeric : true_t; t : 't; nullable : 'n; .. > as 'b) t ->
-     < numeric : true_t; t : 't; nullable : 'n; gettable : false_t > t
+  type 'phant arith_op = 'a t -> 'b t -> 'c t
+  constraint 'a = < numeric : true_t; t : 't; nullable : 'n; .. >
+  constraint 'b = < numeric : true_t; t : 't; nullable : 'n; .. >
+  constraint 'c = < numeric : true_t; t : 't; nullable : 'n; gettable : false_t >
   constraint 'phant = < t : 't; nullable : 'n; a : 'a; b : 'b >
 
   val (+) : _ arith_op
@@ -129,10 +129,10 @@ module Op : sig
   val (/) : _ arith_op
   val ( * ) : _ arith_op
 
-  type 'phant comp_op = 
-     (< nullable : 'nul; t : 't; numeric : 'num; .. > as 'a) t ->
-     (< nullable : 'nul; t : 't; numeric : 'num; .. > as 'b) t ->
-      < nullable : 'nul; t : bool; numeric : false_t; gettable : false_t > t
+  type 'phant comp_op = 'a t -> 'b t -> 'c t
+  constraint 'a = < nullable : 'nul; t : 't; numeric : 'num; .. >
+  constraint 'b = < nullable : 'nul; t : 't; numeric : 'num; .. >
+  constraint 'c = < nullable : 'nul; t : bool; numeric : false_t; gettable : false_t >
   constraint 'phant = < nullable : 'nul; t : 't; numeric : 'num; a : 'a; b : 'b >
 
   val (<) : _ comp_op
@@ -144,17 +144,18 @@ module Op : sig
   val is_distinct_from :
     < nullable : 'n; t : 't; .. > t ->
     < nullable : 'n; t : 't; .. > t ->
-    < nullable : false_t; t : bool; gettable : false_t; numeric : false_t > t    
+    < nullable : false_t; t : bool; gettable : false_t; numeric : false_t > t
   val is_not_distinct_from :
     < nullable : 'n; t : 't; .. > t ->
     < nullable : 'n; t : 't; .. > t ->
     < nullable : false_t; t : bool; gettable : false_t; numeric : false_t > t
 
-  type 'phant logic_op =
-    (< t : bool; nullable : 'n; .. > as 'a) t ->
-    (< t : bool; nullable : 'n; .. > as 'b) t ->
-     < t : bool; nullable : 'n; numeric : false_t; gettable : false_t > t
+  type 'phant logic_op = 'a t -> 'b t -> 'c t
+  constraint 'a = < t : bool; nullable : 'n; .. >
+  constraint 'b = < t : bool; nullable : 'n; .. >
+  constraint 'c = < t : bool; nullable : 'n; numeric : false_t; gettable : false_t >
   constraint 'phant = < nullable : 'n; a : 'a; b : 'b >
+
   val (&&) : _ logic_op
   val (||) : _ logic_op
   val not :

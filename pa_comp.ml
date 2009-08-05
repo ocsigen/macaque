@@ -204,7 +204,10 @@ let rec view_of_comp (_loc, (result, items)) =
     | Cond cond ->
         let where_item =
           <:expr< Sql.untyped $reference_of_comp env (_loc, cond)$ >> in
-        (from, where_item :: where, env, code_cont)
+        let where_name = "where_" ^ string_of_int (Random.int max_int) in
+        let code_cont k = code_cont
+          <:expr< let $lid:where_name$ = $where_item$ in $k$ >> in
+        (from, <:expr< $lid:where_name$ >> :: where, env, code_cont)
     | Bind (name, table) ->
         let name, env = Env.new_row name env in
         let from_item = <:expr< ($str:name$, Sql.untyped_view $table_of_comp table$) >> in

@@ -183,7 +183,7 @@ end = struct
   let unique name env =
     let rec unique name env =
       if not (SSet.mem name env.used) then name
-      else unique (name ^ "'") env in
+      else unique (name ^ "_") env in
     let name' = unique name env in
     name', { used = SSet.add name' env.used;
              map = SMap.add name name' env.map }
@@ -209,10 +209,10 @@ let rec view_of_comp (_loc, (result, items)) =
           <:expr< let $lid:where_name$ = $where_item$ in $k$ >> in
         (from, <:expr< $lid:where_name$ >> :: where, env, code_cont)
     | Bind (name, table) ->
-        let name, env = Env.new_row name env in
-        let from_item = <:expr< ($str:name$, Sql.untyped_view $table_of_comp table$) >> in
+        let name_str, env = Env.new_row name env in
+        let from_item = <:expr< ($str:name_str$, Sql.untyped_view $table_of_comp table$) >> in
         let code_cont k =
-          let runtime_name = <:expr< Sql.unsafe $str:name$ >> in
+          let runtime_name = <:expr< Sql.unsafe $str:name_str$ >> in
           code_cont
             <:expr< let $lid:name$ =
                       Sql.row $runtime_name$ $table_of_comp table$ in
@@ -276,7 +276,7 @@ and result_of_comp env (_loc, r) = match r with
                   $reference_of_comp env result_tuple$ >>
 and reference_of_comp env (_loc, r) = match r with
   | Value v -> v
-  | Ident row -> <:expr< $lid:Env.row row env$ >>
+  | Ident row -> <:expr< $lid:row$ >>
   | Accum expr -> <:expr< Sql.group_of_accum $reference_of_comp env expr$ >>
   | Op (op, operands) ->
       let operation expr e = <:expr< $expr$ $reference_of_comp env e$ >> in

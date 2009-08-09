@@ -334,8 +334,8 @@ let rec query_of_comp (_loc, query) = match query with
               let set_type =
                 let bind (_loc, (name, _)) = <:ctyp< $lid:name$ : '$lid:name$ >> in
                 Ast.tySem_of_list (List.map bind tup) in
-              <:expr< (set :> Sql.t < t : < t : < $set_type$ > > >) =
-                    ($row$ :> Sql.t < t : < t : < $set_type$ > > >) >>
+              <:expr< (set :> Sql.t (Sql.type_info_only < $set_type$ >)) =
+                    ($row$ :> Sql.t (Sql.type_info_only < $set_type$ >)) >>
           | (_loc, _) ->
               if !warn_undetermined_update then
                 Syntax.print_warning _loc warn_undetermined_update_message;

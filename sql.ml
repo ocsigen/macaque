@@ -21,7 +21,7 @@
 type nullable
 type non_nullable
 
-class type ['t] type_info = object method t : 't end
+class type ['t] type_info = object method typ : 't end
 class type numeric_t = object method numeric : unit end
 
 class type int_t = object inherit [int] type_info inherit numeric_t end
@@ -31,16 +31,20 @@ class type string_t = object inherit [string] type_info end
 
 class type ['row] row_t = object inherit ['row] type_info end
 
+type 't type_info_only = < t : 't type_info >
+
 open Inner_sql
 
 type 'a t = reference
 
-type 'a result_parser = 'a Inner_sql.result_parser
 type untyped = Inner_sql.untyped
+type 'a result_parser = 'a Inner_sql.result_parser
+
+let untyped x = x
 
 let untyped_view = Inner_sql.unsafe_view
 
-type +'a view = 'a Inner_sql.view
+type 'a view = 'a Inner_sql.view
 and from = (string * untyped view) list
 and where = untyped t list
 
@@ -71,7 +75,7 @@ let parse ref =
 
 type 'a unsafe = 'a
 let unsafe x = x
-let untyped x = x
+
 let force_gettable x = x
 
 let field row path checker =
@@ -267,6 +271,5 @@ let handle_query_results sql_query result =
     | Select comp ->
         Obj.magic (List.map (parser_of_comp comp) result)
     | _ -> Obj.magic ()
-
 
 

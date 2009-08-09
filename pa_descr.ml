@@ -30,9 +30,7 @@ let () = Options.add "-check_tables" (Arg.Set coherence_check)
 (** Description (syntaxic form) structure *)
 type descr = table_name * field_descr list
 and field_descr = field_name * sql_type * nullable
-and sql_type =
-  | TInt
-  | TString
+and sql_type = ident
 and table_name = ident
 and field_name = ident
 and nullable = bool
@@ -49,14 +47,13 @@ let () =
     table_descr: [[ name = table_name;
                     "("; fields = LIST0 field_descr SEP ","; ")" ->
                       (_loc, (name, fields)) ]];
-    field_descr: [[ name = LIDENT; typ = sql_type; is_null = nullable ->
-                      (name, typ, is_null) ]];
-    sql_type: [[ "integer" -> TInt | "text" -> TString ]];
+    field_descr: [[ name = LIDENT; typ = LIDENT; is_null = nullable ->
+                      (_loc, (name, typ, is_null)) ]];
     nullable: [[ "NOT"; "NULL" -> false
                | "NULL" -> true
                | -> true ]];
     table_name: [[ schema = LIDENT; ".";  name = LIDENT -> (Some schema, name)
-                  | name = LIDENT -> (None, name) ]];
+                 | name = LIDENT -> (None, name) ]];
   END;;
 
 let camlp4_list _loc =
@@ -66,56 +63,39 @@ let camlp4_list _loc =
   to_list
 
 (** Code emission from the syntaxic form *)
-let table_of_descr (_loc, (name, fields)) =
+let table_of_descr (_loc, (name, field_types)) =
+  let type_bindings =
+    let module_name = function
+      | true -> "Nullable_type"
+      | flase -> "Non_nullable_type" in
+    let bind (_loc, (name, sql_type, nullability)) =
+      let uid = module_name nullability and lid = sql_type in
+      <:binding< $lid:name$ = Table.$uid:uid$.$lid:lid$ >> in
+    Ast.biAnd_of_list (List.map bind field_types) in
+  let fields = List.map (fun (_loc, (name, _, _)) -> (_loc, name)) field_types in
   let descr =
-    let field_descr (name, sql_type, nullable) =
-      let output_sql_type =
-        let _type = match sql_type with
-        | TInt -> <:expr< Inner_sql.TInt >>
-        | TString -> <:expr< Inner_sql.TString >> in
-        if not nullable then <:expr< Inner_sql.Non_nullable $_type$ >>
-        else <:expr< Inner_sql.Nullable (Some $_type$) >> in
-      <:expr< ($str:name$, $output_sql_type$) >> in
+    let field_descr (_loc, name) =
+      <:expr< ($str:name$, Table.untyped_column $lid:name$) >> in
     camlp4_list _loc (List.map field_descr fields) in
-  let obj =
-    let field_meth (name, sql_type, nullable) =
-      let output_caml_type =
-        let nullability = function
-          | true -> <:ctyp< Sql.nullable >>
-          | false -> <:ctyp< Sql.non_nullable >> in
-        match sql_type with
-          | TInt -> <:ctyp< Sql.t < t : Sql.int_t;
-                                    get : unit;
-                                    nul : $nullability nullable$ > >>
-          | TString -> <:ctyp< Sql.t < t : Sql.string_t;
-                                       get : unit;
-                                       nul : $nullability nullable$ > >> in
-      <:class_str_item< method $lid:name$ : $output_caml_type$ = $lid:name$ >> in
-    <:expr< object $Ast.crSem_of_list (List.map field_meth fields)$ end >> in
   let result_parser =
-    let decl (name, _, _) decls =
-      (* TODO proper parsing *)
-      <:expr< let $lid:name$ =
-        Inner_sql.use_unsafe_parser
-          (Inner_sql.parser_of_type (List.assoc $str:name$ descr))
-          input in
-      $decls$ >> in
-    <:expr< fun input -> $List.fold_right decl fields obj$ >> in
+    let parser_binding (_loc, name) =
+      <:binding< $lid:name$ = poly_parser.Table.of_type $lid:name$ >> in
+    let value_binding (_loc, name) =
+      <:binding< $lid:name$ = $lid:name$ input >> in
+    let meth (_loc, name) = <:class_str_item< method $lid:name$ = $lid:name$ >> in
+    <:expr<
+      fun poly_parser ->
+        let $Ast.biAnd_of_list (List.map parser_binding fields)$ in
+        (fun input ->
+           let $Ast.biAnd_of_list (List.map value_binding fields)$ in
+         object $Ast.crSem_of_list (List.map meth fields)$ end) >> in
   let name_expr = match name with
     | (None, table) -> <:expr< (None, $str:table$) >>
     | (Some schema, table) -> <:expr< (Some $str:schema$, $str:table$) >> in
-  let table =
-    <:expr<
-      let descr = $descr$ in
-      { Inner_sql.concrete = Inner_sql.Table $name_expr$;
-        Inner_sql.descr = descr;
-        Inner_sql.result_parser = ($result_parser$) }
-      >> in
-  let to_sql table =
-    <:expr< (Obj.magic ($table$ : Inner_sql.view 'a) : Sql.view 'a) >> in
-  if not !coherence_check then to_sql table
-  else <:expr< let table = $table$ in
-               do { Check.check table; $to_sql <:expr< table >>$ } >>
+  let table = <:expr< let $type_bindings$ in
+                      Table.table $descr$ $result_parser$ $name_expr$ >> in
+  if not !coherence_check then table
+  else <:expr< let table = $table$ in do { Check.check table; table } >>
 
 (** Quotations setup *)
 let () =

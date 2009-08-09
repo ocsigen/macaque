@@ -31,6 +31,9 @@ class type string_t = object inherit [string] type_info end
 
 class type ['row] row_t = object inherit ['row] type_info end
 
+(* used in some coercicions scenario, eg. update *)
+type 't type_info_only = < t : 't type_info >
+
 type +'a t
 
 type 'a result_parser = string array * int ref -> 'a
@@ -118,7 +121,7 @@ end
 (** standard operators (usable from user code) *)
 module Op : sig
   val null :
-    < t : < t : 'a; numeric : unit >; nul : nullable; get : unit > t
+    < t : < typ : 'a; numeric : unit >; nul : nullable; get : unit > t
   val nullable :
     < t : 't; nul : non_nullable; .. > t -> < t : 't; nul : nullable > t
   val is_null :
@@ -127,10 +130,10 @@ module Op : sig
     < nul : nullable; .. > t -> < t : bool_t; nul : non_nullable > t
 
   type 'phant arith_op = 'a t -> 'b t -> 'c t
-  constraint 'a = < t : < t : 't; numeric : _ >; nul : 'n; .. >
-  constraint 'b = < t : < t : 't; numeric : _ >; nul : 'n; .. >
-  constraint 'c = < t : < t : 't; numeric : unit >; nul : 'n >
-  constraint 'phant = < t : 't; nul : 'n; a : 'a; b : 'b >
+  constraint 'a = < t : < typ : 't; numeric : _ >; nul : 'n; .. >
+  constraint 'b = < t : < typ : 't; numeric : _ >; nul : 'n; .. >
+  constraint 'c = < t : < typ : 't; numeric : unit >; nul : 'n >
+  constraint 'phant = < typ : 't; nul : 'n; a : 'a; b : 'b >
 
   val (+) : _ arith_op
   val (-) : _ arith_op

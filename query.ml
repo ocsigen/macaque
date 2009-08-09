@@ -18,26 +18,42 @@
     Boston, MA 02111-1307, USA.
 *)
 
-let nullable = function
-  | None -> "NULL"
-  | Some str -> str
+module type DATABASE = PGOCaml_generic.PGOCAML_GENERIC
 
-let query dbh sql_query =
-  let query = Sql.sql_of_query sql_query in
-  print_endline query;
-  let name = "query_result" in
-  ignore (PGOCaml.prepare dbh ~query ~name ());
-  let result =
-    try `Result (PGOCaml.execute dbh ~name ~params:[] ())
-    with exn -> `Exn exn in
-  PGOCaml.close_statement dbh ~name ();
-  let result = match result with
-    | `Result res ->
-        let prepare_row row =
-          Sql.unsafe (Array.of_list (List.map nullable row)) in
-        List.map prepare_row res
-    | `Exn exn -> raise exn in
-  Sql.handle_query_results sql_query result
+module type QUERY = sig
+  type 'a t
+  type 'a monad
 
-let view dbh view =
-  query dbh (Sql.select view)
+  val query : _ t -> 'a Sql.query -> 'a monad
+
+  val view : _ t -> 'a Sql.view -> 'a list monad
+end
+
+module Make (Db : DATABASE) = struct
+  type 'a monad = 'a Db.monad
+  type 'a t = 'a Db.t
+  
+  let (>>=) = Db.bind
+
+  let nullable = function
+    | None -> "NULL"
+    | Some str -> str
+
+  let query dbh sql_query =
+    let query = Sql.sql_of_query sql_query in
+    print_endline query;
+    let name = "query_result" in
+    Db.prepare dbh ~query ~name () >>= fun () ->
+    Db.execute dbh ~name ~params:[] () >>= fun result ->
+    Db.close_statement dbh ~name () >>= fun () ->
+    let result =
+      let prepare_row row =
+        Sql.unsafe (Array.of_list (List.map nullable row)) in
+      List.map prepare_row result in
+    Db.return (Sql.handle_query_results sql_query result)
+
+  let view dbh view =
+    query dbh (Sql.select view)
+end
+
+module Simple = Make(PGOCaml)

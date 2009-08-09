@@ -20,14 +20,14 @@ let () =
        | Some row ->
            Printf.printf "a:%d\tb:%d\tc:%d\td:%d\n%!"
            !(x#a) !(x#b) !(row#c) !(row#d))
-  (Query.query dbh (pack << {c = 3; d = 4} | >>));
+  (Query.Simple.query dbh (pack << {c = 3; d = 4} | >>));
   List.iter
     (fun x ->
        let row = !(x#row) in
        let row' = !(row#row) in
        Printf.printf "a:%d\tb:%d\tc:%d\td:%d\te:%d\n%!"
          !(x#a) !(x#b) !(row#c) !(row'#d) !(row'#e))
-    (Query.query dbh pack2);
+    (Query.Simple.query dbh pack2);
   List.iter
     (fun x ->
        let a_row = !(x#a_row) in
@@ -36,4 +36,4 @@ let () =
        let c_row2 = !(b_row#c_row2) in
        Printf.printf "a:%d\tb:%d\tc:%d\td:%d\te:%d\tf:%d\n%!"
          !(x#a) !(a_row#b) !(b_row#c) !(c_row#d) !(c_row2#e) !(x#f))
-    (Query.query dbh pack3)
+    (Query.Simple.query dbh pack3)

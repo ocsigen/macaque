@@ -18,6 +18,21 @@
     Boston, MA 02111-1307, USA.
 *)
 
-val query : _ PGOCaml.t -> 'a Sql.query -> 'a
+module type DATABASE = PGOCaml_generic.PGOCAML_GENERIC
 
-val view : _ PGOCaml.t -> 'a Sql.view -> 'a list
+module type QUERY = sig
+  type 'a t
+  type 'a monad
+
+  val query : _ t -> 'a Sql.query -> 'a monad
+
+  val view : _ t -> 'a Sql.view -> 'a list monad
+end
+
+module Make : functor (Db : DATABASE) ->
+  QUERY with type 'a monad = 'a Db.monad
+        and type 'a t = 'a Db.t
+
+module Simple : QUERY
+  with type 'a monad = 'a
+  and type 'a t = 'a PGOCaml.t

@@ -80,18 +80,16 @@ let table_of_descr (_loc, (name, fields)) =
   let obj =
     let field_meth (name, sql_type, nullable) =
       let output_caml_type =
-        let bool_type = function
-          | true -> <:ctyp< Sql.true_t >>
-          | false -> <:ctyp< Sql.false_t >> in
+        let nullability = function
+          | true -> <:ctyp< Sql.nullable >>
+          | false -> <:ctyp< Sql.non_nullable >> in
         match sql_type with
-          | TInt -> <:ctyp< Sql.t < t : int;
-                                    gettable : Sql.true_t;
-                                    nullable : $bool_type nullable$;
-                                    numeric : Sql.true_t > >>
-          | TString -> <:ctyp< Sql.t < t : string;
-                                       gettable : Sql.true_t;
-                                       nullable : $bool_type nullable$;
-                                       numeric : Sql.false_t > >> in
+          | TInt -> <:ctyp< Sql.t < t : Sql.int_t;
+                                    get : unit;
+                                    nul : $nullability nullable$ > >>
+          | TString -> <:ctyp< Sql.t < t : Sql.string_t;
+                                       get : unit;
+                                       nul : $nullability nullable$ > >> in
       <:class_str_item< method $lid:name$ : $output_caml_type$ = $lid:name$ >> in
     <:expr< object $Ast.crSem_of_list (List.map field_meth fields)$ end >> in
   let result_parser =

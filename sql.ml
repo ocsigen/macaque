@@ -18,8 +18,18 @@
     Boston, MA 02111-1307, USA.
 *)
 
-type true_t
-type false_t
+type nullable
+type non_nullable
+
+class type ['t] type_info = object method t : 't end
+class type numeric_t = object method numeric : unit end
+
+class type int_t = object inherit [int] type_info inherit numeric_t end
+class type bool_t = object inherit [bool] type_info end
+class type float_t = object inherit [float] type_info inherit numeric_t end
+class type string_t = object inherit [string] type_info end
+
+class type ['row] row_t = object inherit ['row] type_info end
 
 open Inner_sql
 
@@ -135,20 +145,22 @@ module Op = struct
   let poly_op return_t = op (fun _ -> return_t)
 
   type 'phant arith_op = 'a t -> 'b t -> 'c t
-  constraint 'a = < numeric : true_t; t : 't; nullable : 'n; .. >
-  constraint 'b = < numeric : true_t; t : 't; nullable : 'n; .. >
-  constraint 'c = < numeric : true_t; t : 't; nullable : 'n; gettable : false_t >
-  constraint 'phant = < t : 't; nullable : 'n; a : 'a; b : 'b >
+  constraint 'a = < t : < typ : 't; numeric : _ >; nul : 'n; .. >
+  constraint 'b = < t : < typ : 't; numeric : _ >; nul : 'n; .. >
+  constraint 'c = < t : < typ : 't; numeric : unit >; nul : 'n >
+  constraint 'phant = < typ : 't; nul : 'n; a : 'a; b : 'b >
+
   let arith op = same_op op
 
   let (+), (-), (/), ( * ) =
     arith "+", arith "-", arith "/", arith "*"
 
   type 'phant comp_op = 'a t -> 'b t -> 'c t
-  constraint 'a = < nullable : 'nul; t : 't; numeric : 'num; .. >
-  constraint 'b = < nullable : 'nul; t : 't; numeric : 'num; .. >
-  constraint 'c = < nullable : 'nul; t : bool; numeric : false_t; gettable : false_t >
-  constraint 'phant = < nullable : 'nul; t : 't; numeric : 'num; a : 'a; b : 'b >
+  constraint 'a = < t : 't; nul : 'nul; .. >
+  constraint 'b = < t : 't; nul : 'nul; .. >
+  constraint 'c = < t : bool_t; nul : 'nul >
+  constraint 'phant = < nul : 'nul; t : 't; a : 'a; b : 'b >
+
   let comp op = poly_op TBool op
 
   let (<), (<=), (<>), (=), (>=), (>) =
@@ -157,10 +169,11 @@ module Op = struct
   let is_not_distinct_from a b = Binop ("IS NOT DISTINCT FROM", a, b), Non_nullable TBool
 
   type 'phant logic_op = 'a t -> 'b t -> 'c t
-  constraint 'a = < t : bool; nullable : 'n; .. >
-  constraint 'b = < t : bool; nullable : 'n; .. >
-  constraint 'c = < t : bool; nullable : 'n; numeric : false_t; gettable : false_t >
-  constraint 'phant = < nullable : 'n; a : 'a; b : 'b >
+  constraint 'a = < t : #bool_t; nul : 'n; .. >
+  constraint 'b = < t : #bool_t; nul : 'n; .. >
+  constraint 'c = < t : bool_t; nul : 'n >
+  constraint 'phant = < nul : 'n; a : 'a; b : 'b >
+
   let logic op = mono_op TBool op
 
   let (&&), (||) = logic "AND", logic "OR"

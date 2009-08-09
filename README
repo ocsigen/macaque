@@ -204,30 +204,28 @@ error messages with ugly as hell unification problems. Hopes this
 section helps.
 
 Sql values are packed in a phantom type providing several information
-about the value. It is an object type with a field "t" whose type
-reflect the type of the underlying value : < t: int; .. > Sql.t is
-a SQL int.
+about the value. It is an object type with a field 't' containing type
+information, and other fields for value information.
 
-phantom_types rely on type-level bools, two abstract 'true_t' and
-'false_t' types declared at the beginning of sql.ml.
+Type information fields :
+ - 'typ' : the corresponding caml type (eg. <t : int>); Sql.null has
+   a polymorphic 't' field, as "None" for option types
+ - 'numeric' : allows for numerical operators overloading (see Sql.Op.(+) type)
 
-Besides 't', the following fields are provided :
-
-- 'nullable', phantom type propaging nullability information :
-   is true_t if the value can be NULL, false_t otherwise
-
-- 'numeric' : true for some data types for arithmetic operators
-  overloading purposes : true_t if arithmetic operations (+ - / *
-  etc.) can be applied to values of that type, false_t otherwise
-
-- 'gettable' : just-built sql values (<:value< 1 >>, etc.) or values
-  retrieved from a SQL query are 'gettable' : you can ask for their
-  values using the two accessors 'get' and 'getn' (get nullable) functions :
-         get : < t : 'a; nullable : false_t; gettable : true_t; .. > Sql.t -> 'a
-         getn : < t : 'a; nullable : true_t; gettable : true_t; .. > Sql.t -> 'a option
-  On the contrary, values built from SQL operators or field access can
-  not be transformed back into caml values without being first sent to
-  the SQL server as part of a query : they have gettable : false_t.
+Value information fields :
+ - 'nul' field : nullability information, is either Sql.nullable or
+   Sql.non_nullable. Constants from the Sql.Data operators have
+   a polymorphic 'nul' field, so that they can be used in both
+   nullability context
+ - 'get' : just-built sql values (<:value< 1 >>, etc.) or values
+   retrieved from a SQL query are gettable : you can ask for their
+   corresponding caml value values using the two accessors Sql.get and
+   Sql.getn (get nullable) :
+         get : < t : < typ : 'a; ..>; nul : non_nullable; get : _; .. > Sql.t -> 'a
+         getn : < t : <typ : 'a; ..>; nul : nullable; get : _; .. > Sql.t -> 'a option
+   On the contrary, values built from SQL operators or field access can
+   not be transformed back into caml values without being first sent to
+   the SQL server as part of a query : they don't have a 'get' field.
 
 Now, you probably understand why the error messages tends to be
 slightly longer than usual. And all sql values carry such information,
@@ -251,8 +249,8 @@ boundaries, and has access to the same information that the user
 has. Concretely, as most of the operations needed by those extensions
 are not typable inside the OCaml type system (for example dynamic
 construction of an object based on a list of field names and values),
-some unsafe operations had to be exposed through Sql interface
-[1]. They are marked with the "unsafe" parametrized type (wich is only
+some unsafe operations had to be exposed through Sql interface [1].
+They are marked with the "unsafe" parametrized type (wich is only
 there for documentation purposes) and you should NOT use them : every
 function having an "unsafe" type somewhere in its interface is
 considered forbidden. All the other functions should be type-safe,
@@ -264,7 +262,7 @@ by typing and you won't get a segfault, I hope I hope I hope
 
 ==== Update subtyping problem
 
-An example of update syntax is << t <- $tab$ := {amount = t.amout + 1} >>,
+An example of update syntax is << t <- $tab$ := {amount = t.amout + 1} >>,-
 wich increment the "amout" column of all rows in table `tab`. Table
 `tab` probably has more fields than just the "amount" colum, so the
 type of the tuple on the right should be a subtype of `table` row

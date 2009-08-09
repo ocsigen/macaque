@@ -327,22 +327,24 @@ let rec query_of_comp (_loc, query) = match query with
       let table, row_name, binding = query_binding binding in
       let where = query_where where in
       let set = query_reference set_ast in
-      let subtyping_witness = match set_ast with
-        | (_loc, Tuple tup) ->
-            let set_type =
-              let bind (_loc, (name, _)) = <:ctyp< $lid:name$ : '$lid:name$ >> in
-              Ast.tySem_of_list (List.map bind tup) in
-            <:expr< fun (t : Sql.t < t : < $set_type$; .. > as 'a; .. >) ->
-                        ($set$ : Sql.t < t : < $set_type$ >; .. > ) >>
-        | (_loc, _) ->
-            if !warn_undetermined_update then
-              Syntax.print_warning _loc warn_undetermined_update_message;
-            <:expr< fun t -> t >> in
+      let subtyping_witness =
+        let row = <:expr< Sql.row (Sql.unsafe "update row") table >> in
+        match set_ast with
+          | (_loc, Tuple tup) ->
+              let set_type =
+                let bind (_loc, (name, _)) = <:ctyp< $lid:name$ : '$lid:name$ >> in
+                Ast.tySem_of_list (List.map bind tup) in
+              <:expr< (set :> Sql.t < t : < t : < $set_type$ > > >) =
+                    ($row$ :> Sql.t < t : < t : < $set_type$ > > >) >>
+          | (_loc, _) ->
+              if !warn_undetermined_update then
+                Syntax.print_warning _loc warn_undetermined_update_message;
+              <:expr< set = $row$ >> in
       <:expr< let $binding$ in
-              Sql.update $table$ $row_name$
-                               $set$
-                               (Sql.unsafe $subtyping_witness$)
-                               $where$ >>
+              let set = $set$ and _where = $where$
+              and table = $table$ and row_name = $row_name$ in
+              Sql.update table row_name set
+                (Sql.unsafe $subtyping_witness$) _where >>
 and query_where (_loc, conds) =
   camlp4_list _loc (List.map query_reference conds)
 and query_reference (_loc, ref) =

@@ -100,7 +100,7 @@ let check comp =
         let schema = match schema with
           | None -> "public"
           | Some schema -> schema in
-        let pgsql_columns =
+        let pgsql_columns = Table.view
           <:table< information_schema.columns (
             table_schema text NOT NULL,
             table_name text NOT NULL,
@@ -118,7 +118,7 @@ let check comp =
         let dbh = PGOCaml.connect () in
         let check_result =
           try `Result (check_description table_name comp.Inner_sql.descr
-                         (Query.query dbh check_comp))
+                         (Query.Simple.query dbh check_comp))
           with exn -> `Exn exn in
         PGOCaml.close dbh;
         match check_result with

@@ -3,9 +3,9 @@ open Sql
 let foo =
   <:select<
     {ingredient = i.nom; recette = r.nom} |
-      i <- $Base.ingredient$;
-      r <- $Base.recette$;
-      l <- $Base.liste$;
+      i <- $table:Base.ingredient$;
+      r <- $table:Base.recette$;
+      l <- $table:Base.liste$;
       l.ingredient = nullable i.id;
       l.recette = nullable r.id >>
 

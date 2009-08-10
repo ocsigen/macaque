@@ -65,12 +65,10 @@ let camlp4_list _loc =
 (** Code emission from the syntaxic form *)
 let table_of_descr (_loc, (name, field_types)) =
   let type_bindings =
-    let module_name = function
-      | true -> "Nullable_type"
-      | flase -> "Non_nullable_type" in
     let bind (_loc, (name, sql_type, nullability)) =
-      let uid = module_name nullability and lid = sql_type in
-      <:binding< $lid:name$ = Table.$uid:uid$.$lid:lid$ >> in
+      let witness =
+        (if nullability then "nullable" else "non_nullable") ^ "_witness" in
+      <:binding< $lid:name$ = Table.Table_type.$lid:sql_type$ Table.$lid:witness$ >> in
     Ast.biAnd_of_list (List.map bind field_types) in
   let fields = List.map (fun (_loc, (name, _, _)) -> (_loc, name)) field_types in
   let descr =

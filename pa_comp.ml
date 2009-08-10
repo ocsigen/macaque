@@ -111,7 +111,9 @@ let () =
    comp_item: [[ (_, binding) = row_binding -> (_loc, Bind binding)
                | (_, cond) = value -> (_loc, Cond cond) ]];
    row_binding: [[ handle = LIDENT; "<-"; table = table ->  (_loc, (handle, table)) ]];
-   table: [[ `ANTIQUOT((""|"table"), t) -> (_loc, quote _loc t) ]];
+   table: [[ `ANTIQUOT("", t) -> (_loc, quote _loc t)
+           | `ANTIQUOT("table", t) ->
+               (_loc, <:expr< Table.view $quote _loc t$ >>) ]];
    value:
      [ "top" RIGHTA [ ]
      | "||" RIGHTA [ e1 = SELF; op = infixop6; e2 = SELF -> operation _loc op [e1; e2] ]

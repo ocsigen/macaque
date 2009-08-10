@@ -15,7 +15,10 @@ let exists table =
 
 let result =
   List.iter (fun t -> if Sql.get t#exists = 1 then Printf.printf "exists !\n")
-    (Query.Simple.view (PGOCaml.connect ()) (exists (select (read_int ()) Base.recette)))   
+    (Query.Simple.view (PGOCaml.connect ())
+       (exists (select
+                  (read_int ())
+                  (Table.view Base.recette))))
   
 (*
   sh infer.sh tests/compose.ml

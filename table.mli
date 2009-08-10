@@ -1,4 +1,4 @@
-type +'a table = 'a Sql.view
+type +'a table
 
 type 'a result_parser = 'a Sql.result_parser
 type untyped = Sql.untyped
@@ -15,23 +15,18 @@ val table :
   (string option * string) ->
   'row table
 
-val table_view : 'a table -> 'a Sql.view
+val view : 'a table -> 'a Sql.view
+
+type ('a, 'b) witness
+val non_nullable_witness : (Sql.non_nullable, bool) witness
+val nullable_witness : (Sql.nullable, bool) witness
 
 (** Field types constructors (usable from <:table< .. >>) *)
-module Non_nullable_type : sig
-  val integer :
-    < get : unit; nul : Sql.non_nullable; t : Sql.int_t > column_type
-  val boolean :
-    < get : unit; nul : Sql.non_nullable; t : Sql.bool_t > column_type
-  val text :
-    < get : unit; nul : Sql.non_nullable; t : Sql.string_t > column_type
-end
-
-module Nullable_type : sig
-  val integer :
-    < get : unit; nul : Sql.nullable; t : Sql.int_t > column_type
-  val boolean :
-    < get : unit; nul : Sql.nullable; t : Sql.bool_t > column_type
-  val text :
-    < get : unit; nul : Sql.nullable; t : Sql.string_t > column_type
+module Table_type : sig
+  val integer : ('nul, bool) witness ->
+    < get : unit; nul : 'nul; t : Sql.int_t > column_type
+  val boolean : ('nul, bool) witness ->
+    < get : unit; nul : 'nul; t : Sql.bool_t > column_type
+  val text : ('nul, bool) witness ->
+    < get : unit; nul : 'nul; t : Sql.string_t > column_type
 end

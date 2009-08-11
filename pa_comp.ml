@@ -205,7 +205,7 @@ let rec view_of_comp (_loc, (result, items)) =
   let comp_item (from, where, env, code_cont) (_loc, item) = match item with
     | Cond cond ->
         let where_item =
-          <:expr< Sql.untyped $reference_of_comp env (_loc, cond)$ >> in
+          <:expr< Sql.untyped_t $reference_of_comp env (_loc, cond)$ >> in
         let where_name = "where_" ^ string_of_int (Random.int max_int) in
         let code_cont k = code_cont
           <:expr< let $lid:where_name$ = $where_item$ in $k$ >> in
@@ -300,7 +300,7 @@ and reference_of_comp env (_loc, r) = match r with
         Ast.biAnd_of_list (List.map field_decl tup) in
       let field_list =
         let field_item (_loc, (name, _)) =
-          <:expr< ($str:name$, Sql.untyped $lid:name$) >> in
+          <:expr< ($str:name$, Sql.untyped_t $lid:name$) >> in
         camlp4_list _loc (List.map field_item tup) in
       let result_parser =
         let obj =

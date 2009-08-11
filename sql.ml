@@ -40,7 +40,7 @@ type 'a t = reference
 type untyped = Inner_sql.untyped
 type 'a result_parser = 'a Inner_sql.result_parser
 
-let untyped x = x
+let untyped_t x = x
 
 let untyped_view = Inner_sql.unsafe_view
 
@@ -148,22 +148,23 @@ module Op = struct
   let mono_op t = op (fun t' -> assert (t = t'); t)
   let poly_op return_t = op (fun _ -> return_t)
 
-  type 'phant arith_op = 'a t -> 'b t -> 'c t
-  constraint 'a = < t : < typ : 't; numeric : _ >; nul : 'n; .. >
-  constraint 'b = < t : < typ : 't; numeric : _ >; nul : 'n; .. >
-  constraint 'c = < t : < typ : 't; numeric : unit >; nul : 'n >
-  constraint 'phant = < typ : 't; nul : 'n; a : 'a; b : 'b >
+  type 'phant binary_op = 'a t -> 'b t -> 'c t
+  constraint 'a = < t : 'input_t; nul : 'n; .. >
+  constraint 'b = < t : 'input_t; nul : 'n; .. >
+  constraint 'c = < t : 'output_t; nul : 'n >
+  constraint 'phant =
+    < input_t : 'input_t; output_t : 'output_t; nul : 'n; a : 'a; b : 'b >
+
+  type 'phant arith_op = 'phant binary_op
+  constraint 'phant = < input_t : #numeric_t as 't; output_t : 't; .. >
 
   let arith op = same_op op
 
   let (+), (-), (/), ( * ) =
     arith "+", arith "-", arith "/", arith "*"
 
-  type 'phant comp_op = 'a t -> 'b t -> 'c t
-  constraint 'a = < t : 't; nul : 'nul; .. >
-  constraint 'b = < t : 't; nul : 'nul; .. >
-  constraint 'c = < t : bool_t; nul : 'nul >
-  constraint 'phant = < nul : 'nul; t : 't; a : 'a; b : 'b >
+  type 'phant comp_op = 'phant binary_op
+  constraint 'phant = < output_t : bool_t; .. >
 
   let comp op = poly_op TBool op
 
@@ -172,11 +173,8 @@ module Op = struct
   let is_distinct_from a b = Binop ("IS DISTINCT FROM", a, b), Non_nullable TBool
   let is_not_distinct_from a b = Binop ("IS NOT DISTINCT FROM", a, b), Non_nullable TBool
 
-  type 'phant logic_op = 'a t -> 'b t -> 'c t
-  constraint 'a = < t : #bool_t; nul : 'n; .. >
-  constraint 'b = < t : #bool_t; nul : 'n; .. >
-  constraint 'c = < t : bool_t; nul : 'n >
-  constraint 'phant = < nul : 'n; a : 'a; b : 'b >
+  type 'phant logic_op = 'phant binary_op
+  constraint 'phant = < input_t : #bool_t as 't; output_t : 't; .. >
 
   let logic op = mono_op TBool op
 

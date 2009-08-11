@@ -26,7 +26,7 @@ let non_nullable_witness = false
 module Table_type = struct
   let _type t = function
     | true -> Nullable (Some t)
-    | false -> Non_nullable t in
+    | false -> Non_nullable t
   let integer = _type TInt
   let boolean = _type TBool
   let text = _type TString

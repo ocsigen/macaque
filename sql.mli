@@ -47,7 +47,7 @@ val parse : 'a t -> 'a t result_parser
 
 (** untyped access *)
 type untyped
-val untyped : 'a t -> untyped t
+val untyped_t : 'a t -> untyped t
 
 type +'a view
 val untyped_view : 'a view -> untyped view
@@ -129,22 +129,23 @@ module Op : sig
   val is_not_null :
     < nul : nullable; .. > t -> < t : bool_t; nul : non_nullable > t
 
-  type 'phant arith_op = 'a t -> 'b t -> 'c t
-  constraint 'a = < t : < typ : 't; numeric : _ >; nul : 'n; .. >
-  constraint 'b = < t : < typ : 't; numeric : _ >; nul : 'n; .. >
-  constraint 'c = < t : < typ : 't; numeric : unit >; nul : 'n >
-  constraint 'phant = < typ : 't; nul : 'n; a : 'a; b : 'b >
+  type 'phant binary_op = 'a t -> 'b t -> 'c t
+  constraint 'a = < t : 'input_t; nul : 'n; .. >
+  constraint 'b = < t : 'input_t; nul : 'n; .. >
+  constraint 'c = < t : 'output_t; nul : 'n >
+  constraint 'phant =
+    < input_t : 'input_t; output_t : 'output_t; nul : 'n; a : 'a; b : 'b >
+  
+  type 'phant arith_op = 'phant binary_op
+  constraint 'phant = < input_t : #numeric_t as 't; output_t : 't; .. >
 
   val (+) : _ arith_op
   val (-) : _ arith_op
   val (/) : _ arith_op
   val ( * ) : _ arith_op
 
-  type 'phant comp_op = 'a t -> 'b t -> 'c t
-  constraint 'a = < t : 't; nul : 'nul; .. >
-  constraint 'b = < t : 't; nul : 'nul; .. >
-  constraint 'c = < t : bool_t; nul : 'nul >
-  constraint 'phant = < nul : 'nul; t : 't; a : 'a; b : 'b >
+  type 'phant comp_op = 'phant binary_op
+  constraint 'phant = < output_t : bool_t; .. >
 
   val (<) : _ comp_op
   val (<=) : _ comp_op
@@ -161,11 +162,8 @@ module Op : sig
     < nul : 'n; t : 't; .. > t ->
     < nul : non_nullable; t : bool_t > t
 
-  type 'phant logic_op = 'a t -> 'b t -> 'c t
-  constraint 'a = < t : #bool_t; nul : 'n; .. >
-  constraint 'b = < t : #bool_t; nul : 'n; .. >
-  constraint 'c = < t : bool_t; nul : 'n >
-  constraint 'phant = < nul : 'n; a : 'a; b : 'b >
+  type 'phant logic_op = 'phant binary_op
+  constraint 'phant = < input_t : #bool_t as 't; output_t : 't; .. >
 
   val (&&) : _ logic_op
   val (||) : _ logic_op

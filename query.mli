@@ -18,21 +18,23 @@
     Boston, MA 02111-1307, USA.
 *)
 
-module type DATABASE = PGOCaml_generic.PGOCAML_GENERIC
-
-module type QUERY = sig
-  type 'a t
-  type 'a monad
-
-  val query : _ t -> 'a Sql.query -> 'a monad
-
-  val view : _ t -> 'a Sql.view -> 'a list monad
+module type THREAD = sig
+  include PGOCaml_generic.THREAD
 end
 
-module Make : functor (Db : DATABASE) ->
-  QUERY with type 'a monad = 'a Db.monad
-        and type 'a t = 'a Db.t
+module type QUERY = sig
+  module Db : PGOCaml_generic.PGOCAML_GENERIC
 
-module Simple : QUERY
-  with type 'a monad = 'a
-  and type 'a t = 'a PGOCaml.t
+  val query : _ Db.t -> 'a Sql.query -> 'a Db.monad
+  val view : _ Db.t -> 'a Sql.view -> 'a list Db.monad
+end
+
+module Make : functor (Thread : THREAD) ->
+  QUERY with type 'a Db.monad = 'a Thread.t
+
+module Make_with_Db (Thread : THREAD)
+  (Db : PGOCaml_generic.PGOCAML_GENERIC
+   with type 'a monad = 'a Thread.t) :
+    QUERY with module Db = Db
+
+module Simple : QUERY with module Db = PGOCaml

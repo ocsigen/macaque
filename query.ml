@@ -18,22 +18,24 @@
     Boston, MA 02111-1307, USA.
 *)
 
-module type DATABASE = PGOCaml_generic.PGOCAML_GENERIC
-
-module type QUERY = sig
-  type 'a t
-  type 'a monad
-
-  val query : _ t -> 'a Sql.query -> 'a monad
-
-  val view : _ t -> 'a Sql.view -> 'a list monad
+module type THREAD = sig
+  include PGOCaml_generic.THREAD
+  (* TODO : add exception handling *)
 end
 
-module Make (Db : DATABASE) = struct
-  type 'a monad = 'a Db.monad
-  type 'a t = 'a Db.t
-  
-  let (>>=) = Db.bind
+module type QUERY = sig
+  module Db : PGOCaml_generic.PGOCAML_GENERIC
+
+  val query : _ Db.t -> 'a Sql.query -> 'a Db.monad
+  val view : _ Db.t -> 'a Sql.view -> 'a list Db.monad
+end
+
+module Make_with_Db
+  (Thread : THREAD)
+  (Db : PGOCaml_generic.PGOCAML_GENERIC with type 'a monad = 'a Thread.t) =
+struct
+  module Db = Db
+  let (>>=) = Thread.(>>=)
 
   let nullable = function
     | None -> "NULL"
@@ -50,10 +52,33 @@ module Make (Db : DATABASE) = struct
       let prepare_row row =
         Sql.unsafe (Array.of_list (List.map nullable row)) in
       List.map prepare_row result in
-    Db.return (Sql.handle_query_results sql_query result)
+    Thread.return (Sql.handle_query_results sql_query result)
 
   let view dbh view =
     query dbh (Sql.select view)
 end
 
-module Simple = Make(PGOCaml)
+module Make (Thread : THREAD) =
+  Make_with_Db(Thread)(PGOCaml_generic.Make(Thread))
+
+module Simple_thread = struct
+  type 'a t = 'a
+  let return x = x
+  let (>>=) v f =  f v
+  let fail = raise
+
+  type in_channel = Pervasives.in_channel
+  type out_channel = Pervasives.out_channel
+  let open_connection = Unix.open_connection
+  let output_char = output_char
+  let output_binary_int = output_binary_int
+  let output_string = output_string
+  let flush = flush
+  let input_char = input_char
+  let input_binary_int = input_binary_int
+  let really_input = really_input
+  let close_in = close_in
+end
+
+
+module Simple = Make_with_Db(Simple_thread)(PGOCaml)

@@ -6,4 +6,4 @@ let () =
   let do_row row = print_endline (Sql.get row#nom) in
   List.iter do_row (Query.Simple.query
                       (PGOCaml.connect ())
-                      (full (Table.view recette)))
+                      (full (Sql.View.table recette)))

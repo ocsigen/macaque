@@ -108,7 +108,7 @@ val sql_of_query : 'a query -> string
 val sql_of_view : 'a view -> string
 
 (** handle result from PGOCaml call *)
-val handle_query_results : 'a query -> string array unsafe list -> 'a
+val handle_query_results : 'a query -> string option list list unsafe -> 'a
 
 (** standard data types (usable from user code) *)
 module Data : sig
@@ -176,4 +176,34 @@ module Op : sig
     < t : #numeric_t as 't; nul : 'n; .. > group -> < t : 't; nul : 'n > t
   val sum :
     < t : #numeric_t as 't; nul : 'n; .. > group -> < t : 't; nul : 'n > t
+end
+
+type +'a table
+
+type 'a column_type
+type poly_parser =
+  { of_type : 'a . 'a column_type -> 'a t result_parser }
+
+val untyped_column : 'a column_type -> untyped column_type
+
+val table :
+  (string * untyped column_type) list ->
+  (poly_parser -> 'row result_parser) ->
+  (string option * string) ->
+  'row table
+
+val table_view : 'a table -> 'a view
+
+type ('a, 'b) witness
+val non_nullable_witness : (non_nullable, bool) witness
+val nullable_witness : (nullable, bool) witness
+
+(** Field types constructors (usable from <:table< .. >>) *)
+module Table_type : sig
+  val integer : ('nul, bool) witness ->
+    < get : unit; nul : 'nul; t : int_t > column_type
+  val boolean : ('nul, bool) witness ->
+    < get : unit; nul : 'nul; t : bool_t > column_type
+  val text : ('nul, bool) witness ->
+    < get : unit; nul : 'nul; t : string_t > column_type
 end

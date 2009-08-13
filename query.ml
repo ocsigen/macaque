@@ -26,8 +26,8 @@ end
 module type QUERY = sig
   module Db : PGOCaml_generic.PGOCAML_GENERIC
 
-  val query : _ Db.t -> 'a Sql.query -> 'a Db.monad
-  val view : _ Db.t -> 'a Sql.view -> 'a list Db.monad
+  val query : _ Db.t -> ?log:out_channel -> 'a Sql.query -> 'a Db.monad
+  val view : _ Db.t -> ?log:out_channel -> 'a Sql.view -> 'a list Db.monad
 end
 
 module Make_with_Db
@@ -37,30 +37,25 @@ struct
   module Db = Db
   let (>>=) = Thread.(>>=)
 
-  let nullable = function
-    | None -> "NULL"
-    | Some str -> str
-
-  let query dbh sql_query =
+  let query dbh ?log sql_query =
     let query = Sql.sql_of_query sql_query in
-    print_endline query;
+    (match log with
+       | None -> ()
+       | Some out -> Printf.fprintf out "%s\n" query);
     let name = "query_result" in
     Db.prepare dbh ~query ~name () >>= fun () ->
     Db.execute dbh ~name ~params:[] () >>= fun result ->
     Db.close_statement dbh ~name () >>= fun () ->
-    let result =
-      let prepare_row row =
-        Sql.unsafe (Array.of_list (List.map nullable row)) in
-      List.map prepare_row result in
-    Thread.return (Sql.handle_query_results sql_query result)
+    Thread.return (Sql.handle_query_results sql_query (Sql.unsafe result))
 
-  let view dbh view =
-    query dbh (Sql.select view)
+  let view dbh ?log view =
+    query dbh ?log (Sql.select view)
 end
 
 module Make (Thread : THREAD) =
   Make_with_Db(Thread)(PGOCaml_generic.Make(Thread))
 
+(* TODO : try to push into PGOCaml's mainstream *)
 module Simple_thread = struct
   type 'a t = 'a
   let return x = x

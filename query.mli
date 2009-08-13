@@ -24,9 +24,8 @@ end
 
 module type QUERY = sig
   module Db : PGOCaml_generic.PGOCAML_GENERIC
-
-  val query : _ Db.t -> 'a Sql.query -> 'a Db.monad
-  val view : _ Db.t -> 'a Sql.view -> 'a list Db.monad
+  val query : _ Db.t -> ?log:out_channel -> 'a Sql.query -> 'a Db.monad
+  val view : _ Db.t -> ?log:out_channel -> 'a Sql.view -> 'a list Db.monad
 end
 
 module Make : functor (Thread : THREAD) ->

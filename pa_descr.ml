@@ -68,16 +68,16 @@ let table_of_descr (_loc, (name, field_types)) =
     let bind (_loc, (name, sql_type, nullability)) =
       let witness =
         (if nullability then "nullable" else "non_nullable") ^ "_witness" in
-      <:binding< $lid:name$ = Table.Table_type.$lid:sql_type$ Table.$lid:witness$ >> in
+      <:binding< $lid:name$ = Sql.Table_type.$lid:sql_type$ Sql.$lid:witness$ >> in
     Ast.biAnd_of_list (List.map bind field_types) in
   let fields = List.map (fun (_loc, (name, _, _)) -> (_loc, name)) field_types in
   let descr =
     let field_descr (_loc, name) =
-      <:expr< ($str:name$, Table.untyped_column $lid:name$) >> in
+      <:expr< ($str:name$, Sql.untyped_column $lid:name$) >> in
     camlp4_list _loc (List.map field_descr fields) in
   let result_parser =
     let parser_binding (_loc, name) =
-      <:binding< $lid:name$ = poly_parser.Table.of_type $lid:name$ >> in
+      <:binding< $lid:name$ = poly_parser.Sql.of_type $lid:name$ >> in
     let value_binding (_loc, name) =
       <:binding< $lid:name$ = $lid:name$ input >> in
     let meth (_loc, name) = <:class_str_item< method $lid:name$ = $lid:name$ >> in
@@ -91,9 +91,9 @@ let table_of_descr (_loc, (name, field_types)) =
     | (None, table) -> <:expr< (None, $str:table$) >>
     | (Some schema, table) -> <:expr< (Some $str:schema$, $str:table$) >> in
   let table = <:expr< let $type_bindings$ in
-                      Table.table $descr$ $result_parser$ $name_expr$ >> in
+                      Sql.table $descr$ $result_parser$ $name_expr$ >> in
   if not !coherence_check then table
-  else <:expr< let table = $table$ in do { Check.check table; table } >>
+  else <:expr< let table = $table$ in do { Check.check_table table; table } >>
 
 (** Quotations setup *)
 let () =

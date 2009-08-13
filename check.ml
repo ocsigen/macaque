@@ -38,8 +38,8 @@ let check_description table_name descr pgsql_descr =
           (correct, descr)
       | Some field_type ->
           let correct = ref correct in
-          let sql_type =
-            sql_type_of_string (get field#data_type) in
+          let atom_type =
+            atom_type_of_string (get field#data_type) in
           let nullable =
             match get field#nullable with
               | "YES" -> true
@@ -64,13 +64,13 @@ let check_description table_name descr pgsql_descr =
              | _ -> ());
           (match field_type with
              | Nullable (Some t) | Non_nullable t
-               when t <> sql_type->
+               when t <> atom_type->
                  correct := false;
                  eprintf "SQL Check Error : In table %s, field %s \
                           has incompatible types :\n\
                           \t%s in description, %s in table\n"
                    table_name field_name
-                   (string_of_sql_type t) (get field#data_type)
+                   (string_of_atom_type t) (get field#data_type)
              | _ -> ());
           !correct, descr in
   let correct, left_descr = List.fold_left check (true, descr) pgsql_descr in

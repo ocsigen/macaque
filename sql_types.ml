@@ -52,7 +52,7 @@ type +'a query = Sql_internals.query
 type where = Sql_internals.where
 type from = Sql_internals.from
 
-type 'a column_type = Sql_internals.field_type
+type 'a sql_type = Sql_internals.sql_type
 let untyped_type x = x
 
 let get_type (_, t) = t
@@ -116,7 +116,7 @@ let handle_query_results : 'a query -> string option list list -> 'a =
       | _ -> !? ()
 
 type poly_parser =
-  { of_type : 'a . 'a column_type -> 'a t result_parser }
+  { of_type : 'a . 'a sql_type -> 'a t result_parser }
 
 let poly_parser : poly_parser =
   { of_type = fun _typ ->

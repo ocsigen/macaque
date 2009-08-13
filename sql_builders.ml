@@ -30,7 +30,7 @@ let op type_fun op a b =
 let field row path checker =
   ignore checker;
   (Field (row, path),
-   get_field_type (get_type row) path)
+   get_sql_type (get_type row) path)
 
 let row name view =
   let descr = (view.descr, view.result_parser) in

@@ -184,16 +184,16 @@ end
 
 type +'a table
 
-type +'a column_type
-val untyped_type : 'a column_type -> untyped column_type
+type +'a sql_type
+val untyped_type : 'a sql_type -> untyped sql_type
 
-val get_type : 'a t -> 'a column_type
+val get_type : 'a t -> 'a sql_type
 
 type poly_parser =
-  { of_type : 'a . 'a column_type -> 'a t result_parser }
+  { of_type : 'a . 'a sql_type -> 'a t result_parser }
 
 val table :
-  untyped column_type tuple ->
+  untyped sql_type tuple ->
   (poly_parser -> 'row result_parser) ->
   (string option * string) ->
   'row table
@@ -206,11 +206,11 @@ val nullable_witness : (nullable, bool) witness
     (in pa_descr, ie. <:table< .. >>) *)
 module Table_type : sig
   val integer : ('nul, bool) witness ->
-    < get : unit; nul : 'nul; t : int_t > column_type
+    < get : unit; nul : 'nul; t : int_t > sql_type
   val boolean : ('nul, bool) witness ->
-    < get : unit; nul : 'nul; t : bool_t > column_type
+    < get : unit; nul : 'nul; t : bool_t > sql_type
   val text : ('nul, bool) witness ->
-    < get : unit; nul : 'nul; t : string_t > column_type
+    < get : unit; nul : 'nul; t : string_t > sql_type
 end
 
 (** standard view operators

@@ -44,7 +44,7 @@ and flatten_value ref =
     | Field (row, []), _ -> flatten row
     | Field ((Tuple tup, t), field::path), _ ->
         flatten (Field (List.assoc field tup, path),
-                 get_field_type t [field])
+                 get_sql_type t [field])
     | Field ((Field (row, path), _), path'), t ->
         flatten (Field (row, path @ path'), t)
     | Tuple tup, t ->

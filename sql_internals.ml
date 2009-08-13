@@ -35,7 +35,7 @@ and group_by = (row * row)
 and from = (row_name * view) list
 and where = value list
 and row = value
-and value = value' * field_type
+and value = value' * sql_type
 and value' =
   | Null
   | Atom of atom
@@ -58,34 +58,34 @@ and table_name = string option * string
 and row_name = string
 and field_name = string
 and descr = types_descr * untyped result_parser
-and types_descr = field_type tuple
-and field_type =
-  | Non_nullable of sql_type
-  | Nullable of sql_type option
+and types_descr = sql_type tuple
 and sql_type =
+  | Non_nullable of atom_type
+  | Nullable of atom_type option
+and atom_type =
   | TInt
   | TFloat
   | TString
   | TBool
   | TRecord of descr * (untyped -> value)
 
-let rec get_field_type ref_type = function
+let rec get_sql_type ref_type = function
   | [] -> ref_type
   | name :: path_rest ->
       match ref_type with
         | Nullable None -> Nullable None
         | Non_nullable (TRecord ((descr, _), _))
         | Nullable Some (TRecord ((descr, _), _)) ->
-            get_field_type (List.assoc name descr) path_rest
-        | _ -> invalid_arg "get_field_type"
+            get_sql_type (List.assoc name descr) path_rest
+        | _ -> invalid_arg "get_sql_type"
 
-let sql_type_of_string = function
+let atom_type_of_string = function
   | "integer" -> TInt
   | "text" -> TString
   | "boolean" -> TBool
   | "double" -> TFloat
   | other -> failwith ("unknown sql type " ^ other)
-let string_of_sql_type = function
+let string_of_atom_type = function
   | TInt -> "integer"
   | TString -> "text"
   | TBool -> "boolean"
@@ -98,4 +98,4 @@ type query =
   | Delete of (table_name * row_name * where)
   | Update of (table_name * row_name * value * where)
 
-type result = select_result * field_type
+type result = select_result * sql_type

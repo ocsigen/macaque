@@ -27,10 +27,10 @@ let sql_of_view v = sql_of_query (Select v)
 let parse ref = poly_parser.of_type (get_type ref)
 
 module Data = struct
-  let bool b = Value (Bool b), Non_nullable TBool
-  let int i = Value (Int i), Non_nullable TInt
-  let float x = Value (Float x), Non_nullable TFloat
-  let string s = Value (String s), Non_nullable TString
+  let bool b = Atom (Bool b), Non_nullable TBool
+  let int i = Atom (Int i), Non_nullable TInt
+  let float x = Atom (Float x), Non_nullable TFloat
+  let string s = Atom (String s), Non_nullable TString
 end
 
 module Op = struct
@@ -42,8 +42,8 @@ module Op = struct
        | Nullable t -> Nullable t
 
   let null = Null, Nullable None
-  let is_null ref = Prefixop("IS NULL", ref), Non_nullable TBool
-  let is_not_null ref = Prefixop("IS NOT NULL", ref), Non_nullable TBool
+  let is_null ref = Postfixop("IS NULL", ref), Non_nullable TBool
+  let is_not_null ref = Postfixop("IS NOT NULL", ref), Non_nullable TBool
 
   let option constr = function
     | None -> null

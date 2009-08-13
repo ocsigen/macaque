@@ -49,7 +49,7 @@ and comp_item =
 and table = Ast.expr
 and value =
   | Field of field
-  | Value of Ast.expr
+  | Atom of Ast.expr
   | Op of value located * value located list
   | Ident of ident
   | Tuple of tuple
@@ -130,7 +130,7 @@ let () =
          [ row = SELF; "."; path = LIST0 [id = LIDENT -> (_loc, id)] SEP "." ->
              (_loc, Field (row, path)) ]
      | "simple"
-         [ v = atom -> (_loc, Value v)
+         [ v = atom -> (_loc, Atom v)
          | (_, tup) = tuple -> (_loc, Tuple tup)
          | LIDENT "null" -> (_loc, Op ((_loc, Ident "null"), []))
          | id = LIDENT -> (_loc, Ident id)
@@ -205,7 +205,7 @@ let rec view_of_comp (_loc, (result, items)) =
   let comp_item (from, where, env, code_cont) (_loc, item) = match item with
     | Cond cond ->
         let where_item =
-          <:expr< Sql.untyped_t $reference_of_comp env (_loc, cond)$ >> in
+          <:expr< Sql.untyped_t $value_of_comp env (_loc, cond)$ >> in
         let where_name = "where_" ^ string_of_int (Random.int max_int) in
         let code_cont k = code_cont
           <:expr< let $lid:where_name$ = $where_item$ in $k$ >> in
@@ -228,16 +228,16 @@ let rec view_of_comp (_loc, (result, items)) =
                       $camlp4_list _loc (List.rev from)$
                       $camlp4_list _loc (List.rev where)$ >>
 and result_of_comp env (_loc, r) = match r with
-  | Simple_select row -> <:expr< Sql.simple_select $reference_of_comp env (_loc, row)$ >>
+  | Simple_select row -> <:expr< Sql.simple_select $value_of_comp env (_loc, row)$ >>
   | Group_by (group, by) ->
       let bindings_of_comp bindings_comp =
         let bind (_loc, (id, v)) =
-          <:binding< $lid:id$ = $reference_of_comp env v$ >> in
+          <:binding< $lid:id$ = $value_of_comp env v$ >> in
         Ast.biAnd_of_list (List.map bind bindings_comp) in
       let by_bindings = snd by in
       let rebound_by =
         let rebind (out_loc, (id, (in_loc, _))) =
-          (out_loc, (id, (in_loc, Value <:expr@in_loc< $lid:id$ >>))) in
+          (out_loc, (id, (in_loc, Atom <:expr@in_loc< $lid:id$ >>))) in
         List.map rebind by_bindings in
       let rebound_group, accum_bindings =
         let (_loc, group) = group in
@@ -247,7 +247,7 @@ and result_of_comp env (_loc, r) = match r with
           let name = Printf.sprintf "accum_%d" !count in
           incr count;
           res := (_loc, (name, (_loc, expr))) :: !res;
-          Accum (_loc, Value <:expr< Sql.accum $lid:name$ >>) in
+          Accum (_loc, Atom <:expr< Sql.accum $lid:name$ >>) in
         let (!!) map (_loc, v) = (_loc, map v) in
         let rec map_tuple tup = List.map !!map_binding tup
         and map_binding (k, v) = (k, !!map_ref v)
@@ -256,11 +256,11 @@ and result_of_comp env (_loc, r) = match r with
           | Op (op, operands) -> Op (op, List.map !!map_ref operands)
           | Tuple tup -> Tuple (map_tuple tup)
           | Accum expr -> accum expr
-          | (Value _ | Ident _) as v -> v in
+          | (Atom _ | Ident _) as v -> v in
         let group = map_tuple group in (* side effect on `res` *)
         group, List.rev !res in
       let env_bindings =
-        let rebind id = (_loc, (id, (_loc, Value <:expr< Sql.grouped_row >>))) in
+        let rebind id = (_loc, (id, (_loc, Atom <:expr< Sql.grouped_row >>))) in
         List.map rebind (Env.bound_vars env) in
       let use_bindings bindings =
         let use (_loc, (id, _)) = <:binding< _ = $lid:id$ >> in
@@ -274,28 +274,28 @@ and result_of_comp env (_loc, r) = match r with
       List.fold_right with_bindings
         [by_bindings; accum_bindings; env_bindings]
         <:expr< Sql.group
-                  $reference_of_comp env by_tuple$
-                  $reference_of_comp env result_tuple$ >>
-and reference_of_comp env (_loc, r) = match r with
-  | Value v -> v
+                  $value_of_comp env by_tuple$
+                  $value_of_comp env result_tuple$ >>
+and value_of_comp env (_loc, r) = match r with
+  | Atom v -> v
   | Ident row -> <:expr< $lid:row$ >>
-  | Accum expr -> <:expr< Sql.group_of_accum $reference_of_comp env expr$ >>
+  | Accum expr -> <:expr< Sql.group_of_accum $value_of_comp env expr$ >>
   | Op (op, operands) ->
-      let operation expr e = <:expr< $expr$ $reference_of_comp env e$ >> in
+      let operation expr e = <:expr< $expr$ $value_of_comp env e$ >> in
       let operator = match op with
         | (_loc, Ident id) -> <:expr< Sql.Op.$lid:id$ >>
-        | expr -> reference_of_comp env expr in
+        | expr -> value_of_comp env expr in
       List.fold_left operation operator operands
   | Field (row, path) ->
       let call obj (_loc, meth_id) = <:expr< $obj$ # $lid:meth_id$ >> in
       <:expr< Sql.field
-                $reference_of_comp env row$
+                $value_of_comp env row$
                 (Sql.unsafe $camlp4_path _loc path$)
                 (Sql.unsafe (fun t -> $List.fold_left call <:expr< t >> path$)) >>
   | Tuple tup ->
       let fields =
         let field_decl (_loc, (name, ref)) =
-          let expr = reference_of_comp env ref in
+          let expr = value_of_comp env ref in
           <:binding< $lid:name$ = Sql.force_gettable (Sql.unsafe $expr$) >> in
         Ast.biAnd_of_list (List.map field_decl tup) in
       let field_list =
@@ -328,7 +328,7 @@ let rec query_of_comp (_loc, query) = match query with
   | Update (binding, set_ast, where) ->
       let table, row_name, binding = query_binding binding in
       let where = query_where where in
-      let set = query_reference set_ast in
+      let set = query_value set_ast in
       let subtyping_witness =
         let row = <:expr< Sql.row (Sql.unsafe "update row") table >> in
         match set_ast with
@@ -348,9 +348,9 @@ let rec query_of_comp (_loc, query) = match query with
               Sql.update table row_name set
                 (Sql.unsafe $subtyping_witness$) _where >>
 and query_where (_loc, conds) =
-  camlp4_list _loc (List.map query_reference conds)
-and query_reference (_loc, ref) =
-  reference_of_comp Env.empty (_loc, ref)
+  camlp4_list _loc (List.map query_value conds)
+and query_value (_loc, ref) =
+  value_of_comp Env.empty (_loc, ref)
 and query_binding (_loc, (name, (_, table))) =
   (* TODO factorize comp_items binding *)
   let name_str = <:expr< Sql.unsafe $str:name$ >> in
@@ -361,7 +361,7 @@ and query_binding (_loc, (name, (_, table))) =
 let () =
   Syntax.Quotation.add "value" Syntax.Quotation.DynAst.expr_tag
     (fun loc _ quote ->
-       reference_of_comp Env.empty (CompGram.parse_string value loc quote));
+       value_of_comp Env.empty (CompGram.parse_string value loc quote));
   Syntax.Quotation.add "view" Syntax.Quotation.DynAst.expr_tag
     (fun loc _ quote ->
        view_of_comp (CompGram.parse_string view_eoi loc quote));

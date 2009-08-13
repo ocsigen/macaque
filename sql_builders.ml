@@ -36,20 +36,20 @@ let row name view =
   let descr = (view.descr, view.result_parser) in
   (* we need a recursive value, as the ast_builder has to return the
      value itself *)
-  let rec reference =
+  let rec value =
     (Row (name, view),
-     Non_nullable (TRecord (descr, fun _ -> reference))) in
-  reference
+     Non_nullable (TRecord (descr, fun _ -> value))) in
+  value
 
 let tuple fields result_parser =
   let field_ref (name, field) = (name, field) in
   let field_typ (name, field) = (name, get_type field) in
   let descr = List.map field_typ fields, Sql_parsers.unsafe_parser result_parser in
   (* rec : see "row" comment *)
-  let rec reference =
+  let rec value =
     (Tuple (List.map field_ref fields),
-     Non_nullable (TRecord (descr, fun _ -> reference))) in
-  reference
+     Non_nullable (TRecord (descr, fun _ -> value))) in
+  value
 
 
 (** views *)

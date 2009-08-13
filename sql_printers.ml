@@ -38,49 +38,49 @@ and string_of_selection q =
     (match q.select with
        | Group_by (result, (Tuple (_::_ as const), _)) ->
            " GROUP BY " ^
-             string_of_list (fun (_, r) -> string_of_reference r) ", " const
+             string_of_list (fun (_, r) -> string_of_value r) ", " const
        | _ -> "")
 and string_of_from = function
   | [] -> ""
   | from -> " FROM " ^ string_of_list string_of_table ", " from
 and string_of_where = function
   | [] -> ""
-  | where -> " WHERE " ^ string_of_list string_of_reference " AND " where
+  | where -> " WHERE " ^ string_of_list string_of_value " AND " where
 and string_of_row (ref, ref_type) = match ref with
   | Tuple tup ->
       if tup = [] then "NULL"
       else
         let binding (id, ref) =
-          (* recursive call instead of string_of_reference
+          (* recursive call instead of string_of_value
              as there may be flattened subtuples *)
           let ref_str = string_of_row ref in
           match (fst ref) with
             | Row _ | Tuple _ -> ref_str
             | _ -> sprintf "%s AS %s" ref_str id in
         string_of_list binding ", " tup
-  | _ -> string_of_reference (ref, ref_type)
+  | _ -> string_of_value (ref, ref_type)
 and string_of_assoc (assoc, _) =
   match assoc with
     | Tuple tup ->
-        let binding (id, ref) = sprintf "%s = %s" id (string_of_reference ref) in
+        let binding (id, ref) = sprintf "%s = %s" id (string_of_value ref) in
         string_of_list binding ", " tup
     | _ -> invalid_arg "string_of_assoc"
-and string_of_reference (ref, _) =
+and string_of_value (ref, _) =
   match ref with
-    | Value v -> string_of_value v
+    | Atom v -> string_of_atom v
     | Null -> "NULL"
     | Unop (op, a) ->
-        sprintf "%s(%s)" op (string_of_reference a)
-    | Prefixop (op, a) -> sprintf "(%s %s)" (string_of_reference a) op
+        sprintf "%s(%s)" op (string_of_value a)
+    | Postfixop (op, a) -> sprintf "(%s %s)" (string_of_value a) op
     | Binop (op, a, b) -> sprintf "(%s %s %s)"
-        (string_of_reference a) op (string_of_reference b)
+        (string_of_value a) op (string_of_value b)
     | Field ((Row (row_name, _), _), fields) ->
         sprintf "%s.%s" row_name (String.concat "__" fields)
-    | Field (_, _) -> failwith "string_of_reference : invalid field access"
+    | Field (_, _) -> failwith "string_of_value : invalid field access"
     | Row (row_name, _) -> row_name
     | Tuple tup ->
         sprintf "ROW(%s)"
-          (string_of_list (fun (_, r) -> string_of_reference r) ", " tup)
+          (string_of_list (fun (_, r) -> string_of_value r) ", " tup)
 and string_of_field (row, name) = match name with
   | field_name when true -> sprintf "%s.%s" row field_name
   | _ -> assert false
@@ -89,12 +89,12 @@ and string_of_table (row_name, table) =
 and string_of_table_name = function
   | (None, table) -> table
   | (Some schema, table) -> sprintf "%s.%s" schema table
-and string_of_value = function
+and string_of_atom = function
   | Int i -> string_of_int i
   | String s -> sprintf "'%s'" (String.escaped s)
   | Bool b -> string_of_bool b
   | Float x -> string_of_float x
-  | Record r -> string_of_reference (r.ast_builder r.instance)
+  | Record r -> string_of_value (r.ast_builder r.instance)
 
 let rec string_of_query = function
   | Select view -> string_of_view view

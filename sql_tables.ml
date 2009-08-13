@@ -18,6 +18,7 @@
     Boston, MA 02111-1307, USA.
 *)
 
+open Sql_base
 open Sql_internals
 open Sql_types
 

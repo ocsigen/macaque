@@ -1,8 +1,5 @@
+open Sql_base
 open Sql_internals
-
-(** untyped parsers *)
-let unsafe_parser input_parser : untyped result_parser =
-  fun input -> Obj.repr (input_parser input)
 
 let (&&&) ptr_action safe_parser (input, input_ptr) =
   let cur_ptr = !input_ptr in
@@ -13,9 +10,11 @@ let (&&&) ptr_action safe_parser (input, input_ptr) =
     (Printf.sprintf "Parser error [%s] on input %d [%s]"
        (Printexc.to_string exn) cur_ptr input_str)
 
+let unsafe_parser input_parser : untyped result_parser =
+  fun input -> Obj.repr (input_parser input)
 let use_unsafe_parser unsafe_parser input = Obj.obj (unsafe_parser input)
 
-let pack value value_type = Value value, Non_nullable value_type
+let pack atom atom_type = Atom atom, Non_nullable atom_type
 
 let stringref_of_string s =
   pack (String (PGOCaml.string_of_string s)) TString
@@ -47,7 +46,7 @@ let null_field_parser = option_field_parser error_field_parser
 let record_parser (descr, row_parser) ast_builder =
   unsafe_parser
     (fun input ->
-       Value (Record { instance = Obj.repr (row_parser input);
+       Atom (Record { instance = Obj.repr (row_parser input);
                        ast_builder = ast_builder }),
        TRecord ((descr, row_parser), ast_builder))
 

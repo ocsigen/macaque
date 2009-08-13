@@ -18,7 +18,7 @@
     Boston, MA 02111-1307, USA.
 *)
 
-type untyped
+open Sql_base
 
 type nullable
 type non_nullable
@@ -35,7 +35,7 @@ class type ['row] row_t = object inherit ['row] type_info end
 
 type 't type_info_only = < t : 't type_info >
 
-type +'a t = Sql_internals.reference
+type +'a t = Sql_internals.value
 let untyped_t x = x
 
 type 'phant binary_op = 'a t -> 'b t -> 'c t
@@ -51,9 +51,6 @@ let untyped_view view = view
 type +'a query = Sql_internals.query
 type where = Sql_internals.where
 type from = Sql_internals.from
-
-(* TODO : create sql_base.ml for that stuff (type 'a result_parser, etc.) *)
-type 'a result_parser = 'a Sql_internals.result_parser
 
 type 'a column_type = Sql_internals.field_type
 let untyped_type x = x
@@ -73,7 +70,7 @@ type ('a, 'b) witness = 'b
 let nullable_witness = true
 let non_nullable_witness = false
 
-type 'a atom = Sql_internals.value
+type 'a atom = Sql_internals.atom
 
 let get_val : < get : _; t : 'a #type_info; .. > atom -> 'a =
   let (!?) = Obj.magic in
@@ -87,12 +84,12 @@ let get_val : < get : _; t : 'a #type_info; .. > atom -> 'a =
 
 let get ((r, t) : 'a t) =
   match r with
-    | Sql_internals.Value (v : 'a atom) -> get_val v
+    | Sql_internals.Atom (v : 'a atom) -> get_val v
     | _ -> invalid_arg "get"
 
 let getn ((r, t) : 'a t) = match r with
   | Sql_internals.Null -> None
-  | Sql_internals.Value (v : 'a atom) -> Some (get_val v)
+  | Sql_internals.Atom (v : 'a atom) -> Some (get_val v)
   | _ -> invalid_arg "getn"
 
 type grouped_row = unit

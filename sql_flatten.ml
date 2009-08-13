@@ -31,16 +31,16 @@ and flatten_selection q =
     where = flatten_where q.where }
 and flatten_from from =
   List.map (fun (id, view) -> (id, flatten_view view)) from
-and flatten_where w = List.map flatten_reference w
+and flatten_where w = List.map flatten_value w
 and flatten_select = function
-  | Simple_select row -> Simple_select (flatten_reference row)
+  | Simple_select row -> Simple_select (flatten_value row)
   | Group_by (result, group) ->
-      Group_by (flatten_reference result, flatten_reference group)
-and flatten_reference ref =
+      Group_by (flatten_value result, flatten_value group)
+and flatten_value ref =
   let rec flatten = function
     | Null, t -> Null, t
     (* termination : those first recursive calls have inferior
-       reference depth *)
+       value depth *)
     | Field (row, []), _ -> flatten row
     | Field ((Tuple tup, t), field::path), _ ->
         flatten (Field (List.assoc field tup, path),
@@ -64,10 +64,10 @@ and flatten_reference ref =
         Tuple (List.map field descr), t
     (* row whose type was set Null before *)
     | (Row _), _ as flattened_row -> flattened_row
-    | Value v, flat_t -> Value v, flat_t
-    (* termination : subcalls on inferior reference depth *)
+    | Atom v, flat_t -> Atom v, flat_t
+    (* termination : subcalls on inferior value depth *)
     | Unop (op, a), t -> Unop (op, flatten a), t
-    | Prefixop (op, a), t -> Prefixop (op, flatten a), t
+    | Postfixop (op, a), t -> Postfixop (op, flatten a), t
     | Binop (op, a, b), t ->
         Binop (op, flatten a, flatten b), t
     | Field (row, path), t ->
@@ -84,7 +84,7 @@ let flatten_query = function
   | Insert (table, view) -> Insert (table, flatten_view view)
   | Delete (table, row, where) -> Delete (table, row, flatten_where where)
   | Update (table, row, set, where) ->
-      Update (table, row, flatten_reference set, flatten_where where)
+      Update (table, row, flatten_value set, flatten_where where)
 
 
 

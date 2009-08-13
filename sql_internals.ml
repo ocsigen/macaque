@@ -18,6 +18,8 @@
     Boston, MA 02111-1307, USA.
 *)
 
+open Sql_base
+
 type view =
   { descr : types_descr;
     result_parser : untyped result_parser;
@@ -31,19 +33,19 @@ and select_result =
   | Group_by of row * row
 and group_by = (row * row)
 and from = (row_name * view) list
-and where = reference list
-and row = reference
-and reference = reference' * field_type
-and reference' =
+and where = value list
+and row = value
+and value = value' * field_type
+and value' =
   | Null
-  | Value of value
-  | Field of reference * field_name list
-  | Binop of string * reference * reference
-  | Unop of string * reference
-  | Prefixop of string * reference
+  | Atom of atom
+  | Field of value * field_name list
+  | Binop of string * value * value
+  | Unop of string * value
+  | Postfixop of string * value
   | Row of (row_name * view)
-  | Tuple of reference tuple
-and value =
+  | Tuple of value tuple
+and atom =
   | Int of int
   | Float of float
   | String of string
@@ -51,13 +53,11 @@ and value =
   | Record of record
 and record =
   { instance : untyped;
-    ast_builder : untyped -> reference }
+    ast_builder : untyped -> value }
 and table_name = string option * string
 and row_name = string
-and 'a tuple = (field_name * 'a) list
 and field_name = string
 and descr = types_descr * untyped result_parser
-and 'a result_parser = string array * int ref -> 'a
 and types_descr = field_type tuple
 and field_type =
   | Non_nullable of sql_type
@@ -67,8 +67,7 @@ and sql_type =
   | TFloat
   | TString
   | TBool
-  | TRecord of descr * (untyped -> reference)
-and untyped = Obj.t
+  | TRecord of descr * (untyped -> value)
 
 let rec get_field_type ref_type = function
   | [] -> ref_type
@@ -97,6 +96,6 @@ type query =
   | Select of view
   | Insert of (table_name * view)
   | Delete of (table_name * row_name * where)
-  | Update of (table_name * row_name * reference * where)
+  | Update of (table_name * row_name * value * where)
 
 type result = select_result * field_type

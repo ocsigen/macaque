@@ -18,6 +18,8 @@
     Boston, MA 02111-1307, USA.
 *)
 
+open Sql_base
+
 type nullable
 type non_nullable
 
@@ -76,7 +78,7 @@ val row : string unsafe -> 'a view -> < t : < typ : 'a >; nul : non_nullable > t
 (* < typ : 'a > instead of 'a row_t to lighten error reporting *)
 
 val tuple :
-  (string * untyped t) list unsafe ->
+  untyped t tuple unsafe ->
   'tup result_parser unsafe ->
   < t : < typ : 'tup >; nul : non_nullable > t
 (* < typ : 'a > instead of 'a row_t to lighten error reporting *)
@@ -84,7 +86,7 @@ val tuple :
 (** select and view building *)
 type +'a result
 
-type from = (string * untyped view) list
+type from = untyped view tuple
 type where = untyped t list
 
 val view : 'a result -> from -> where -> 'a view
@@ -191,7 +193,7 @@ type poly_parser =
   { of_type : 'a . 'a column_type -> 'a t result_parser }
 
 val table :
-  (string * untyped column_type) list ->
+  untyped column_type tuple ->
   (poly_parser -> 'row result_parser) ->
   (string option * string) ->
   'row table

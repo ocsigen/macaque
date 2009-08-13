@@ -18,6 +18,8 @@
     Boston, MA 02111-1307, USA.
 *)
 
+include Sql_base
+
 include Sql_types
 
 include Sql_builders

@@ -73,7 +73,7 @@ let table_of_descr (_loc, (name, field_types)) =
   let fields = List.map (fun (_loc, (name, _, _)) -> (_loc, name)) field_types in
   let descr =
     let field_descr (_loc, name) =
-      <:expr< ($str:name$, Sql.untyped_column $lid:name$) >> in
+      <:expr< ($str:name$, Sql.untyped_type $lid:name$) >> in
     camlp4_list _loc (List.map field_descr fields) in
   let result_parser =
     let parser_binding (_loc, name) =

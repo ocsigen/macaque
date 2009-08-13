@@ -31,16 +31,6 @@ let table_view table =
     Sql_internals.result_parser = Sql_parsers.unsafe_parser table.result_parser;
     Sql_internals.concrete = Table table.name }
 
-type 'a column_type = field_type
-let untyped_column (x : 'a column_type) = (x : untyped column_type)
-
-type poly_parser =
-  { of_type : 'a . 'a column_type -> 'a t result_parser }
-
-let poly_parser : poly_parser =
-  { of_type = fun _typ ->
-      Sql_parsers.use_unsafe_parser (Sql_parsers.parser_of_type _typ) }
-
 let table descr custom_result_parser name =
   { descr = descr;
     result_parser = custom_result_parser poly_parser;

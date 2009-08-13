@@ -18,6 +18,8 @@
     Boston, MA 02111-1307, USA.
 *)
 
+type untyped
+
 type nullable
 type non_nullable
 
@@ -36,9 +38,6 @@ type 't type_info_only = < t : 't type_info >
 type +'a t = Sql_internals.reference
 let untyped_t x = x
 
-let get_reference r = r
-let get_type (_, t) = t
-
 type 'phant binary_op = 'a t -> 'b t -> 'c t
 constraint 'a = < t : 'input_t; nul : 'n; .. >
 constraint 'b = < t : 'input_t; nul : 'n; .. >
@@ -54,8 +53,13 @@ type where = Sql_internals.where
 type from = Sql_internals.from
 
 (* TODO : create sql_base.ml for that stuff (type 'a result_parser, etc.) *)
-type untyped = Sql_internals.untyped
 type 'a result_parser = 'a Sql_internals.result_parser
+
+type 'a column_type = Sql_internals.field_type
+let untyped_type x = x
+
+let get_type (_, t) = t
+
 
 type +'a result = Sql_internals.result
 
@@ -69,9 +73,11 @@ type ('a, 'b) witness = 'b
 let nullable_witness = true
 let non_nullable_witness = false
 
-let get_val =
-  (* correct by type safety, see get/getn interfaces *)
+type 'a atom = Sql_internals.value
+
+let get_val : < get : _; t : 'a #type_info; .. > atom -> 'a =
   let (!?) = Obj.magic in
+  (* the magic is correct by type safety of 'a t *)
   function
     | Sql_internals.Int i -> !?i
     | Sql_internals.Float x -> !?x
@@ -79,14 +85,14 @@ let get_val =
     | Sql_internals.String s -> !?s
     | Sql_internals.Record {Sql_internals.instance = o} -> !?o
 
-let get (r, t) =
+let get ((r, t) : 'a t) =
   match r with
-    | Sql_internals.Value v -> get_val v
+    | Sql_internals.Value (v : 'a atom) -> get_val v
     | _ -> invalid_arg "get"
 
-let getn (r, t) = match r with
+let getn ((r, t) : 'a t) = match r with
   | Sql_internals.Null -> None
-  | Sql_internals.Value v -> Some (get_val v)
+  | Sql_internals.Value (v : 'a atom) -> Some (get_val v)
   | _ -> invalid_arg "getn"
 
 type grouped_row = unit
@@ -98,14 +104,23 @@ type 'a group = 'a t
 let accum x = x
 let group_of_accum x = x
 
-let handle_query_results sql_query result =
+let handle_query_results : 'a query -> string option list list -> 'a =
   let parse row_parser = fun row ->
     let nullable = function
       | None -> "NULL"
       | Some str -> str in
     row_parser (Array.of_list (List.map nullable row)) in
   let (!?) = Obj.magic in
-  match sql_query with
-    | Sql_internals.Select comp ->
-        !? (List.map (parse (Sql_parsers.parser_of_comp comp)) result)
-    | _ -> !? ()
+  (* the magic is correct by type safety of 'a query *)
+  fun query result ->
+    match query with
+      | Sql_internals.Select comp ->
+          !? (List.map (parse (Sql_parsers.parser_of_comp comp)) result)
+      | _ -> !? ()
+
+type poly_parser =
+  { of_type : 'a . 'a column_type -> 'a t result_parser }
+
+let poly_parser : poly_parser =
+  { of_type = fun _typ ->
+      Sql_parsers.use_unsafe_parser (Sql_parsers.parser_of_type _typ) }

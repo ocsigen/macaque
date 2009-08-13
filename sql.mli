@@ -182,11 +182,13 @@ end
 
 type +'a table
 
-type 'a column_type
+type +'a column_type
+val untyped_type : 'a column_type -> untyped column_type
+
+val get_type : 'a t -> 'a column_type
+
 type poly_parser =
   { of_type : 'a . 'a column_type -> 'a t result_parser }
-
-val untyped_column : 'a column_type -> untyped column_type
 
 val table :
   (string * untyped column_type) list ->

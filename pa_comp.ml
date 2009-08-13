@@ -89,6 +89,10 @@ let () =
       | <:expr< $lid:id$ >> -> (_loc, Ident id)
       | _ -> assert false in
     (_loc, Op (op_id, operands)) in
+  
+  let opt_list = function
+    | None -> []
+    | Some li -> li in
 
   EXTEND CompGram
    GLOBAL: value view_eoi select_eoi insert_eoi delete_eoi update_eoi;
@@ -98,21 +102,25 @@ let () =
    insert_eoi: [[ tab = table; ":="; sel = view; `EOI ->
                     (_loc, Insert (tab, sel)) ]];
    delete_eoi: [[ bind = row_binding;
-                  "|"; items = LIST0 value SEP ";"; `EOI ->
-                    (_loc, Delete (bind, (_loc, items))) ]];
+                  items = OPT ["|"; li = LIST0 value SEP ";" -> li]; `EOI ->
+                    (_loc, Delete (bind, (_loc, opt_list items))) ]];
    update_eoi: [[ bind = row_binding; ":="; res = value;
-                  "|"; items = LIST0 value SEP ";"; `EOI ->
-                    (_loc, Update (bind, res, (_loc, items))) ]];
-   view: [[ result = result; "|"; items = LIST0 comp_item SEP ";" ->
-              (_loc, (result, items)) ]];
+                  items = OPT [ "|"; li = LIST0 value SEP ";" -> li ];
+                  `EOI ->
+                    (_loc, Update (bind, res, (_loc, opt_list items))) ]];
+   view: [[ result = result; items = OPT ["|"; li = LIST0 comp_item SEP ";" -> li] ->
+              (_loc, (result, opt_list items)) ]];
    result: [[ (_, v) = value -> (_loc, Simple_select v)
-            | "group"; group = tuple; "by"; by = tuple ->
+            | "group"; group = tuple; by = OPT ["by"; by = tuple -> by] ->
+              let by = match by with
+                | Some by -> by
+                | None -> (_loc, []) in
                 (_loc, Group_by (group, by)) ]];
    comp_item: [[ (_, binding) = row_binding -> (_loc, Bind binding)
                | (_, cond) = value -> (_loc, Cond cond) ]];
    row_binding: [[ handle = LIDENT; "<-"; table = table ->  (_loc, (handle, table)) ]];
    table: [[ `ANTIQUOT("", t) -> (_loc, quote _loc t)
-           | `ANTIQUOT(("table" | "one") as id, t) ->
+           | `ANTIQUOT(id, t) ->
                (_loc, <:expr< Sql.View.$lid:id$ $quote _loc t$ >>) ]];
    value:
      [ "top" RIGHTA [ ]
@@ -127,7 +135,7 @@ let () =
          [ id = SELF; e = SELF -> (_loc, Op (id, [e])) ]
      | "~-" NONA  [ op = prefixop; e = SELF -> operation _loc op [e] ]
      | "." LEFTA
-         [ row = SELF; "."; path = LIST0 [id = LIDENT -> (_loc, id)] SEP "." ->
+         [ row = SELF; "."; path = field_path ->
              (_loc, Field (row, path)) ]
      | "simple"
          [ v = atom -> (_loc, Atom v)
@@ -137,26 +145,27 @@ let () =
          | "("; (_, e) = SELF; ")" -> (_loc, e)
          | "["; e = SELF; "]" -> (_loc, Accum e) ]];
 
+   field_path :
+     [[ path = LIST1 [id = LIDENT -> (_loc, id)] SEP "." -> path ]];
+
    infixop6: [[ x = ["||"] -> <:expr< $lid:x$ >> ]];
    infixop5: [[ x = ["&&"] -> <:expr< $lid:x$ >> ]];
 
    tuple: [[ "{"; (_, named_fields) = binding_list; "}" -> (_loc, named_fields) ]];
    binding_list: [[ bindings = LIST0 binding SEP ";" -> (_loc, bindings) ]];
-   binding: [[ id = LIDENT; "="; v = value -> (_loc, (id, v)) ]];
+   binding: [[ id = LIDENT; "="; v = value -> (_loc, (id, v))
+             | v = value LEVEL "simple"; "."; path = field_path ->
+                 let (_, name) = List.hd (List.rev path) in
+                 (_loc, (name, (_loc, Field(v, path)))) ]];
 
    atom: [[ `ANTIQUOT("", v) -> quote _loc v
-           | `INT(i, _) -> <:expr< Sql.Data.int $`int:i$ >>
-           | `STRING(_, s) -> <:expr< Sql.Data.string $`str:s$ >>
-           | `FLOAT(f, _) -> <:expr< Sql.Data.float $`flo:f$ >>
-           | "true" -> <:expr< Sql.Data.bool True >>
-           | "false" -> <:expr< Sql.Data.bool False >>
-           | `ANTIQUOT( (* PGOcaml data types *)
-               ( "int" | "int16" | "int32" | "int64"
-               | "unit" | "bool" | "point" | "float"
-               | "bytea"| "string" | "int32_array"
-               | "date" | "time" | "timestamp" | "timestampz" | "interval" )
-               as type_name, v) ->
-                 <:expr< Sql.Data.$lid:type_name$ $quote _loc v$ >> ]];
+          | `INT(i, _) -> <:expr< Sql.Data.int $`int:i$ >>
+          | `STRING(_, s) -> <:expr< Sql.Data.string $`str:s$ >>
+          | `FLOAT(f, _) -> <:expr< Sql.Data.float $`flo:f$ >>
+          | "true" -> <:expr< Sql.Data.bool True >>
+          | "false" -> <:expr< Sql.Data.bool False >>
+          | `ANTIQUOT(id, v) ->
+              <:expr< Sql.Data.$lid:id$ $quote _loc v$ >> ]];
  END;;
 
 (** Code emission from the syntaxic form *)

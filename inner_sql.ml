@@ -18,14 +18,10 @@
     Boston, MA 02111-1307, USA.
 *)
 
-include Sql_internals
-
 include Sql_types
 
 include Sql_builders
 
 include Sql_public
-
-include Sql_printers
 
 include Sql_tables

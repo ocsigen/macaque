@@ -19,6 +19,14 @@
 *)
 
 open Sql_internals
+  open Sql_types
+
+let sql_of_query q = Sql_printers.string_of_query (Sql_flatten.flatten_query q)
+let sql_of_view v = sql_of_query (Select v)
+
+let parse ref =
+  Sql_parsers.use_unsafe_parser
+    (Sql_parsers.parser_of_type (get_type ref))
 
 module Data = struct
   let bool b = Value (Bool b), Non_nullable TBool
@@ -28,7 +36,6 @@ module Data = struct
 end
 
 module Op = struct
-  open Sql_types
   open Sql_builders
 
   let nullable (r, t) =

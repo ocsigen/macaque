@@ -47,7 +47,8 @@ let null_field_parser = option_field_parser error_field_parser
 let record_parser (descr, row_parser) ast_builder =
   unsafe_parser
     (fun input ->
-       Value (Record (Obj.repr (row_parser input), ast_builder)),
+       Value (Record { instance = Obj.repr (row_parser input);
+                       ast_builder = ast_builder }),
        TRecord ((descr, row_parser), ast_builder))
 
 let parser_of_type =

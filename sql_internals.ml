@@ -18,9 +18,9 @@
     Boston, MA 02111-1307, USA.
 *)
 
-type 'a view =
+type view =
   { descr : types_descr;
-    result_parser : 'a result_parser;
+    result_parser : untyped result_parser;
     concrete : concrete_view }
 and concrete_view =
   | Table of table_name
@@ -30,7 +30,7 @@ and select_result =
   | Simple_select of row
   | Group_by of row * row
 and group_by = (row * row)
-and from = (row_name * untyped view) list
+and from = (row_name * view) list
 and where = reference list
 and row = reference
 and reference = reference' * field_type
@@ -41,19 +41,22 @@ and reference' =
   | Binop of string * reference * reference
   | Unop of string * reference
   | Prefixop of string * reference
-  | Row of (row_name * untyped view)
+  | Row of (row_name * view)
   | Tuple of reference tuple
 and value =
   | Int of int
   | Float of float
   | String of string
   | Bool of bool
-  | Record of untyped * (untyped -> reference)
+  | Record of record
+and record =
+  { instance : untyped;
+    ast_builder : untyped -> reference }
 and table_name = string option * string
 and row_name = string
 and 'a tuple = (field_name * 'a) list
 and field_name = string
-and 'a descr = types_descr * 'a result_parser
+and descr = types_descr * untyped result_parser
 and 'a result_parser = string array * int ref -> 'a
 and types_descr = field_type tuple
 and field_type =
@@ -64,7 +67,7 @@ and sql_type =
   | TFloat
   | TString
   | TBool
-  | TRecord of untyped descr * (untyped -> reference)
+  | TRecord of descr * (untyped -> reference)
 and untyped = Obj.t
 
 let rec get_field_type ref_type = function
@@ -90,10 +93,10 @@ let string_of_sql_type = function
   | TFloat -> "double"
   | TRecord (_, _) -> "record"
 
-type +'a query =
-  | Select of untyped view
-  | Insert of (table_name * untyped view)
+type query =
+  | Select of view
+  | Insert of (table_name * view)
   | Delete of (table_name * row_name * where)
   | Update of (table_name * row_name * reference * where)
 
-type +'a result = select_result * field_type
+type result = select_result * field_type

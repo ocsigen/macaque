@@ -28,7 +28,7 @@ type 'a table =
 
 let table_view table =
   { Sql_internals.descr = table.descr;
-    Sql_internals.result_parser = table.result_parser;
+    Sql_internals.result_parser = Sql_parsers.unsafe_parser table.result_parser;
     Sql_internals.concrete = Table table.name }
 
 type 'a column_type = field_type

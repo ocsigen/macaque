@@ -18,9 +18,6 @@
     Boston, MA 02111-1307, USA.
 *)
 
-open Sql_internals
-module Sql_P = Sql_parsers
-
 type nullable
 type non_nullable
 
@@ -36,7 +33,7 @@ class type ['row] row_t = object inherit ['row] type_info end
 
 type 't type_info_only = < t : 't type_info >
 
-type 'a t = reference
+type +'a t = Sql_internals.reference
 let untyped_t x = x
 
 let get_reference r = r
@@ -49,9 +46,18 @@ constraint 'c = < t : 'output_t; nul : 'n >
 constraint 'phant =
   < input_t : 'input_t; output_t : 'output_t; nul : 'n; a : 'a; b : 'b >
 
-let untyped_view view =
-  { view with result_parser =
-      Sql_P.unsafe_parser view.result_parser }
+type +'a view = Sql_internals.view
+let untyped_view view = view
+
+type +'a query = Sql_internals.query
+type where = Sql_internals.where
+type from = Sql_internals.from
+
+(* TODO : create sql_base.ml for that stuff (type 'a result_parser, etc.) *)
+type untyped = Sql_internals.untyped
+type 'a result_parser = 'a Sql_internals.result_parser
+
+type +'a result = Sql_internals.result
 
 type 'a unsafe = 'a
 let unsafe (x : 'a) = (x : 'a unsafe)
@@ -67,26 +73,21 @@ let get_val =
   (* correct by type safety, see get/getn interfaces *)
   let (!?) = Obj.magic in
   function
-    | Int i -> !?i
-    | Float x -> !?x
-    | Bool b -> !?b
-    | String s -> !?s
-    | Record (o, _) -> !?o
+    | Sql_internals.Int i -> !?i
+    | Sql_internals.Float x -> !?x
+    | Sql_internals.Bool b -> !?b
+    | Sql_internals.String s -> !?s
+    | Sql_internals.Record {Sql_internals.instance = o} -> !?o
 
 let get (r, t) =
   match r with
-    | Value v -> get_val v
+    | Sql_internals.Value v -> get_val v
     | _ -> invalid_arg "get"
 
 let getn (r, t) = match r with
-  | Null -> None
-  | Value v -> Some (get_val v)
+  | Sql_internals.Null -> None
+  | Sql_internals.Value v -> Some (get_val v)
   | _ -> invalid_arg "getn"
-
-(* TODO : move back in Sql.ml *)
-let parse ref =
-  Sql_P.use_unsafe_parser (Sql_P.parser_of_type (get_type ref))
-
 
 type grouped_row = unit
 let grouped_row = ()
@@ -97,15 +98,14 @@ type 'a group = 'a t
 let accum x = x
 let group_of_accum x = x
 
-
-(* TODO : move back in Sql.ml or find a place for magic stuff *)
 let handle_query_results sql_query result =
   let parse row_parser = fun row ->
     let nullable = function
       | None -> "NULL"
       | Some str -> str in
     row_parser (Array.of_list (List.map nullable row)) in
+  let (!?) = Obj.magic in
   match sql_query with
-    | Select comp ->
-        Obj.magic (List.map (parse (Sql_P.parser_of_comp comp)) result)
-    | _ -> Obj.magic ()
+    | Sql_internals.Select comp ->
+        !? (List.map (parse (Sql_parsers.parser_of_comp comp)) result)
+    | _ -> !? ()

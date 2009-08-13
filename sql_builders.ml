@@ -33,10 +33,9 @@ let field row path checker =
    get_field_type (get_type row) path)
 
 let row name view =
-  let view = untyped_view view in
   let descr = (view.descr, view.result_parser) in
-  (* we need a recursive value, as the vast_builder has to return
-     the value itself *)
+  (* we need a recursive value, as the ast_builder has to return the
+     value itself *)
   let rec reference =
     (Row (name, view),
      Non_nullable (TRecord (descr, fun _ -> reference))) in
@@ -81,9 +80,9 @@ let get_table_name = function
   | _ -> invalid_arg "get_table_name"
 let get_where = List.map get_reference
 
-let select view = Select (untyped_view view)
+let select view = Select view
 let insert table inserted_view =
-  Insert (get_table_name table, (untyped_view inserted_view))
+  Insert (get_table_name table, inserted_view)
 let delete table row where =
   Delete (get_table_name table, row, get_where where)
 let update table row set subtype_witness where =

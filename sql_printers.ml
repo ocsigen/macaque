@@ -94,8 +94,7 @@ and string_of_value = function
   | String s -> sprintf "'%s'" (String.escaped s)
   | Bool b -> string_of_bool b
   | Float x -> string_of_float x
-  | Record (obj, ast_builder) -> string_of_reference (ast_builder obj)
-
+  | Record r -> string_of_reference (r.ast_builder r.instance)
 
 let rec string_of_query = function
   | Select view -> string_of_view view
@@ -112,12 +111,4 @@ let rec string_of_query = function
         (string_of_table_name table) row
         (string_of_assoc set)
         (string_of_where where)
-
-(* TODO : move back in sql.ml *)
-open Sql_flatten
-open Sql_types
-
-let sql_of_query q = string_of_query (flatten_query q)
-let sql_of_view v = sql_of_query (Select (untyped_view v))
-
 

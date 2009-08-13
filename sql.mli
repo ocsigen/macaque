@@ -36,6 +36,13 @@ type 't type_info_only = < t : 't type_info >
 
 type +'a t
 
+type 'phant binary_op = 'a t -> 'b t -> 'c t
+constraint 'a = < t : 'input_t; nul : 'n; .. >
+constraint 'b = < t : 'input_t; nul : 'n; .. >
+constraint 'c = < t : 'output_t; nul : 'n >
+constraint 'phant =
+  < input_t : 'input_t; output_t : 'output_t; nul : 'n; a : 'a; b : 'b >
+
 type 'a result_parser = string array * int ref -> 'a
 
 (** access functions *)
@@ -110,7 +117,8 @@ val sql_of_view : 'a view -> string
 (** handle result from PGOCaml call *)
 val handle_query_results : 'a query -> string option list list unsafe -> 'a
 
-(** standard data types (usable from user code) *)
+(** standard SQL value types
+    (usable from user code, in pa_comp value antiquotations) *)
 module Data : sig
   val int : int -> < t : int_t; get : unit; nul : _ > t
   val bool : bool -> < t : bool_t; get : unit; nul : _ > t
@@ -118,7 +126,8 @@ module Data : sig
   val string : string -> < t : string_t; get : unit; nul : _ > t
 end
 
-(** standard operators (usable from user code) *)
+(** standard SQL operators
+    (usable from user code, in pa_comp expressions) *)
 module Op : sig
   val null :
     < t : < typ : 'a; numeric : unit >; nul : nullable; get : unit > t
@@ -128,13 +137,6 @@ module Op : sig
     < nul : nullable; .. > t -> < t : bool_t; nul : non_nullable > t
   val is_not_null :
     < nul : nullable; .. > t -> < t : bool_t; nul : non_nullable > t
-
-  type 'phant binary_op = 'a t -> 'b t -> 'c t
-  constraint 'a = < t : 'input_t; nul : 'n; .. >
-  constraint 'b = < t : 'input_t; nul : 'n; .. >
-  constraint 'c = < t : 'output_t; nul : 'n >
-  constraint 'phant =
-    < input_t : 'input_t; output_t : 'output_t; nul : 'n; a : 'a; b : 'b >
   
   type 'phant arith_op = 'phant binary_op
   constraint 'phant = < input_t : #numeric_t as 't; output_t : 't; .. >
@@ -192,13 +194,12 @@ val table :
   (string option * string) ->
   'row table
 
-val table_view : 'a table -> 'a view
-
 type ('a, 'b) witness
 val non_nullable_witness : (non_nullable, bool) witness
 val nullable_witness : (nullable, bool) witness
 
-(** Field types constructors (usable from <:table< .. >>) *)
+(** standard SQL field types
+    (in pa_descr, ie. <:table< .. >>) *)
 module Table_type : sig
   val integer : ('nul, bool) witness ->
     < get : unit; nul : 'nul; t : int_t > column_type
@@ -206,4 +207,12 @@ module Table_type : sig
     < get : unit; nul : 'nul; t : bool_t > column_type
   val text : ('nul, bool) witness ->
     < get : unit; nul : 'nul; t : string_t > column_type
+end
+
+(** standard view operators
+   (in pa_comp, view antiquotations) *)
+module View : sig
+  val table : 'a table -> 'a view
+
+  val one : < t : 'a #row_t; .. > t -> 'a view
 end

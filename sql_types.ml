@@ -42,13 +42,16 @@ let untyped_t x = x
 let get_reference r = r
 let get_type (_, t) = t
 
+type 'phant binary_op = 'a t -> 'b t -> 'c t
+constraint 'a = < t : 'input_t; nul : 'n; .. >
+constraint 'b = < t : 'input_t; nul : 'n; .. >
+constraint 'c = < t : 'output_t; nul : 'n >
+constraint 'phant =
+  < input_t : 'input_t; output_t : 'output_t; nul : 'n; a : 'a; b : 'b >
+
 let untyped_view view =
   { view with result_parser =
       Sql_P.unsafe_parser view.result_parser }
-
-
-type from = (string * untyped view) list
-type where = untyped t list
 
 type 'a unsafe = 'a
 let unsafe (x : 'a) = (x : 'a unsafe)

@@ -18,11 +18,7 @@
     Boston, MA 02111-1307, USA.
 *)
 
-type +'a query = 'a Sql_internals.query
-type +'a result = 'a Sql_internals.result
-type +'a view = 'a Sql_internals.view
-type untyped = Sql_internals.untyped
-type +'a result_parser = 'a Sql_internals.result_parser
+include Sql_internals
 
 include Sql_types
 

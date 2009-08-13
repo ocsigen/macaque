@@ -20,13 +20,17 @@
 
 open Sql_internals
 
-let rec flatten_concrete = function
+let rec flatten_view view =
+  { view with concrete = flatten_concrete view.concrete }
+and flatten_concrete = function
   | Table t -> Table t
   | Selection q -> Selection (flatten_selection q)
 and flatten_selection q =
   { select = flatten_select q.select;
-    from = List.map flatten_table q.from;
+    from = flatten_from q.from;
     where = flatten_where q.where }
+and flatten_from from =
+  List.map (fun (id, view) -> (id, flatten_view view)) from
 and flatten_where w = List.map flatten_reference w
 and flatten_select = function
   | Simple_select row -> Simple_select (flatten_reference row)
@@ -76,8 +80,8 @@ and flatten_table (name, comp) = (name, flatten_concrete comp)
 
 
 let flatten_query = function
-  | Select view -> Select {view with concrete = flatten_concrete view.concrete}
-  | Insert (table, concrete) -> Insert (table, flatten_concrete concrete)
+  | Select view -> Select (flatten_view view)
+  | Insert (table, view) -> Insert (table, flatten_view view)
   | Delete (table, row, where) -> Delete (table, row, flatten_where where)
   | Update (table, row, set, where) ->
       Update (table, row, flatten_reference set, flatten_where where)

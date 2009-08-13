@@ -34,15 +34,6 @@ let table_view table =
 type 'a column_type = field_type
 let untyped_column (x : 'a column_type) = (x : untyped column_type)
 
-module Table_type = struct
-  let _type t = function
-    | true -> Nullable (Some t)
-    | false -> Non_nullable t
-  let integer = _type TInt
-  let boolean = _type TBool
-  let text = _type TString
-end
-
 type poly_parser =
   { of_type : 'a . 'a column_type -> 'a t result_parser }
 

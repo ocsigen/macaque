@@ -101,7 +101,7 @@ let check_table (table : 'a Sql.table) =
   let schema = match schema with
     | None -> "public"
     | Some schema -> schema in
-  let pgsql_columns =  Sql.table_view
+  let pgsql_columns =
     <:table< information_schema.columns (
                table_schema text NOT NULL,
                table_name text NOT NULL,
@@ -113,7 +113,7 @@ let check_table (table : 'a Sql.table) =
     { name = info.column_name;
       data_type = info.data_type;
       nullable = info.is_nullable } |
-        info <- $pgsql_columns$;
+        info <- $table:pgsql_columns$;
     info.table_schema = $string:schema$;
     info.table_name = $string:table_name$ >> in
   let dbh = PGOCaml.connect () in

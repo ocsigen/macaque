@@ -19,7 +19,6 @@
 *)
 
 open Sql_internals
-open Sql_types
 
 module Data = struct
   let bool b = Value (Bool b), Non_nullable TBool
@@ -29,6 +28,9 @@ module Data = struct
 end
 
 module Op = struct
+  open Sql_types
+  open Sql_builders
+
   let nullable (r, t) =
     r, match t with
        | Non_nullable t -> Nullable (Some t)
@@ -42,36 +44,9 @@ module Op = struct
     | None -> null
     | Some x -> nullable (constr x)
 
-  let op type_fun op a b =
-    match get_type a, get_type b with
-      | Non_nullable t, Non_nullable t' ->
-          (* none of them is nullable *)
-          assert (t = t');
-          Binop(op, a, b), Non_nullable (type_fun t)
-      | t, t' ->
-          (* at least one of them is nullable *)
-          let some_t = function
-            | Non_nullable t | Nullable (Some t) -> Some t
-            | Nullable None -> None in
-          let op, t = match some_t t, some_t t' with
-            | Some t, Some t' ->
-                assert (t = t');
-                Binop(op, a, b), Some (type_fun t)
-            | Some t, None | None, Some t ->
-                Binop(op, a, b), Some (type_fun t)
-            | None, None -> Null, None in
-          op, Nullable t
-
   let same_op = op (fun t -> t)
   let mono_op t = op (fun t' -> assert (t = t'); t)
   let poly_op return_t = op (fun _ -> return_t)
-
-  type 'phant binary_op = 'a t -> 'b t -> 'c t
-  constraint 'a = < t : 'input_t; nul : 'n; .. >
-  constraint 'b = < t : 'input_t; nul : 'n; .. >
-  constraint 'c = < t : 'output_t; nul : 'n >
-  constraint 'phant =
-    < input_t : 'input_t; output_t : 'output_t; nul : 'n; a : 'a; b : 'b >
 
   type 'phant arith_op = 'phant binary_op
   constraint 'phant = < input_t : #numeric_t as 't; output_t : 't; .. >
@@ -103,4 +78,22 @@ module Op = struct
   let count x = Unop ("count", x), Non_nullable TInt
   let max (v, t) = Unop ("max", (v, t)), t
   let sum (v, t) = Unop ("sum", (v, t)), t
+end
+
+module Table_type = struct
+  let _type t = function
+    | true -> Nullable (Some t)
+    | false -> Non_nullable t
+  let integer = _type TInt
+  let boolean = _type TBool
+  let text = _type TString
+end
+
+module View = struct
+  open Sql_tables
+  open Sql_builders
+
+  let table = table_view
+
+  let one t = view (simple_select t) [] []
 end

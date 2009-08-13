@@ -1,6 +1,30 @@
 open Sql_internals
 open Sql_types
 
+(** operations *)
+
+let op type_fun op a b =
+  match get_type a, get_type b with
+    | Non_nullable t, Non_nullable t' ->
+        (* none of them is nullable *)
+        assert (t = t');
+        Binop(op, a, b), Non_nullable (type_fun t)
+    | t, t' ->
+        (* at least one of them is nullable *)
+        let some_t = function
+          | Non_nullable t | Nullable (Some t) -> Some t
+          | Nullable None -> None in
+        let op, t = match some_t t, some_t t' with
+          | Some t, Some t' ->
+              assert (t = t');
+              Binop(op, a, b), Some (type_fun t)
+          | Some t, None | None, Some t ->
+              Binop(op, a, b), Some (type_fun t)
+          | None, None -> Null, None in
+        op, Nullable t
+
+
+
 (** values *)
 
 let field row path checker =
@@ -32,7 +56,6 @@ let tuple fields result_parser =
 (** views *)
 
 let view (select, select_type) from where =
-  let from = List.map (fun (name, view) -> (name, view.concrete)) from in
   let query = { select = select; from = from; where = where } in
   match select_type with
     | Non_nullable (TRecord ((descr, result_parser), _))
@@ -60,7 +83,7 @@ let get_where = List.map get_reference
 
 let select view = Select (untyped_view view)
 let insert table inserted_view =
-  Insert (get_table_name table, inserted_view.concrete)
+  Insert (get_table_name table, (untyped_view inserted_view))
 let delete table row where =
   Delete (get_table_name table, row, get_where where)
 let update table row set subtype_witness where =

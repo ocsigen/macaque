@@ -112,8 +112,8 @@ let () =
                | (_, cond) = value -> (_loc, Cond cond) ]];
    row_binding: [[ handle = LIDENT; "<-"; table = table ->  (_loc, (handle, table)) ]];
    table: [[ `ANTIQUOT("", t) -> (_loc, quote _loc t)
-           | `ANTIQUOT("table", t) ->
-               (_loc, <:expr< Sql.table_view $quote _loc t$ >>) ]];
+           | `ANTIQUOT(("table" | "one") as id, t) ->
+               (_loc, <:expr< Sql.View.$lid:id$ $quote _loc t$ >>) ]];
    value:
      [ "top" RIGHTA [ ]
      | "||" RIGHTA [ e1 = SELF; op = infixop6; e2 = SELF -> operation _loc op [e1; e2] ]

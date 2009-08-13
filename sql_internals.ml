@@ -30,7 +30,7 @@ and select_result =
   | Simple_select of row
   | Group_by of row * row
 and group_by = (row * row)
-and from = (row_name * concrete_view) list
+and from = (row_name * untyped view) list
 and where = reference list
 and row = reference
 and reference = reference' * field_type
@@ -92,8 +92,8 @@ let string_of_sql_type = function
 
 type +'a query =
   | Select of untyped view
-  | Insert of (table_name * concrete_view)
+  | Insert of (table_name * untyped view)
   | Delete of (table_name * row_name * where)
   | Update of (table_name * row_name * reference * where)
 
-type 'a result = select_result * field_type
+type +'a result = select_result * field_type

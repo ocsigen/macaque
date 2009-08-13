@@ -52,6 +52,15 @@ let tuple fields result_parser =
   value
 
 
+(** tables *)
+
+let table descr custom_result_parser name =
+  { descr = descr;
+    result_parser =
+      Sql_parsers.unsafe_parser (custom_result_parser poly_parser);
+    concrete = name }
+
+
 (** views *)
 
 let view (select, select_type) from where =
@@ -74,15 +83,11 @@ let group group_part result_part =
 
 
 (** queries *)
-let get_table_name = function
-  | {concrete = Table name} -> name
-  | _ -> invalid_arg "get_table_name"
-
 let select view = Select view
 let insert table inserted_view =
-  Insert (get_table_name table, inserted_view)
+  Insert (table, inserted_view)
 let delete table row where =
-  Delete (get_table_name table, row, where)
+  Delete (table, row, where)
 let update table row set subtype_witness where =
   ignore subtype_witness;
-  Update (get_table_name table, row, set, where)
+  Update (table, row, set, where)

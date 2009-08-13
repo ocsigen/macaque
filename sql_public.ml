@@ -95,10 +95,9 @@ module Table_type = struct
 end
 
 module View = struct
-  open Sql_tables
   open Sql_builders
 
-  let table = table_view
+  let table table = { table with concrete = Table table.concrete }
 
   let one t = view (simple_select t) [] []
 end

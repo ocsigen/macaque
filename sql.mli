@@ -103,14 +103,47 @@ val group_of_accum : 'a accum -> 'a group
 
 val group : < t : 'const #row_t; .. > t -> < t : 'res #row_t; .. > t -> 'res result
 
+
+(** tables *)
+type +'a table
+
+type +'a sql_type
+val untyped_type : 'a sql_type -> untyped sql_type
+
+val get_type : 'a t -> 'a sql_type
+
+type poly_parser =
+  { of_type : 'a . 'a sql_type -> 'a t result_parser }
+
+val table :
+  untyped sql_type tuple ->
+  (poly_parser -> 'row result_parser) ->
+  (string option * string) ->
+  'row table
+
+type ('a, 'b) witness
+val non_nullable_witness : (non_nullable, bool) witness
+val nullable_witness : (nullable, bool) witness
+
+(** standard SQL field types
+    (in pa_descr, ie. <:table< .. >>) *)
+module Table_type : sig
+  val integer : ('nul, bool) witness ->
+    < get : unit; nul : 'nul; t : int_t > sql_type
+  val boolean : ('nul, bool) witness ->
+    < get : unit; nul : 'nul; t : bool_t > sql_type
+  val text : ('nul, bool) witness ->
+    < get : unit; nul : 'nul; t : string_t > sql_type
+end
+
 (** final query building *)
 type +'a query
 
 val select : 'a view -> 'a list query
-val insert : 'a view -> 'a view -> unit query
-val delete : 'a view -> string unsafe -> < t : #bool_t; .. > t list -> unit query
+val insert : 'a table -> 'a view -> unit query
+val delete : 'a table -> string unsafe -> < t : #bool_t; .. > t list -> unit query
 val update :
-  'a view -> string unsafe -> 'b t -> bool unsafe -> < t : #bool_t; .. > t list -> unit query
+  'a table -> string unsafe -> 'b t -> bool unsafe -> < t : #bool_t; .. > t list -> unit query
 
 (** query printing *)
 val sql_of_query : 'a query -> string
@@ -180,37 +213,6 @@ module Op : sig
     < t : #numeric_t as 't; nul : 'n; .. > group -> < t : 't; nul : 'n > t
   val sum :
     < t : #numeric_t as 't; nul : 'n; .. > group -> < t : 't; nul : 'n > t
-end
-
-type +'a table
-
-type +'a sql_type
-val untyped_type : 'a sql_type -> untyped sql_type
-
-val get_type : 'a t -> 'a sql_type
-
-type poly_parser =
-  { of_type : 'a . 'a sql_type -> 'a t result_parser }
-
-val table :
-  untyped sql_type tuple ->
-  (poly_parser -> 'row result_parser) ->
-  (string option * string) ->
-  'row table
-
-type ('a, 'b) witness
-val non_nullable_witness : (non_nullable, bool) witness
-val nullable_witness : (nullable, bool) witness
-
-(** standard SQL field types
-    (in pa_descr, ie. <:table< .. >>) *)
-module Table_type : sig
-  val integer : ('nul, bool) witness ->
-    < get : unit; nul : 'nul; t : int_t > sql_type
-  val boolean : ('nul, bool) witness ->
-    < get : unit; nul : 'nul; t : bool_t > sql_type
-  val text : ('nul, bool) witness ->
-    < get : unit; nul : 'nul; t : string_t > sql_type
 end
 
 (** standard view operators

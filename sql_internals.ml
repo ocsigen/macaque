@@ -20,10 +20,12 @@
 
 open Sql_base
 
-type view =
+type 'a generic_view =
   { descr : types_descr;
     result_parser : untyped result_parser;
-    concrete : concrete_view }
+    concrete : 'a }
+and view = concrete_view generic_view
+and table = table_name generic_view
 and concrete_view =
   | Table of table_name
   | Selection of select
@@ -69,6 +71,7 @@ and atom_type =
   | TBool
   | TRecord of descr * (untyped -> value)
 
+
 let rec get_sql_type ref_type = function
   | [] -> ref_type
   | name :: path_rest ->
@@ -94,8 +97,8 @@ let string_of_atom_type = function
 
 type query =
   | Select of view
-  | Insert of (table_name * view)
-  | Delete of (table_name * row_name * where)
-  | Update of (table_name * row_name * value * where)
+  | Insert of (table * view)
+  | Delete of (table * row_name * where)
+  | Update of (table * row_name * value * where)
 
 type result = select_result * sql_type

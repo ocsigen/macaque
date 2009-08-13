@@ -42,18 +42,18 @@ macaque builds SQL queries at three different levels :
 
   Examples :  
   <:view< {user = u.name; category = cat.name} |
-          u <- $table_users$;
+          u <- $table:users$;
           u.id > 32 + 10;
-          cat <- $table_categories$;
+          cat <- $table:categories$;
           cat.id = u.cat >>
   User name and category of the user with id superior to '42'
 
   <:view< {name = row.user} | row <- $prev_view$; row.category = "simple user" >>
-  Names of all simple users of the 'prev_view' table/view (for example
+  Names of all simple users of the 'prev_view' view (for example
   the previous example)
   
   let names view = <:view< {name = t.name} | t <- $view$ >>
-  Generic function that will project any table/view on its "name" column
+  Generic function that will project any view on its "name" column
   
   Type : 'a Sql.view, where 'a is the type of a row (considered as a value).
 

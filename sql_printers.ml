@@ -42,7 +42,7 @@ and string_of_selection q =
        | _ -> "")
 and string_of_from = function
   | [] -> ""
-  | from -> " FROM " ^ string_of_list string_of_table ", " from
+  | from -> " FROM " ^ string_of_list string_of_from_item ", " from
 and string_of_where = function
   | [] -> ""
   | where -> " WHERE " ^ string_of_list string_of_value " AND " where
@@ -84,8 +84,9 @@ and string_of_value (ref, _) =
 and string_of_field (row, name) = match name with
   | field_name when true -> sprintf "%s.%s" row field_name
   | _ -> assert false
-and string_of_table (row_name, table) =
+and string_of_from_item (row_name, table) =
   sprintf "%s AS %s" (string_of_view table) row_name
+and string_of_table table = string_of_table_name table.concrete
 and string_of_table_name = function
   | (None, table) -> table
   | (Some schema, table) -> sprintf "%s.%s" schema table
@@ -100,15 +101,15 @@ let rec string_of_query = function
   | Select view -> string_of_view view
   | Insert (table, view) ->
       sprintf "INSERT INTO %s (%s)"
-        (string_of_table_name table)
+        (string_of_table table)
         (string_of_view view)
   | Delete (table, row, where) ->
       sprintf "DELETE FROM %s AS %s%s"
-        (string_of_table_name table) row
+        (string_of_table table) row
         (string_of_where where)
   | Update (table, row, set, where) ->
       sprintf "UPDATE %s AS %s SET %s%s"
-        (string_of_table_name table) row
+        (string_of_table table) row
         (string_of_assoc set)
         (string_of_where where)
 

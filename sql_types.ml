@@ -115,6 +115,8 @@ let handle_query_results : 'a query -> string option list list -> 'a =
           !? (List.map (parse (Sql_parsers.parser_of_comp comp)) result)
       | _ -> !? ()
 
+type +'a table = Sql_internals.table
+
 type poly_parser =
   { of_type : 'a . 'a sql_type -> 'a t result_parser }
 

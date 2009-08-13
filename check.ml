@@ -97,8 +97,8 @@ let check_description table_name descr pgsql_descr =
 let check_table (table : 'a Sql.table) =
   (* we are forced to break the abstraction, as the user will send in
      Sql values, and we need an Inner_sql value to introspect it *)
-  let (table : 'a Sql_tables.table) = Obj.magic table in
-  let (schema, table_name) as name = table.Sql_tables.name in
+  let (table : 'a Sql_types.table) = Obj.magic table in
+  let (schema, table_name) as name = table.concrete in
   let long_name = string_of_table_name name in
   let schema = match schema with
     | None -> "public"
@@ -120,7 +120,7 @@ let check_table (table : 'a Sql.table) =
     info.table_name = $string:table_name$ >> in
   let dbh = PGOCaml.connect () in
   let check_result =
-    try `Result (check_description long_name table.Sql_tables.descr
+    try `Result (check_description long_name table.descr
                    (Query.Simple.query dbh check_table))
     with exn -> `Exn exn in
   PGOCaml.close dbh;

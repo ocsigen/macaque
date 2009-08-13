@@ -25,5 +25,3 @@ include Sql_types
 include Sql_builders
 
 include Sql_public
-
-include Sql_tables

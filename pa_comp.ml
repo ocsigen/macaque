@@ -339,7 +339,7 @@ let rec query_of_comp (_loc, query) = match query with
       let where = query_where where in
       let set = query_value set_ast in
       let subtyping_witness =
-        let row = <:expr< Sql.row (Sql.unsafe "update row") table >> in
+        let row = <:expr< Sql.row (Sql.unsafe "update row") (Sql.View.table table) >> in
         match set_ast with
           | (_loc, Tuple tup) ->
               let set_type =
@@ -364,7 +364,7 @@ and query_binding (_loc, (name, (_, table))) =
   (* TODO factorize comp_items binding *)
   let name_str = <:expr< Sql.unsafe $str:name$ >> in
   table, name_str,
-  <:binding< $lid:name$ = Sql.row $name_str$ $table$ >>
+  <:binding< $lid:name$ = Sql.row $name_str$ (Sql.View.table $table$) >>
 
 (** Quotations setup *)
 let () =

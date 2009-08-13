@@ -2,7 +2,7 @@ open Sql
 
 let select table id =
   << {nom = t.nom; id = t.id} |
-     t <- $table$;
+     t in $table$;
      t.id = $int:id$ >>
 
 (*

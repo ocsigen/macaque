@@ -1,4 +1,4 @@
-let full table = <:select< row | row <- $table$ >>
+let full table = <:select< row | row in $table$ >>
 
 let recette = <:table< recette ( nom text NOT NULL ) >>
 

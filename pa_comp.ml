@@ -118,7 +118,7 @@ let () =
                 (_loc, Group_by (group, by)) ]];
    comp_item: [[ (_, binding) = row_binding -> (_loc, Bind binding)
                | (_, cond) = value -> (_loc, Cond cond) ]];
-   row_binding: [[ handle = LIDENT; "<-"; table = table ->  (_loc, (handle, table)) ]];
+   row_binding: [[ handle = LIDENT; "in"; table = table ->  (_loc, (handle, table)) ]];
    table: [[ `ANTIQUOT("", t) -> (_loc, quote _loc t)
            | `ANTIQUOT(id, t) ->
                (_loc, <:expr< Sql.View.$lid:id$ $quote _loc t$ >>) ]];

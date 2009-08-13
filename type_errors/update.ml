@@ -1,1 +1,1 @@
-let _ = <:update< t <- $Base.recette$ := $ <:value< {nom = t.nom} >> $ | >>
+let _ = <:update< t in $Base.recette$ := $ <:value< {nom = t.nom} >> $ | >>

@@ -115,7 +115,7 @@ let check_table (table : 'a Sql.table) =
     { name = info.column_name;
       data_type = info.data_type;
       nullable = info.is_nullable } |
-        info <- $table:pgsql_columns$;
+        info in $table:pgsql_columns$;
     info.table_schema = $string:schema$;
     info.table_name = $string:table_name$ >> in
   let dbh = PGOCaml.connect () in

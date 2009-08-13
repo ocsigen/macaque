@@ -1,10 +1,10 @@
-let pack table = <:select< {a = 1; row = nullable row; b = 2} | row <- $table$ >>
+let pack table = <:select< {a = 1; row = nullable row; b = 2} | row in $table$ >>
 
 let pack2 = <:select< {a = 10; row = {c = 30; row = {d = 40; e = 50}}; b = 20} | >>
 
 let pack3 = <:select<
   {a = 1; a_row = {b = 2; b_row = row}; f = 6} |
-      row <- $ << {c = 3; 
+      row in $ << {c = 3; 
                    c_row = {d = 4; d2 = 4};
                    c_row2 = {e = 5; e2 = 5}} | >> $ >>
 

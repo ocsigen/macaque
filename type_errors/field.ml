@@ -1,1 +1,1 @@
-let _ = << t.foo | t <- $Base.recette$ >>
+let _ = << t.foo | t in $Base.recette$ >>

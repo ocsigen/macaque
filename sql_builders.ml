@@ -4,26 +4,23 @@ open Sql_types
 (** operations *)
 
 let op type_fun op a b =
+  Binop (op, a, b),
   match get_type a, get_type b with
     | Non_nullable t, Non_nullable t' ->
         (* none of them is nullable *)
         assert (t = t');
-        Binop(op, a, b), Non_nullable (type_fun t)
+        Non_nullable (type_fun t)
     | t, t' ->
         (* at least one of them is nullable *)
         let some_t = function
           | Non_nullable t | Nullable (Some t) -> Some t
           | Nullable None -> None in
-        let op, t = match some_t t, some_t t' with
+        match some_t t, some_t t' with
           | Some t, Some t' ->
               assert (t = t');
-              Binop(op, a, b), Some (type_fun t)
-          | Some t, None | None, Some t ->
-              Binop(op, a, b), Some (type_fun t)
-          | None, None -> Null, None in
-        op, Nullable t
-
-
+              Some (type_fun t)
+          | Some t, None | None, Some t -> Some (type_fun t)
+          | None, None -> None
 
 (** values *)
 

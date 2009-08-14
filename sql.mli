@@ -155,7 +155,7 @@ val sql_of_query : 'a query -> string
 val sql_of_view : 'a view -> string
 
 (** handle result from PGOCaml call *)
-val handle_query_results : 'a query -> string option list list unsafe -> 'a
+val handle_query_results : 'a query -> string array list unsafe -> 'a
 
 (** standard SQL value types
     (usable from user code, in pa_comp value antiquotations) *)

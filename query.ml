@@ -48,6 +48,11 @@ struct
     Db.prepare dbh ~query ~name () >>= fun () ->
     Db.execute dbh ~name ~params:[] () >>= fun result ->
     Db.close_statement dbh ~name () >>= fun () ->
+      let result = 
+        let nullable = function
+          | None -> "NULL"
+          | Some str -> str in
+        List.map (fun row -> Array.of_list (List.map nullable row)) result in
     Thread.return (Sql.handle_query_results sql_query (Sql.unsafe result))
 
   let view dbh ?log v =

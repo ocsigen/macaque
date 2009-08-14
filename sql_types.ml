@@ -101,18 +101,13 @@ type 'a group = 'a t
 let accum x = x
 let group_of_accum x = x
 
-let handle_query_results : 'a query -> string option list list -> 'a =
-  let parse row_parser = fun row ->
-    let nullable = function
-      | None -> "NULL"
-      | Some str -> str in
-    row_parser (Array.of_list (List.map nullable row)) in
+let handle_query_results : 'a query -> string array list -> 'a =
   let (!?) = Obj.magic in
   (* the magic is correct by type safety of 'a query *)
   fun query result ->
     match query with
       | Sql_internals.Select comp ->
-          !? (List.map (parse (Sql_parsers.parser_of_comp comp)) result)
+          !? (List.map (Sql_parsers.parser_of_comp comp) result)
       | _ -> !? ()
 
 type +'a table = Sql_internals.table

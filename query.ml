@@ -28,6 +28,8 @@ module type QUERY = sig
 
   val query : _ Db.t -> ?log:out_channel -> 'a Sql.query -> 'a Db.monad
   val view : _ Db.t -> ?log:out_channel -> 'a Sql.view -> 'a list Db.monad
+  val view_one : _ Db.t -> ?log:out_channel -> 'a Sql.view -> 'a Db.monad
+  val view_opt : _ Db.t -> ?log:out_channel -> 'a Sql.view -> 'a option Db.monad
 end
 
 module Make_with_Db
@@ -48,8 +50,23 @@ struct
     Db.close_statement dbh ~name () >>= fun () ->
     Thread.return (Sql.handle_query_results sql_query (Sql.unsafe result))
 
-  let view dbh ?log view =
-    query dbh ?log (Sql.select view)
+  let view dbh ?log v =
+    query dbh ?log (Sql.select v)
+
+  let view_opt dbh ?log v =
+    view dbh ?log v >>= function
+      | [] -> Thread.return None
+      | [res] -> Thread.return (Some res)
+      | li ->
+          let error = Printf.sprintf "view_opt : %d results" (List.length li) in
+          Thread.fail (Failure error)
+
+  let view_one dbh ?log v =
+    view dbh ?log v >>= function
+      | [res] -> Thread.return res
+      | li ->
+          let error = Printf.sprintf "view_one : %d results" (List.length li) in
+          Thread.fail (Failure error)
 end
 
 module Make (Thread : THREAD) =

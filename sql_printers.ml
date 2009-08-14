@@ -69,11 +69,17 @@ and string_of_value (ref, _) =
   match ref with
     | Atom v -> string_of_atom v
     | Null -> "NULL"
-    | Unop (op, a) ->
-        sprintf "%s(%s)" op (string_of_value a)
-    | Postfixop (op, a) -> sprintf "(%s %s)" (string_of_value a) op
-    | Binop (op, a, b) -> sprintf "(%s %s %s)"
-        (string_of_value a) op (string_of_value b)
+    | Op ([], op, [v]) -> (* specific unary operator syntax *)
+        sprintf "%s(%s)" op (string_of_value v)
+    | Op (left, op, right) ->
+        sprintf "(%s%s%s)"
+          (match left with
+             | [] -> ""
+             | li -> string_of_list string_of_value " " left ^ " ")
+          op
+          (match right with
+             | [] -> ""
+             | li -> " " ^ string_of_list string_of_value " " right)
     | Field ((Row (row_name, _), _), fields) ->
         sprintf "%s.%s" row_name (String.concat "__" fields)
     | Field (_, _) -> failwith "string_of_value : invalid field access"

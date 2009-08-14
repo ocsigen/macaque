@@ -66,10 +66,8 @@ and flatten_value ref =
     | (Row _), _ as flattened_row -> flattened_row
     | Atom v, flat_t -> Atom v, flat_t
     (* termination : subcalls on inferior value depth *)
-    | Unop (op, a), t -> Unop (op, flatten a), t
-    | Postfixop (op, a), t -> Postfixop (op, flatten a), t
-    | Binop (op, a, b), t ->
-        Binop (op, flatten a, flatten b), t
+    | Op (left, op, right), t ->
+        Op (List.map flatten left, op, List.map flatten right), t
     | Field (row, path), t ->
         match flatten row with
           | (Tuple _ | Field _), _ as reductible ->

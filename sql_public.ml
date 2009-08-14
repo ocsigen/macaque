@@ -42,8 +42,9 @@ module Op = struct
        | Nullable t -> Nullable t
 
   let null = Null, Nullable None
-  let is_null ref = Postfixop("IS NULL", ref), Non_nullable TBool
-  let is_not_null ref = Postfixop("IS NOT NULL", ref), Non_nullable TBool
+  let postfixop ref op = Op ([ref], op, [])
+  let is_null ref = postfixop ref "IS NULL", Non_nullable TBool
+  let is_not_null ref = postfixop ref "IS NOT NULL", Non_nullable TBool
 
   let option constr = function
     | None -> null
@@ -69,9 +70,9 @@ module Op = struct
   let (<), (<=), (<>), (=), (>=), (>) =
     comp "<", comp "<=", comp "<>", comp "=", comp ">=", comp ">"
   let is_distinct_from a b =
-    Binop ("IS DISTINCT FROM", a, b), Non_nullable TBool
+    Op ([a], "IS DISTINCT FROM", [b]), Non_nullable TBool
   let is_not_distinct_from a b =
-    Binop ("IS NOT DISTINCT FROM", a, b), Non_nullable TBool
+    Op ([a], "IS NOT DISTINCT FROM", [b]), Non_nullable TBool
 
   type 'phant logic_op = 'phant binary_op
   constraint 'phant = < input_t : #bool_t as 't; output_t : 't; .. >
@@ -80,11 +81,12 @@ module Op = struct
 
   let (&&), (||) = logic "AND", logic "OR"
 
-  let not (ref, typ) = Unop ("NOT", (ref, typ)), typ
+  let prefixop op v = Op ([], op, [v])
+  let not (ref, typ) = prefixop "NOT" (ref, typ), typ
 
-  let count x = Unop ("count", x), Non_nullable TInt
-  let max (v, t) = Unop ("max", (v, t)), t
-  let sum (v, t) = Unop ("sum", (v, t)), t
+  let count x = prefixop "count" x, Non_nullable TInt
+  let max (v, t) = prefixop "max" (v, t), t
+  let sum (v, t) = prefixop "sum" (v, t), t
 end
 
 module Table_type = struct

@@ -42,9 +42,7 @@ and value' =
   | Null
   | Atom of atom
   | Field of value * field_name list
-  | Binop of string * value * value
-  | Unop of string * value
-  | Postfixop of string * value
+  | Op of value list * string * value list
   | Row of (row_name * view)
   | Tuple of value tuple
 and atom =

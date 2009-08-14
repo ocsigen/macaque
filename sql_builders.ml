@@ -4,7 +4,7 @@ open Sql_types
 (** operations *)
 
 let op type_fun op a b =
-  Binop (op, a, b),
+ Op ([a], op, [b]),
   match get_type a, get_type b with
     | Non_nullable t, Non_nullable t' ->
         (* none of them is nullable *)
@@ -15,12 +15,13 @@ let op type_fun op a b =
         let some_t = function
           | Non_nullable t | Nullable (Some t) -> Some t
           | Nullable None -> None in
-        match some_t t, some_t t' with
-          | Some t, Some t' ->
-              assert (t = t');
-              Some (type_fun t)
-          | Some t, None | None, Some t -> Some (type_fun t)
-          | None, None -> None
+        Nullable
+          (match some_t t, some_t t' with
+             | Some t, Some t' ->
+                 assert (t = t');
+                 Some (type_fun t)
+             | Some t, None | None, Some t -> Some (type_fun t)
+             | None, None -> None)
 
 (** values *)
 

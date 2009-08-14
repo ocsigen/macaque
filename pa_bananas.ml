@@ -9,6 +9,7 @@ module Make (Syntax : Sig.Camlp4Syntax) = struct
   open Sig
   include Syntax
 
+  (* creates #! / #? keywords by lexer filtering *)
   let rec banana_filter older_filter stream = 
     let rec filter = parser 
       | [< '(KEYWORD "#", loc); rest >] ->
@@ -19,7 +20,6 @@ module Make (Syntax : Sig.Camlp4Syntax) = struct
     older_filter (filter stream)
 
   let () = Token.Filter.define_filter (Gram.get_filter ()) banana_filter
-
 
   EXTEND Gram
     expr: LEVEL "." 

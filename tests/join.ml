@@ -13,8 +13,8 @@ let () =
   let dbh = PGOCaml.connect () in
   List.iter
     (fun r ->
-       let get v = match Sql.getn v with
+       let get = function
          | None -> "NULL"
          | Some thing -> thing in
-       Printf.printf "(%s, %s)\n" (get r#ingredient) (get r#recette))
+       Printf.printf "(%s, %s)\n" (get r#?ingredient) (get r#?recette))
     (Query.Simple.query dbh foo)

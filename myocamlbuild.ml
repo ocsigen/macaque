@@ -75,10 +75,16 @@ end
 module Sql_syntax = struct
   let before_options () = ()
   let after_rules () =
-    flag ["ocaml"; "pp"; "use_comp"] (A"pa_comp.cmo");
-    flag ["ocaml"; "pp"; "use_descr"] (A"pa_descr.cmo");
-    dep ["ocaml"; "ocamldep"; "use_comp"] ["pa_comp.cmo"];
-    dep ["ocaml"; "ocamldep"; "use_descr"] ["pa_descr.cmo"];
+    let comp, descr, bana =
+      "pa_comp.cmo", "pa_descr.cmo", "pa_bananas.cmo" in
+    flag ["ocaml"; "pp"; "use_comp"] (A comp);
+    flag ["ocaml"; "pp"; "use_descr"] (A descr);
+    flag ["ocaml"; "pp"; "use_bananas"] (A bana);
+    flag ["ocaml"; "pp"; "use_macaque"] (S[A comp;A descr;A bana]);
+    dep ["ocaml"; "ocamldep"; "use_comp"] [comp];
+    dep ["ocaml"; "ocamldep"; "use_descr"] [descr];
+    dep ["ocaml"; "ocamldep"; "use_bananas"] [bana];
+    dep ["ocaml"; "ocamldeop"; "use_macaque"] [comp;descr;bana];
     ()
 end
 

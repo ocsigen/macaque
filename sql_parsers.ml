@@ -29,12 +29,15 @@ let bool_field_parser = unsafe_parser (incr &&& boolref_of_string)
 let int_field_parser = unsafe_parser (incr &&& intref_of_string)
 let float_field_parser = unsafe_parser (incr &&& floatref_of_string)
 let string_field_parser = unsafe_parser (incr &&& stringref_of_string)
-let error_field_parser= unsafe_parser (ignore &&& (fun _ -> failwith "Error parser"))
+let error_field_parser=
+  unsafe_parser (ignore &&& (fun _ -> failwith "Error parser"))
 
-let option_field_parser (field_parser : untyped result_parser) : untyped result_parser =
+let option_field_parser field_parser  =
   unsafe_parser
     (function (input_tab, input_ptr) as input ->
-       if input_tab.(!input_ptr) = "NULL" then (incr input_ptr; (Null, Nullable None))
+       if input_tab.(!input_ptr) = "NULL" then
+         (incr input_ptr;
+          (Null, Nullable None))
        else
          let r, t = use_unsafe_parser field_parser input in
          r, match t with

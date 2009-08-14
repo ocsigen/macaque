@@ -23,6 +23,10 @@ open Sql_base
 type nullable
 type non_nullable
 
+type ('a, 'b) witness
+val non_nullable_witness : (non_nullable, bool) witness
+val nullable_witness : (nullable, bool) witness
+
 class type ['t] type_info = object method typ : 't end
 class type numeric_t = object method numeric : unit end
 
@@ -74,7 +78,8 @@ val field :
   ('a -> < t : 't; nul : 'n; ..> t) unsafe ->
   <t : 't; nul : 'n> t
 
-val row : string unsafe -> 'a view -> < t : < typ : 'a >; nul : non_nullable > t
+val row :
+  string unsafe -> 'a view -> < t : < typ : 'a >; nul : non_nullable > t
 (* < typ : 'a > instead of 'a row_t to lighten error reporting *)
 
 val tuple :
@@ -101,7 +106,8 @@ type +'a accum
 val accum : 'a t -> 'a accum
 val group_of_accum : 'a accum -> 'a group
 
-val group : < t : 'const #row_t; .. > t -> < t : 'res #row_t; .. > t -> 'res result
+val group :
+  < t : 'const #row_t; .. > t -> < t : 'res #row_t; .. > t -> 'res result
 
 
 (** tables *)
@@ -121,10 +127,6 @@ val table :
   (string option * string) ->
   'row table
 
-type ('a, 'b) witness
-val non_nullable_witness : (non_nullable, bool) witness
-val nullable_witness : (nullable, bool) witness
-
 (** standard SQL field types
     (in pa_descr, ie. <:table< .. >>) *)
 module Table_type : sig
@@ -141,9 +143,12 @@ type +'a query
 
 val select : 'a view -> 'a list query
 val insert : 'a table -> 'a view -> unit query
-val delete : 'a table -> string unsafe -> < t : #bool_t; .. > t list -> unit query
+val delete :
+  'a table -> string unsafe -> < t : #bool_t; .. > t list -> unit query
 val update :
-  'a table -> string unsafe -> 'b t -> bool unsafe -> < t : #bool_t; .. > t list -> unit query
+  'a table -> string unsafe ->
+  'b t -> ('a -> 'b, bool) witness unsafe ->
+  < t : #bool_t; .. > t list -> unit query
 
 (** query printing *)
 val sql_of_query : 'a query -> string
@@ -172,7 +177,7 @@ module Op : sig
     < nul : nullable; .. > t -> < t : bool_t; nul : non_nullable > t
   val is_not_null :
     < nul : nullable; .. > t -> < t : bool_t; nul : non_nullable > t
-  
+
   type 'phant arith_op = 'phant binary_op
   constraint 'phant = < input_t : #numeric_t as 't; output_t : 't; .. >
 

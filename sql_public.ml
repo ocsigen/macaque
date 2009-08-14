@@ -68,8 +68,10 @@ module Op = struct
 
   let (<), (<=), (<>), (=), (>=), (>) =
     comp "<", comp "<=", comp "<>", comp "=", comp ">=", comp ">"
-  let is_distinct_from a b = Binop ("IS DISTINCT FROM", a, b), Non_nullable TBool
-  let is_not_distinct_from a b = Binop ("IS NOT DISTINCT FROM", a, b), Non_nullable TBool
+  let is_distinct_from a b =
+    Binop ("IS DISTINCT FROM", a, b), Non_nullable TBool
+  let is_not_distinct_from a b =
+    Binop ("IS NOT DISTINCT FROM", a, b), Non_nullable TBool
 
   type 'phant logic_op = 'phant binary_op
   constraint 'phant = < input_t : #bool_t as 't; output_t : 't; .. >

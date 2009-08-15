@@ -98,6 +98,7 @@ val match_null :
 
 (** select and view building *)
 type +'a result
+constraint 'a = < .. >
 
 type from = untyped view tuple
 type where = untyped t list

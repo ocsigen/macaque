@@ -59,6 +59,7 @@ let get_type (_, t) = t
 
 
 type +'a result = Sql_internals.result
+constraint 'a = < .. >
 
 type 'a unsafe = 'a
 let unsafe (x : 'a) = (x : 'a unsafe)

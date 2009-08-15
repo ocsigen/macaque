@@ -72,7 +72,6 @@ let table descr producer custom_result_parser name =
 
 
 (** views *)
-
 let view (select, select_type) from where =
   let query = { select = select; from = from; where = where } in
   match select_type with

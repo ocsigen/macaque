@@ -37,6 +37,38 @@ and flatten_select = function
   | Group_by (result, group) ->
       Group_by (flatten_value result, flatten_value group)
 and flatten_value ref =
+  (*
+    This function is doing all the flattening work.
+    
+    Flattening is intended to transform the query in a form current
+    SQL servers can understand : our view representation is very
+    expressive and some authorized syntaxes must be translated to
+    a dumber equivalent. For example, we do not differentiate
+    accessing from a row (t.a) or from a tuple ({a=1}.a). The second
+    form does not lead to valid SQL, so we reduce it to (1).
+    
+    The postconditions met by the flattened structure are the following :
+    - no nested field access : (Field (Field (a, b), c)) -> Field (a, b @ c)
+      (would provoque an SQL error)
+    - no nested composite types :
+      {a = 1; b = {c = 2; d = 3}} -> {a = 1; b__c = 2; b__d = 3}
+      (useful due to the incomple mapping of Macaque tuples to SQL anonymous records)
+    - all field access are on a row : Field(Row(_),_)
+      (enforced by Sql_printers)
+
+    flatten is an intricate recursive algorithm with non-trivial
+    recursive call decisions. This is necessary to ensure both
+    corectness and termination of the transformation. Termination has
+    been a bit tricky to establish, and some termination arguments are
+    given in the comments.
+
+    The simpler alternative, wich would be to code "flatten" as
+    a one-step transform and use a fixpoint transformator, is made
+    more difficult by the presence of function closures in the Sql.t
+    values, wich disable the use of the usual comparison
+    operators. Besides, the one-step version was found not to improve
+    readability.
+  *)
   let rec flatten = function
     | Null, t -> Null, t
     (* termination : those first recursive calls have inferior

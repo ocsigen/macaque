@@ -14,7 +14,7 @@ let unsafe_parser input_parser : untyped result_parser =
   fun input -> Obj.repr (input_parser input)
 let use_unsafe_parser unsafe_parser input = Obj.obj (unsafe_parser input)
 
-let pack atom atom_type = Atom atom, Non_nullable atom_type
+let pack atom atom_type : value = Atom atom, Non_nullable atom_type
 
 let stringref_of_string s =
   pack (String (PGOCaml.string_of_string s)) TString
@@ -50,7 +50,7 @@ let record_parser t =
   unsafe_parser
     (fun input ->
        let instance = Obj.repr (t.result_parser input) in
-       Atom (Record instance), TRecord t)
+       pack (Record instance) (TRecord t))
 
 let parser_of_type =
   let parser_of_sql_type = function

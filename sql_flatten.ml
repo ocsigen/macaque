@@ -47,11 +47,11 @@ and flatten_value ref =
     form does not lead to valid SQL, so we reduce it to (1).
 
     Preconditions to be met by the input structures :
-    - input-record-type : no records other than Row, Tuple and Case
-      in particular, no Op or Atom record
-      (record atoms must be ast-expanded)
+    - input-record-type : no records other than
+      Row, Tuple, Case and Atom (Record _)
 
     Postconditions met by the flattened structure :
+    - atom-records : all atom records are gone
     - output-field-row : only field-row (Field ((Row _, _), _)) access
       (would provoque an SQL error; enforced by Sql_printers)
     - composite-types : no nested composite types
@@ -82,6 +82,11 @@ and flatten_value ref =
     try ignore (get_record_descr record); true
     with Not_found -> false in
   let rec flatten = function
+    (* atom-record *)
+    | Atom (Record obj),
+      ( Non_nullable (TRecord r)
+        | Nullable (Some (TRecord r)) as t) ->
+        flatten (Tuple (r.producer obj), t)
     (* termination conditions *)
     | Null, t -> Null, t
     | Field ((Row _, _), _ :: _) as end_access, t

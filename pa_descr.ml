@@ -75,6 +75,11 @@ let table_of_descr (_loc, (name, field_types)) =
     let field_descr (_loc, name) =
       <:expr< ($str:name$, Sql.untyped_type $lid:name$) >> in
     camlp4_list _loc (List.map field_descr fields) in
+  let producer =
+    let field_producer (_loc, name) =
+      <:expr< ($str:name$, Sql.untyped_t obj#$lid:name$) >> in
+    let descr = camlp4_list _loc (List.map field_producer fields) in
+    <:expr< Sql.unsafe (fun obj -> $descr$) >> in
   let result_parser =
     let parser_binding (_loc, name) =
       <:binding< $lid:name$ = poly_parser.Sql.of_type $lid:name$ >> in
@@ -86,12 +91,13 @@ let table_of_descr (_loc, (name, field_types)) =
         let $Ast.biAnd_of_list (List.map parser_binding fields)$ in
         (fun input ->
            let $Ast.biAnd_of_list (List.map value_binding fields)$ in
-         object $Ast.crSem_of_list (List.map meth fields)$ end) >> in
+           object $Ast.crSem_of_list (List.map meth fields)$ end) >> in
   let name_expr = match name with
     | (None, table) -> <:expr< (None, $str:table$) >>
     | (Some schema, table) -> <:expr< (Some $str:schema$, $str:table$) >> in
-  let table = <:expr< let $type_bindings$ in
-                      Sql.table $descr$ $result_parser$ $name_expr$ >> in
+  let table =
+    <:expr< let $type_bindings$ in
+            Sql.table $descr$ $producer$ $result_parser$ $name_expr$ >> in
   if not !coherence_check then table
   else <:expr< let table = $table$ in do { Check.check_table table; table } >>
 

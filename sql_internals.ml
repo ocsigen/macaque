@@ -22,6 +22,7 @@ open Sql_base
 
 type 'a generic_view =
   { descr : descr;
+    producer : untyped -> value tuple;
     result_parser : untyped result_parser;
     data : 'a }
 and view = concrete_view generic_view
@@ -66,6 +67,9 @@ and atom_type =
   | TString
   | TBool
   | TRecord of unit generic_view
+
+let unsafe_producer producer : (untyped -> value tuple) =
+  fun obj -> producer (Obj.obj obj)
 
 let rec get_sql_type ref_type = function
   | [] -> ref_type

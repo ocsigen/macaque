@@ -118,3 +118,5 @@ type poly_parser =
 let poly_parser : poly_parser =
   { of_type = fun _typ ->
       Sql_parsers.use_unsafe_parser (Sql_parsers.parser_of_type _typ) }
+
+let break x = x

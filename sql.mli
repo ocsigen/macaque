@@ -83,7 +83,8 @@ val row :
 (* < typ : 'a > instead of 'a row_t to lighten error reporting *)
 
 val tuple :
-  untyped t tuple unsafe ->
+  'tup ->
+  ('tup -> untyped t tuple) unsafe ->
   'tup result_parser unsafe ->
   < t : < typ : 'tup >; nul : non_nullable > t
 (* < typ : 'a > instead of 'a row_t to lighten error reporting *)
@@ -130,6 +131,7 @@ type poly_parser =
 
 val table :
   untyped sql_type tuple ->
+  ('row -> untyped t tuple) unsafe ->
   (poly_parser -> 'row result_parser) ->
   (string option * string) ->
   'row table
@@ -154,7 +156,7 @@ val delete :
   'a table -> string unsafe -> < t : #bool_t; .. > t list -> unit query
 val update :
   'a table -> string unsafe ->
-  'b t -> ('a -> 'b, bool) witness unsafe ->
+  'b t -> bool unsafe ->
   < t : #bool_t; .. > t list -> unit query
 
 (** query printing *)
@@ -234,3 +236,5 @@ module View : sig
 
   val one : < t : 'a #row_t; .. > t -> 'a view
 end
+
+val break : 'a t -> Sql_internals.value

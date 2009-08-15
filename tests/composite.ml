@@ -29,4 +29,4 @@ let () =
        Printf.printf "a:%d\tb:%d\tc:%d\td:%d\te:%d\tf:%d\n%!"
          x#!a x#!a_row#!b x#!a_row#!b_row#!c
          x#!a_row#!b_row#!c_row#!d x#!a_row#!b_row#!c_row2#!e x#!f)
-    (Query.Simple.query dbh pack3)
+    (Query.Simple.query ~log:stdout dbh pack3)

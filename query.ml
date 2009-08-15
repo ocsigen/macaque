@@ -43,7 +43,7 @@ struct
     let query = Sql.sql_of_query sql_query in
     (match log with
        | None -> ()
-       | Some out -> Printf.fprintf out "%s\n" query);
+       | Some out -> Printf.fprintf out "%s\n%!" query);
     let name = "query_result" in
     Db.prepare dbh ~query ~name () >>= fun () ->
     Db.execute dbh ~name ~params:[] () >>= fun result ->

@@ -34,10 +34,12 @@ let row name view =
   ( Row (name, view),
     Non_nullable (TRecord {view with data = ()}) )
 
-let tuple fields result_parser =
+let tuple obj producer result_parser =
+  let fields = producer obj in
   let record_t =
     let field_typ (name, field) = (name, get_type field) in
     { data = ();
+      producer = unsafe_producer producer;
       result_parser = Sql_parsers.unsafe_parser result_parser;
       descr = List.map field_typ fields } in
   Tuple fields, Non_nullable (TRecord record_t)
@@ -61,8 +63,9 @@ let match_null matched null_case other_case =
 
 (** tables *)
 
-let table descr custom_result_parser name =
+let table descr producer custom_result_parser name =
   { descr = descr;
+    producer = unsafe_producer producer;
     result_parser =
       Sql_parsers.unsafe_parser (custom_result_parser poly_parser);
     data = name }

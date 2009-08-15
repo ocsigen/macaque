@@ -323,20 +323,20 @@ and value_of_comp env (_loc, r) =
         let field_decl (_loc, (name, ref)) =
           <:binding< $lid:name$ = Sql.force_gettable (Sql.unsafe $!!ref$) >> in
         Ast.biAnd_of_list (List.map field_decl tup) in
-      let field_list =
-        let field_item (_loc, (name, _)) =
-          <:expr< ($str:name$, Sql.untyped_t $lid:name$) >> in
-        camlp4_list _loc (List.map field_item tup) in
+      let obj =
+        let meth (_loc, (id, _)) = <:class_str_item< method $lid:id$ = $lid:id$ >> in
+        <:expr< object $Ast.crSem_of_list (List.map meth tup)$ end >> in
+      let producer =
+        let field_producer (_loc, (name, _)) =
+          <:expr< ($str:name$, Sql.untyped_t obj#$lid:name$) >> in
+        camlp4_list _loc (List.map field_producer tup) in
       let result_parser =
-        let obj =
-          let meth (_loc, (id, _)) = <:class_str_item< method $lid:id$ = $lid:id$ >> in
-          <:expr< object $Ast.crSem_of_list (List.map meth tup)$ end >> in
         let decl (_loc, (id, _)) =
           <:binding< $lid:id$ = Sql.parse $lid:id$ input >> in
         <:expr< fun input -> let $Ast.biAnd_of_list (List.map decl tup)$ in $obj$ >> in
       <:expr< let $fields$ in
-              Sql.tuple
-                (Sql.unsafe $field_list$)
+              Sql.tuple $obj$
+                (Sql.unsafe (fun obj -> $producer$))
                 (Sql.unsafe $result_parser$) >>
 and table_of_comp (_loc, table) = table
 

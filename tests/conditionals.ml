@@ -7,9 +7,9 @@ let row =
   <:value< if false then {a = 1; b = 2} else {a = 2; b = 1} >>
 
 let duplication x =
-  <:value< { v = match x with
-                 | null -> null
-                 | x' -> nullable {a = x'; b = x'; c = x'} } >>
+  <:value< match x with
+           | null -> null
+           | x' -> nullable {a = x'; b = x'; c = x'}>>
       
 let () =
   let dbh = PGOCaml.connect () in

@@ -98,7 +98,7 @@ let check_table (table : 'a Sql.table) =
   (* we are forced to break the abstraction, as the user will send in
      Sql values, and we need an Inner_sql value to introspect it *)
   let (table : 'a Sql_types.table) = Obj.magic table in
-  let (schema, table_name) as name = table.concrete in
+  let (schema, table_name) as name = table.data in
   let long_name = string_of_table_name name in
   let schema = match schema with
     | None -> "public"

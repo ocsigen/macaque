@@ -72,7 +72,7 @@ let table descr custom_result_parser name =
   { descr = descr;
     result_parser =
       Sql_parsers.unsafe_parser (custom_result_parser poly_parser);
-    concrete = name }
+    data = name }
 
 
 (** views *)
@@ -84,7 +84,7 @@ let view (select, select_type) from where =
     | Nullable (Some (TRecord ((descr, result_parser), _))) ->
         { descr = descr;
           result_parser = Sql_parsers.use_unsafe_parser result_parser;
-          concrete = Selection query }
+          data = Selection query }
     | _ -> assert false
 
 

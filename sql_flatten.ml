@@ -21,7 +21,7 @@
 open Sql_internals
 
 let rec flatten_view view =
-  { view with concrete = flatten_concrete view.concrete }
+  { view with data = flatten_concrete view.data }
 and flatten_concrete = function
   | Table t -> Table t
   | Selection q -> Selection (flatten_selection q)

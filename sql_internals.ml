@@ -23,7 +23,7 @@ open Sql_base
 type 'a generic_view =
   { descr : types_descr;
     result_parser : untyped result_parser;
-    concrete : 'a }
+    data : 'a }
 and view = concrete_view generic_view
 and table = table_name generic_view
 and concrete_view =
@@ -69,7 +69,6 @@ and atom_type =
   | TString
   | TBool
   | TRecord of descr * (untyped -> value)
-
 
 let rec get_sql_type ref_type = function
   | [] -> ref_type

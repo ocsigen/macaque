@@ -24,7 +24,7 @@ open Printf
 
 let string_of_list printer sep li = String.concat sep (List.map printer li)
 
-let rec string_of_view view = string_of_concrete view.concrete
+let rec string_of_view view = string_of_concrete view.data
 and string_of_concrete = function
 | Selection q -> sprintf "(%s)" (string_of_selection q)
 | Table table_name -> string_of_table_name table_name
@@ -100,7 +100,7 @@ and string_of_field (row, name) = match name with
   | _ -> assert false
 and string_of_from_item (row_name, table) =
   sprintf "%s AS %s" (string_of_view table) row_name
-and string_of_table table = string_of_table_name table.concrete
+and string_of_table table = string_of_table_name table.data
 and string_of_table_name = function
   | (None, table) -> table
   | (Some schema, table) -> sprintf "%s.%s" schema table

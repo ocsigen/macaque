@@ -177,7 +177,7 @@ end
     (usable from user code, in pa_comp expressions) *)
 module Op : sig
   val null :
-    < t : < typ : 'a; numeric : unit >; nul : nullable; get : unit > t
+    < t : < .. >; nul : nullable; get : unit > t
   val nullable :
     < t : 't; nul : non_nullable; .. > t -> < t : 't; nul : nullable > t
   val is_null :

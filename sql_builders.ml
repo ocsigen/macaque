@@ -32,7 +32,7 @@ let field row path checker =
 
 let row name view =
   let descr = (view.descr, view.result_parser) in
-  (* we need a recursive value, as the ast_builder has to return the
+ (* we need a recursive value, as the ast_builder has to return the
      value itself *)
   let rec value =
     (Row (name, view),

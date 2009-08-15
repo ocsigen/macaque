@@ -69,6 +69,13 @@ and flatten_value ref =
     operators. Besides, the one-step version was found not to improve
     readability.
   *)
+  let get_record_descr = function
+    | Non_nullable (TRecord((descr, _), _))
+    | Nullable (Some (TRecord((descr, _), _))) -> descr
+    | _ -> raise Not_found in
+  let is_record_t record =
+    try ignore (get_record_descr record); true
+    with Not_found -> false in
   let rec flatten = function
     | Null, t -> Null, t
         (* termination : those first recursive calls have inferior
@@ -89,19 +96,33 @@ and flatten_value ref =
         Tuple (List.flatten (List.map field tup)), t
     (* termination : this pattern case will never match more than once
        on the same row, because we change the row type to Null *)
-    | row, (( Non_nullable (TRecord((descr, _), _))
-            | Nullable (Some (TRecord((descr, _), _))))  as t) ->
-        let field (name, child_t) =
-          name, flatten (Field ((row, Nullable None), [name]), child_t) in
-        Tuple (List.map field descr), t
+    | row, t when is_record_t t ->
+        let descr = get_record_descr t in
+        let field (name, child_t) (row, _) =
+          flatten (Field ((row, Nullable None), [name]), child_t) in
+        let field_of_descr ((name, child_t) as descr) =
+          name,
+          match row with
+            | Row _ | Field _ -> field descr (row, t)
+            | Case (cases, default) ->
+                let field_case (cond, case) =
+                  flatten cond, field descr case in
+                Case (List.map field_case cases, field descr default), child_t
+            | _ ->
+                (* no other value should type record and need to be expande
+                   with field accesses *)
+                assert false in
+        Tuple (List.map field_of_descr descr), t
     (* row whose type was set Null before *)
-    | (Row _), _ as flattened_row -> flattened_row
+    | (Row _), Nullable None as flattened_row -> flattened_row
+    | (Row _), _ -> assert false
     | Atom v, flat_t -> Atom v, flat_t
     (* termination : subcalls on inferior value depth *)
     | Op (left, op, right), t ->
         Op (List.map flatten left, op, List.map flatten right), t
     | Case (cases, default), t ->
-        Case (List.map (fun (a, b) -> flatten a, flatten b) cases, flatten default), t
+        let flatten_case (cond, case) = flatten cond, flatten case in
+        Case (List.map flatten_case cases, flatten default), t
     | Field (row, path), t ->
         match flatten row with
           | (Tuple _ | Field _), _ as reductible ->

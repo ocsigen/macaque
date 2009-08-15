@@ -42,8 +42,9 @@ and value' =
   | Null
   | Atom of atom
   | Field of value * field_name list
+  (* | Cast of value * atom_type TODO *)
   | Op of value list * string * value list
-  | Row of row_name * view
+  | Row of (row_name * view)
   | Tuple of value tuple
   | Case of (value * value) list * value (* [when ..  then ..]+ else ..*)
 and atom =

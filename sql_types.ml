@@ -80,7 +80,7 @@ let get_val : < get : _; t : 'a #type_info; .. > atom -> 'a =
     | Sql_internals.Float x -> !?x
     | Sql_internals.Bool b -> !?b
     | Sql_internals.String s -> !?s
-    | Sql_internals.Record {Sql_internals.instance = o} -> !?o
+    | Sql_internals.Record o -> !?o
 
 let get ((r, t) : 'a t) =
   match r with

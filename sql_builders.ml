@@ -31,23 +31,16 @@ let field row path checker =
    get_sql_type (get_type row) path)
 
 let row name view =
-  let descr = (view.descr, view.result_parser) in
- (* we need a recursive value, as the ast_builder has to return the
-     value itself *)
-  let rec value =
-    (Row (name, view),
-     Non_nullable (TRecord (descr, fun _ -> value))) in
-  value
+  ( Row (name, view),
+    Non_nullable (TRecord {view with data = ()}) )
 
 let tuple fields result_parser =
-  let field_ref (name, field) = (name, field) in
-  let field_typ (name, field) = (name, get_type field) in
-  let descr = List.map field_typ fields, Sql_parsers.unsafe_parser result_parser in
-  (* rec : see "row" comment *)
-  let rec value =
-    (Tuple (List.map field_ref fields),
-     Non_nullable (TRecord (descr, fun _ -> value))) in
-  value
+  let record_t =
+    let field_typ (name, field) = (name, get_type field) in
+    { data = ();
+      result_parser = Sql_parsers.unsafe_parser result_parser;
+      descr = List.map field_typ fields } in
+  Tuple fields, Non_nullable (TRecord record_t)
 
 let if_then_else p a b = Case ([(p, a)], b), get_type a
 
@@ -80,11 +73,8 @@ let table descr custom_result_parser name =
 let view (select, select_type) from where =
   let query = { select = select; from = from; where = where } in
   match select_type with
-    | Non_nullable (TRecord ((descr, result_parser), _))
-    | Nullable (Some (TRecord ((descr, result_parser), _))) ->
-        { descr = descr;
-          result_parser = Sql_parsers.use_unsafe_parser result_parser;
-          data = Selection query }
+    | Non_nullable (TRecord t) | Nullable (Some (TRecord t)) ->
+        { t with data = Selection query }
     | _ -> assert false
 
 

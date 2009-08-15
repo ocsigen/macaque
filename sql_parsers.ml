@@ -46,12 +46,11 @@ let option_field_parser field_parser  =
 
 let null_field_parser = option_field_parser error_field_parser
 
-let record_parser (descr, row_parser) ast_builder =
+let record_parser t =
   unsafe_parser
     (fun input ->
-       Atom (Record { instance = Obj.repr (row_parser input);
-                       ast_builder = ast_builder }),
-       TRecord ((descr, row_parser), ast_builder))
+       let instance = Obj.repr (t.result_parser input) in
+       Atom (Record instance), TRecord t)
 
 let parser_of_type =
   let parser_of_sql_type = function
@@ -59,8 +58,7 @@ let parser_of_type =
     | TFloat -> float_field_parser
     | TString -> string_field_parser
     | TBool -> bool_field_parser
-    | TRecord (full_descr, ast_builder) ->
-        record_parser full_descr ast_builder in
+    | TRecord t -> record_parser t in
   function
   | Non_nullable typ -> parser_of_sql_type typ
   | Nullable None -> null_field_parser

@@ -21,7 +21,7 @@
 open Sql_base
 
 type 'a generic_view =
-  { descr : types_descr;
+  { descr : descr;
     result_parser : untyped result_parser;
     data : 'a }
 and view = concrete_view generic_view
@@ -52,15 +52,11 @@ and atom =
   | Float of float
   | String of string
   | Bool of bool
-  | Record of record
-and record =
-  { instance : untyped;
-    ast_builder : untyped -> value }
+  | Record of untyped (* runtime object instance *)
 and table_name = string option * string
 and row_name = string
 and field_name = string
-and descr = types_descr * untyped result_parser
-and types_descr = sql_type tuple
+and descr = sql_type tuple
 and sql_type =
   | Non_nullable of atom_type
   | Nullable of atom_type option
@@ -69,15 +65,15 @@ and atom_type =
   | TFloat
   | TString
   | TBool
-  | TRecord of descr * (untyped -> value)
+  | TRecord of unit generic_view
 
 let rec get_sql_type ref_type = function
   | [] -> ref_type
   | name :: path_rest ->
       match ref_type with
         | Nullable None -> Nullable None
-        | Non_nullable (TRecord ((descr, _), _))
-        | Nullable Some (TRecord ((descr, _), _)) ->
+        | Non_nullable (TRecord {descr=descr})
+        | Nullable Some (TRecord {descr=descr})->
             get_sql_type (List.assoc name descr) path_rest
         | _ -> invalid_arg "get_sql_type"
 
@@ -92,7 +88,7 @@ let string_of_atom_type = function
   | TString -> "text"
   | TBool -> "boolean"
   | TFloat -> "double"
-  | TRecord (_, _) -> "record"
+  | TRecord _ -> "record"
 
 type query =
   | Select of view

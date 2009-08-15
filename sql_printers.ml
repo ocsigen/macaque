@@ -109,7 +109,7 @@ and string_of_atom = function
   | String s -> sprintf "'%s'" (String.escaped s)
   | Bool b -> string_of_bool b
   | Float x -> string_of_float x
-  | Record r -> string_of_value (r.ast_builder r.instance)
+  | Record t -> "BOUM TODO TODO"
 
 let rec string_of_query = function
   | Select view -> string_of_view view

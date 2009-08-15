@@ -39,11 +39,11 @@ type +'a t = Sql_internals.value
 let untyped_t x = x
 
 type 'phant binary_op = 'a t -> 'b t -> 'c t
-constraint 'a = < t : 'input_t; nul : 'n; .. >
-constraint 'b = < t : 'input_t; nul : 'n; .. >
-constraint 'c = < t : 'output_t; nul : 'n >
+constraint 'a = < t : 'in_t; nul : 'n; .. >
+constraint 'b = < t : 'in_t; nul : 'n; .. >
+constraint 'c = < t : 'out_t; nul : 'n >
 constraint 'phant =
-  < input_t : 'input_t; output_t : 'output_t; nul : 'n; a : 'a; b : 'b >
+  < in_t : 'in_t; out_t : 'out_t; nul : 'n; a : 'a; b : 'b >
 
 type +'a view = Sql_internals.view
 let untyped_view view = view

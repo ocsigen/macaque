@@ -49,6 +49,22 @@ let tuple fields result_parser =
      Non_nullable (TRecord (descr, fun _ -> value))) in
   value
 
+let if_then_else p a b = Case ([(p, a)], b), get_type a
+
+let match_null matched null_case other_case =
+  match get_type matched with
+    | Nullable None -> null_case
+        (* this special case is a work-around to the match_null
+           problem reported in tests/match_null.ml
+           
+           it makes match_null semantic much more fragile : we must
+           NOT have a non-null value with a 'Nullable None' type, wich
+           is only weakly enforced in the rest of the code due to
+           complex SQL nullability behaviors *)
+    | _ ->
+        let cond = Op ([matched], "IS NULL", []), Non_nullable TBool in
+        let else_val = other_case matched in
+        Case ([(cond, null_case)], else_val), get_type null_case
 
 (** tables *)
 

@@ -51,6 +51,8 @@ and value =
   | Field of field
   | Atom of Ast.expr
   | Op of value located * value located list
+  | If of value located * value located * value located
+  | Match of value located * value located  * ident * value located
   | Ident of ident
   | Tuple of tuple
   | Accum of value located
@@ -123,7 +125,13 @@ let () =
            | `ANTIQUOT(id, t) ->
                (_loc, <:expr< Sql.View.$lid:id$ $quote _loc t$ >>) ]];
    value:
-     [ "top" RIGHTA [ ]
+     [ "top" RIGHTA
+         [ "match"; e = SELF; "with";
+           OPT "|"; LIDENT "null"; "->"; null_case = SELF;
+           "|"; id = LIDENT; "->"; other_case = SELF ->
+             (_loc, Match (e, null_case, id, other_case))
+         | "if"; p = SELF; "then"; a = SELF; "else"; b = SELF ->
+             (_loc, If(p, a, b)) ]
      | "||" RIGHTA [ e1 = SELF; op = infixop6; e2 = SELF -> operation _loc op [e1; e2] ]
      | "&&" RIGHTA [ e1 = SELF; op = infixop5; e2 = SELF -> operation _loc op [e1; e2] ]
      | "<"  LEFTA [ e1 = SELF; op = infixop0; e2 = SELF -> operation _loc op [e1; e2] ]
@@ -265,6 +273,10 @@ and result_of_comp env (_loc, r) = match r with
           | Op (op, operands) -> Op (op, List.map !!map_ref operands)
           | Tuple tup -> Tuple (map_tuple tup)
           | Accum expr -> accum expr
+          | If (p, a, b) -> If (!!map_ref p, !!map_ref a, !!map_ref b)
+          | Match (patt, null_case, id, other_case) ->
+              Match (!!map_ref patt, !!map_ref null_case,
+                     id, !!map_ref other_case)
           | (Atom _ | Ident _) as v -> v in
         let group = map_tuple group in (* side effect on `res` *)
         group, List.rev !res in
@@ -285,27 +297,31 @@ and result_of_comp env (_loc, r) = match r with
         <:expr< Sql.group
                   $value_of_comp env by_tuple$
                   $value_of_comp env result_tuple$ >>
-and value_of_comp env (_loc, r) = match r with
+and value_of_comp env (_loc, r) =
+  let (!!) = value_of_comp env in
+  match r with
   | Atom v -> v
   | Ident row -> <:expr< $lid:row$ >>
-  | Accum expr -> <:expr< Sql.group_of_accum $value_of_comp env expr$ >>
+  | Accum expr -> <:expr< Sql.group_of_accum $!!expr$ >>
   | Op (op, operands) ->
-      let operation expr e = <:expr< $expr$ $value_of_comp env e$ >> in
+      let operation expr e = <:expr< $expr$ $!!e$ >> in
       let operator = match op with
         | (_loc, Ident id) -> <:expr< Sql.Op.$lid:id$ >>
-        | expr -> value_of_comp env expr in
+        | expr -> !!expr in
       List.fold_left operation operator operands
   | Field (row, path) ->
       let call obj (_loc, meth_id) = <:expr< $obj$ # $lid:meth_id$ >> in
-      <:expr< Sql.field
-                $value_of_comp env row$
+      <:expr< Sql.field $!!row$
                 (Sql.unsafe $camlp4_path _loc path$)
                 (Sql.unsafe (fun t -> $List.fold_left call <:expr< t >> path$)) >>
+  | If (p, a, b) -> <:expr< Sql.if_then_else $!!p$ $!!a$ $!!b$ >>
+  | Match (matched, null_case, id, other_case) ->
+      <:expr< Sql.match_null $!!matched$ $!!null_case$
+                (fun $lid:id$ -> $!!other_case$) >>
   | Tuple tup ->
       let fields =
         let field_decl (_loc, (name, ref)) =
-          let expr = value_of_comp env ref in
-          <:binding< $lid:name$ = Sql.force_gettable (Sql.unsafe $expr$) >> in
+          <:binding< $lid:name$ = Sql.force_gettable (Sql.unsafe $!!ref$) >> in
         Ast.biAnd_of_list (List.map field_decl tup) in
       let field_list =
         let field_item (_loc, (name, _)) =

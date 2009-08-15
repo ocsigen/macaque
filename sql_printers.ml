@@ -84,6 +84,14 @@ and string_of_value (ref, _) =
         sprintf "%s.%s" row_name (String.concat "__" fields)
     | Field (_, _) -> failwith "string_of_value : invalid field access"
     | Row (row_name, _) -> row_name
+    | Case ([], default) -> string_of_value default
+    | Case (cases, default) ->
+        let string_of_case (cond, case) = 
+          sprintf "WHEN %s THEN %s"
+            (string_of_value cond) (string_of_value case) in
+        sprintf "(CASE %s ELSE %s END)"
+          (string_of_list string_of_case " " cases)
+          (string_of_value default)
     | Tuple tup ->
         sprintf "ROW(%s)"
           (string_of_list (fun (_, r) -> string_of_value r) ", " tup)

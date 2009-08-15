@@ -55,7 +55,7 @@ module Op = struct
   let poly_op return_t = op (fun _ -> return_t)
 
   type 'phant arith_op = 'phant binary_op
-  constraint 'phant = < input_t : #numeric_t as 't; output_t : 't; .. >
+  constraint 'phant = < in_t : #numeric_t as 't; out_t : 't; .. >
 
   let arith op = same_op op
 
@@ -63,7 +63,7 @@ module Op = struct
     arith "+", arith "-", arith "/", arith "*"
 
   type 'phant comp_op = 'phant binary_op
-  constraint 'phant = < output_t : bool_t; .. >
+  constraint 'phant = < out_t : bool_t; .. >
 
   let comp op = poly_op TBool op
 
@@ -75,7 +75,7 @@ module Op = struct
     Op ([a], "IS NOT DISTINCT FROM", [b]), Non_nullable TBool
 
   type 'phant logic_op = 'phant binary_op
-  constraint 'phant = < input_t : #bool_t as 't; output_t : 't; .. >
+  constraint 'phant = < in_t : #bool_t as 't; out_t : 't; .. >
 
   let logic op = mono_op TBool op
 

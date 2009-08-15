@@ -1,7 +1,8 @@
+
 true: pkg_pgocaml
 <base.ml>: camlp4o, use_macaque
 <check.ml>: camlp4o, use_macaque
 <tests/*>: camlp4o, use_macaque
 <type_errors/*>: camlp4o, use_macaque
-<test.*>: camlp4o, use_macaque
+<test*.*>: camlp4o, use_macaque
 <pa_*> : pkg_camlp4, pp(camlp4orf)

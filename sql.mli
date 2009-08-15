@@ -43,11 +43,11 @@ type 't type_info_only = < t : 't type_info >
 type +'a t
 
 type 'phant binary_op = 'a t -> 'b t -> 'c t
-constraint 'a = < t : 'input_t; nul : 'n; .. >
-constraint 'b = < t : 'input_t; nul : 'n; .. >
-constraint 'c = < t : 'output_t; nul : 'n >
+constraint 'a = < t : 'in_t; nul : 'n; .. >
+constraint 'b = < t : 'in_t; nul : 'n; .. >
+constraint 'c = < t : 'out_t; nul : 'n >
 constraint 'phant =
-  < input_t : 'input_t; output_t : 'output_t; nul : 'n; a : 'a; b : 'b >
+  < in_t : 'in_t; out_t : 'out_t; nul : 'n; a : 'a; b : 'b >
 
 type 'a result_parser = string array * int ref -> 'a
 
@@ -87,6 +87,13 @@ val tuple :
   'tup result_parser unsafe ->
   < t : < typ : 'tup >; nul : non_nullable > t
 (* < typ : 'a > instead of 'a row_t to lighten error reporting *)
+
+val if_then_else : < t : #bool_t; .. > t -> < in_t : 't; out_t : 't; .. > binary_op
+
+val match_null :
+  < t : 't; nul : nullable; .. > t -> < t : 'res_t; nul : 'res_n; .. > t ->
+  (< t :'t; nul : non_nullable; ..> t -> < t : 'res_t; nul : 'res_n; .. > t) ->
+  < t : 'res_t; nul : 'res_n > t
 
 (** select and view building *)
 type +'a result
@@ -179,7 +186,7 @@ module Op : sig
     < nul : nullable; .. > t -> < t : bool_t; nul : non_nullable > t
 
   type 'phant arith_op = 'phant binary_op
-  constraint 'phant = < input_t : #numeric_t as 't; output_t : 't; .. >
+  constraint 'phant = < in_t : #numeric_t as 't; out_t : 't; .. >
 
   val (+) : _ arith_op
   val (-) : _ arith_op
@@ -187,7 +194,7 @@ module Op : sig
   val ( * ) : _ arith_op
 
   type 'phant comp_op = 'phant binary_op
-  constraint 'phant = < output_t : bool_t; .. >
+  constraint 'phant = < out_t : bool_t; .. >
 
   val (<) : _ comp_op
   val (<=) : _ comp_op
@@ -205,7 +212,7 @@ module Op : sig
     < nul : non_nullable; t : bool_t > t
 
   type 'phant logic_op = 'phant binary_op
-  constraint 'phant = < input_t : #bool_t as 't; output_t : 't; .. >
+  constraint 'phant = < in_t : #bool_t as 't; out_t : 't; .. >
 
   val (&&) : _ logic_op
   val (||) : _ logic_op

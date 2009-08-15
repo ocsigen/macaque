@@ -1,6 +1,6 @@
 OBJS="sql_base.cmo sql_internals.cmo sql_parsers.cmo sql_printers.cmo \
       sql_flatten.cmo sql_types.cmo sql_builders.cmo sql_public.cmo \
-      inner_sql.cmo sql.cmo check.cmo query.cmo \
+      inner_sql.cmo sql.cmo query.cmo check.cmo \
       pa_comp.cmo pa_descr.cmo pa_bananas.cmo"
 
 ocamlbuild $OBJS

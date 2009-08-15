@@ -43,8 +43,9 @@ and value' =
   | Atom of atom
   | Field of value * field_name list
   | Op of value list * string * value list
-  | Row of (row_name * view)
+  | Row of row_name * view
   | Tuple of value tuple
+  | Case of (value * value) list * value (* [when ..  then ..]+ else ..*)
 and atom =
   | Int of int
   | Float of float

@@ -71,8 +71,8 @@ and flatten_value ref =
   *)
   let rec flatten = function
     | Null, t -> Null, t
-    (* termination : those first recursive calls have inferior
-       value depth *)
+        (* termination : those first recursive calls have inferior
+           value depth *)
     | Field (row, []), _ -> flatten row
     | Field ((Tuple tup, t), field::path), _ ->
         flatten (Field (List.assoc field tup, path),
@@ -100,6 +100,8 @@ and flatten_value ref =
     (* termination : subcalls on inferior value depth *)
     | Op (left, op, right), t ->
         Op (List.map flatten left, op, List.map flatten right), t
+    | Case (cases, default), t ->
+        Case (List.map (fun (a, b) -> flatten a, flatten b) cases, flatten default), t
     | Field (row, path), t ->
         match flatten row with
           | (Tuple _ | Field _), _ as reductible ->

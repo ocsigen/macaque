@@ -171,7 +171,7 @@ val handle_query_results : 'a query -> string array list unsafe -> 'a
 
 (** standard SQL value types
     (usable from user code, in pa_comp value antiquotations) *)
-module Data : sig
+module Value : sig
   val int : int -> < t : int_t; get : unit; nul : _ > t
   val bool : bool -> < t : bool_t; get : unit; nul : _ > t
   val float : float -> < t : float_t; get : unit; nul : _ > t

@@ -237,6 +237,13 @@ syntaxes into the Objective Caml language. General principles are as follows :
   antiquotations can also be named in specific context :
     let int n = <:value< $int:n$ + 0 >> 
     (* transforming a caml int into a Sql.t value *)
+  named antiquotations are not hardcoded in the syntax definition :
+    they rely on values of the Sql module, wich are in the appropriate
+    submodule : $foo:bar$ will expand to (Sql.Module.foo bar), where
+    the Foo module depends on the antiquotation position (View, Value,
+    Table_type); this way, on can read the Sql interface to discover
+    named parameters and their meaning; similarly, operators are
+    defined in Sql.Op.
 
 Loosely defined syntax (camlp4 quotations symbols are not represented)
         select ::= view
@@ -249,7 +256,6 @@ Loosely defined syntax (camlp4 quotations symbols are not represented)
                              | guard
         row_binding ::= row name "in" view
         guard ::= boolean value
-        
         value ::= litteral constants
                 | 0-ary operator : "null"
                 | 1-ary operator : "nullable" value
@@ -263,14 +269,11 @@ Notes :
 
  - "table" denotes a place where an ('a table) type is required
 
- - antiquotations can be used for 'view', 'table' and 'value';
-   parametred antiquotations are possible for 'view' and 'value'
+ - antiquotations can be used in 'view', 'table' and 'value' places
 
   - You can use antiquoted expressions in all the places where
-    a "view", "table" (view) or "value" (including rows, but not
-    operators, row names or field names) is accepted, as explained in
-    the [sql functions, operators and data types] section of this
-    README
+    a "view", "table" (view) or "value" (including rows, but not row
+    names or field names) is accepted
 
   - Tuples, comprehension and guard lists can be empty :
   
@@ -288,6 +291,73 @@ Notes :
     is used, here 'baz'); the example can thus be written
     
       { foo.a; bar.foobar.b }
+
+  - if the BY record of a group .. by expression is empty, the BY part
+    ("by {}") is optinal. See the [GROUP BY expressions and aggregate
+    functions] section.
+
+
+
+### GROUP BY expressions and aggregate functions
+
+The SQL query "SELECT fields GROUP BY group_fields" roughly translate
+in the "group {fields} by {group_fields}" expression : after "group"
+the aggregating part, and after "by" the grouping part.
+
+The returned row are the concatenation of the GROUP record ({fields})
+and the BY records ({group_fields}).
+
+Example :
+  << group {subtotal = sum[t.a]} by {k = t.b} | t in $view$ >>
+Will expand to "SELECT SUM(t.a) AS subtotal, t.b AS k  GROUP BY t.b FROM (...) AS t"
+
+#### Restrictions on the GROUP record, accumulators [..] syntax
+
+The BY values (here t.b) can be any expression depending on the bound
+view (here 't', but possibly more than one), and anything else in
+scope. The group values are restricted to match the GROUP .. BY
+semantic :
+- values depending on the bound tables of the view must be inside
+  "accumulators", that is square brackets :
+    << group {c = t.c} by {k = t.b} | ... >> is illegal (and won't type),
+- accumulators must be used by an aggregate function, and nowhere else :
+    << group {c = [t.c]} by {k = t.b} | ... >> is illegal (and won't type),
+    << group {c = count[t.c]} by {k = t.b} | ... >> is legal
+- fields name bound in the BY record can be used freely :
+    << group {c = k; d = k + k; e = count[l]} by {k = t.b; l = t.c} | ... >> is legal
+
+#### Corresponding typing errors :
+
+- Error: This expression has type Sql.grouped_row
+         but an expression was expected of type
+         < nul : Sql.non_nullable; t : 'a #Sql.row_t; .. > Sql.t
+  
+  Cause : use of a bound row in the GROUP record outside an accumulator
+
+- Error: This expression has type < nul : 'a; t : 'b > Sql.group Sql.unsafe
+         but an expression was expected of type
+         < nul : 'c; t : 'd; .. > Sql.t Sql.unsafe
+
+  Cause : one of the field values is an accumulator expression;
+          accumulators should be consumed by aggregate functions
+          and cannot be returned directly
+
+#### Aggregate functions outside GROUP BY
+
+Aggregates functions *cannot* be used outside group by expressions. If
+you want to use an aggregate functions over all the rows of a table,
+use a group by expression with an empty BY record :
+
+"SELECT max(t.id) FROM ..." -> "group {max = max[t.id]} by {} | ..."
+
+In that case, "by" is optional : "group {max = max[t.id]} | ..."
+
+Rationale : aggregate functions are not regular operators; they have
+a non-trivial semantic, wich is modeled by the typing transformations
+inside the group .. by expressions. Using them outside those
+expressions would not be safe and could lead to runtime errors if the
+SQL server doesn't accept an ill-formed query. It is a design goal of
+macaque to protect from runtime errors.
 
 
 
@@ -323,7 +393,6 @@ module, using the standard ocaml syntax (and operator associativities
 and precedences) :
     <:value< $a$ + $b$ >> is equivalent to `Sql.Op.(+) a b`
     <:value< nullable $foo$ >> is equivalent to `Sql.Op.nullable foo`
-
 
 #### pa_comp value types antiquotations
 

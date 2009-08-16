@@ -167,13 +167,13 @@ let () =
                  (_loc, (name, (_loc, Field(v, path)))) ]];
 
    atom: [[ `ANTIQUOT("", v) -> quote _loc v
-          | `INT(i, _) -> <:expr< Sql.Data.int $`int:i$ >>
-          | `STRING(_, s) -> <:expr< Sql.Data.string $`str:s$ >>
-          | `FLOAT(f, _) -> <:expr< Sql.Data.float $`flo:f$ >>
-          | "true" -> <:expr< Sql.Data.bool True >>
-          | "false" -> <:expr< Sql.Data.bool False >>
+          | `INT(i, _) -> <:expr< Sql.Value.int $`int:i$ >>
+          | `STRING(_, s) -> <:expr< Sql.Value.string $`str:s$ >>
+          | `FLOAT(f, _) -> <:expr< Sql.Value.float $`flo:f$ >>
+          | "true" -> <:expr< Sql.Value.bool True >>
+          | "false" -> <:expr< Sql.Value.bool False >>
           | `ANTIQUOT(id, v) ->
-              <:expr< Sql.Data.$lid:id$ $quote _loc v$ >> ]];
+              <:expr< Sql.Value.$lid:id$ $quote _loc v$ >> ]];
  END;;
 
 (** Code emission from the syntaxic form *)

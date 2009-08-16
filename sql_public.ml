@@ -28,7 +28,7 @@ let parse ty =
   Sql_parsers.use_unsafe_parser
     (Sql_parsers.parser_of_type ty)
 
-module Data = struct
+module Value = struct
   let bool b = Atom (Bool b), Non_nullable TBool
   let int i = Atom (Int i), Non_nullable TInt
   let float x = Atom (Float x), Non_nullable TFloat

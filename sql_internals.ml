@@ -23,7 +23,7 @@ open Sql_base
 type 'a generic_view =
   { descr : descr;
     producer : untyped -> value tuple;
-    result_parser : untyped result_parser;
+    record_parser : untyped record_parser;
     data : 'a }
 and view = concrete_view generic_view
 and table = table_name generic_view
@@ -67,6 +67,7 @@ and atom_type =
   | TString
   | TBool
   | TRecord of unit generic_view
+and 'a record_parser = descr -> 'a result_parser
 
 let unsafe_producer producer : (untyped -> value tuple) =
   fun obj -> producer (Obj.obj obj)
@@ -101,3 +102,44 @@ type query =
   | Update of (table * row_name * value * where)
 
 type result = select_result * sql_type
+
+
+let rec unify t t' =
+  let unify_atom a a' = match a, a' with
+    | TInt, TInt -> TInt
+    | TBool, TBool -> TBool
+    | TFloat, TFloat -> TFloat
+    | TString, TString -> TString
+    | TRecord r, TRecord r' ->
+        let sort = List.sort compare in
+        let fields = List.map fst in
+        let d, d' = sort r.descr, sort r'.descr in
+        if fields d <> fields d' then failwith "unify";
+        let unify_item (id, t) (id', t') =
+          assert (id = id'); (id, unify t t') in
+        TRecord  { r with descr = List.map2 unify_item d d' }
+    | (TInt | TBool | TFloat | TString | TRecord _), _ -> failwith "unify" in
+  match t, t' with
+    | Non_nullable a, Non_nullable a' ->
+        (* none of them is nullable *)
+        Non_nullable (unify_atom a a')
+    | t, t' ->
+        (* at least one of them is nullable
+
+           we choose to unify eg. (Nullable (Some t), Non_nullable t)
+           instead of throwing an error because the type system
+           actually doesn't guarantee that this runtime nullability
+           information is accurate : litterate atoms are tagged
+           Non_nullable but have a polymorphic nullability field for
+           convenience reasons *)
+        let atom = function
+          | Non_nullable a | Nullable (Some a) -> Some a
+          | Nullable None -> None in
+        Nullable
+          (match atom t, atom t' with
+             | None, t | t, None -> t
+             | Some a, Some a' -> Some (unify_atom a a'))
+
+let is_unifiable t t' =
+  try ignore (unify t t'); true
+  with Failure "unify" -> false

@@ -20,6 +20,8 @@
 
 open Sql_base
 
+type untyped
+
 type nullable
 type non_nullable
 
@@ -40,7 +42,9 @@ class type ['row] row_t = object inherit ['row] type_info end
 (* used in some coercicions scenario, eg. update *)
 type 't type_info_only = < t : 't type_info >
 
+(** values *)
 type +'a t
+val untyped_t : 'a t -> untyped t
 
 type 'phant binary_op = 'a t -> 'b t -> 'c t
 constraint 'a = < t : 'in_t; nul : 'n; .. >
@@ -49,25 +53,31 @@ constraint 'c = < t : 'out_t; nul : 'n >
 constraint 'phant =
   < in_t : 'in_t; out_t : 'out_t; nul : 'n; a : 'a; b : 'b >
 
+(** unsafe *)
+type +'a unsafe
+val unsafe : 'a -> 'a unsafe
+
+(** types *)
+type +'a sql_type
+val untyped_type : 'a sql_type -> untyped sql_type
+val recover_type : 'a sql_type -> untyped sql_type unsafe -> 'a sql_type
+
+val get_type : 'a t -> 'a sql_type
+
+(** parsers *)
 type 'a result_parser = string array * int ref -> 'a
+type 'a record_parser = untyped sql_type tuple -> 'a result_parser
 
 (** access functions *)
 val get : < get : _; nul : non_nullable; t : 't #type_info > t -> 't
 val getn : < get : _; nul : nullable; t : 't #type_info > t -> 't option
 
 (** parse function *)
-val parse : 'a t -> 'a t result_parser
+val parse : 'a sql_type -> 'a t result_parser
 
-(** untyped access *)
-type untyped
-val untyped_t : 'a t -> untyped t
-
+(** views *)
 type +'a view
 val untyped_view : 'a view -> untyped view
-
-(** unsafe constructors *)
-type +'a unsafe
-val unsafe : 'a -> 'a unsafe
 
 val force_gettable :
   < t : 't; nul : 'nul; .. > t unsafe -> < t : 't; nul : 'nul; get : unit > t
@@ -85,7 +95,7 @@ val row :
 val tuple :
   'tup ->
   ('tup -> untyped t tuple) unsafe ->
-  'tup result_parser unsafe ->
+  'tup record_parser unsafe ->
   < t : < typ : 'tup >; nul : non_nullable > t
 (* < typ : 'a > instead of 'a row_t to lighten error reporting *)
 
@@ -122,18 +132,10 @@ val group :
 (** tables *)
 type +'a table
 
-type +'a sql_type
-val untyped_type : 'a sql_type -> untyped sql_type
-
-val get_type : 'a t -> 'a sql_type
-
-type poly_parser =
-  { of_type : 'a . 'a sql_type -> 'a t result_parser }
-
 val table :
   untyped sql_type tuple ->
   ('row -> untyped t tuple) unsafe ->
-  (poly_parser -> 'row result_parser) ->
+  ('row record_parser) ->
   (string option * string) ->
   'row table
 
@@ -235,7 +237,7 @@ end
 module View : sig
   val table : 'a table -> 'a view
 
-  val one : < t : 'a #row_t; .. > t -> 'a view
+  val one : < t : 'a #row_t; nul : non_nullable; .. > t -> 'a view
 end
 
 val break : 'a t -> Sql_internals.value

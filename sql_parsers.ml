@@ -14,6 +14,9 @@ let unsafe_parser input_parser : untyped result_parser =
   fun input -> Obj.repr (input_parser input)
 let use_unsafe_parser unsafe_parser input = Obj.obj (unsafe_parser input)
 
+let unsafe_record_parser record_parser : untyped record_parser =
+  fun descr -> unsafe_parser (record_parser descr)
+
 let pack atom atom_type : value = Atom atom, Non_nullable atom_type
 
 let stringref_of_string s =
@@ -49,7 +52,7 @@ let null_field_parser = option_field_parser error_field_parser
 let record_parser t =
   unsafe_parser
     (fun input ->
-       let instance = Obj.repr (t.result_parser input) in
+       let instance = Obj.repr (t.record_parser t.descr input) in
        pack (Record instance) (TRecord t))
 
 let parser_of_type =
@@ -65,4 +68,4 @@ let parser_of_type =
   | Nullable (Some typ) -> option_field_parser (parser_of_sql_type typ)
 
 let parser_of_comp comp input_tab =
-  comp.result_parser (input_tab, ref 0)
+  comp.record_parser comp.descr (input_tab, ref 0)

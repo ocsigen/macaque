@@ -91,7 +91,7 @@ let () =
       | <:expr< $lid:id$ >> -> (_loc, Ident id)
       | _ -> assert false in
     (_loc, Op (op_id, operands)) in
-  
+
   let opt_list = function
     | None -> []
     | Some li -> li in
@@ -324,20 +324,30 @@ and value_of_comp env (_loc, r) =
           <:binding< $lid:name$ = Sql.force_gettable (Sql.unsafe $!!ref$) >> in
         Ast.biAnd_of_list (List.map field_decl tup) in
       let obj =
-        let meth (_loc, (id, _)) = <:class_str_item< method $lid:id$ = $lid:id$ >> in
+        let meth (_loc, (id, ref)) =
+          <:class_str_item< method $lid:id$ = $lid:id$ >> in
         <:expr< object $Ast.crSem_of_list (List.map meth tup)$ end >> in
       let producer =
         let field_producer (_loc, (name, _)) =
           <:expr< ($str:name$, Sql.untyped_t obj#$lid:name$) >> in
         camlp4_list _loc (List.map field_producer tup) in
       let result_parser =
+        let t_decl (_loc, (id, _)) =
+          <:binding< $lid:id$ =
+            Sql.parse (Sql.recover_type (Sql.get_type $lid:id$)
+                         (Sql.unsafe (List.assoc $str:id$ descr))) >> in
         let decl (_loc, (id, _)) =
-          <:binding< $lid:id$ = Sql.parse $lid:id$ input >> in
-        <:expr< fun input -> let $Ast.biAnd_of_list (List.map decl tup)$ in $obj$ >> in
-      <:expr< let $fields$ in
-              Sql.tuple $obj$
-                (Sql.unsafe (fun obj -> $producer$))
-                (Sql.unsafe $result_parser$) >>
+          <:binding< $lid:id$ = $lid:id$ input >> in
+        <:expr<
+          fun descr ->
+            let $Ast.biAnd_of_list (List.map t_decl tup)$ in
+            fun input ->
+              let $Ast.biAnd_of_list (List.map decl tup)$ in $obj$ >> in
+      <:expr<
+        let $fields$ in
+        Sql.tuple $obj$
+          (Sql.unsafe (fun obj -> $producer$))
+          (Sql.unsafe $result_parser$) >>
 and table_of_comp (_loc, table) = table
 
 let rec query_of_comp (_loc, query) = match query with

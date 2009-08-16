@@ -45,6 +45,8 @@ constraint 'c = < t : 'out_t; nul : 'n >
 constraint 'phant =
   < in_t : 'in_t; out_t : 'out_t; nul : 'n; a : 'a; b : 'b >
 
+type 'a record_parser = 'a Sql_internals.record_parser
+
 type +'a view = Sql_internals.view
 let untyped_view view = view
 
@@ -54,6 +56,8 @@ type from = Sql_internals.from
 
 type 'a sql_type = Sql_internals.sql_type
 let untyped_type x = x
+let recover_type x y =
+  assert (Sql_internals.is_unifiable x y); y
 
 let get_type (_, t) = t
 
@@ -112,12 +116,5 @@ let handle_query_results : 'a query -> string array list -> 'a =
       | _ -> !? ()
 
 type +'a table = Sql_internals.table
-
-type poly_parser =
-  { of_type : 'a . 'a sql_type -> 'a t result_parser }
-
-let poly_parser : poly_parser =
-  { of_type = fun _typ ->
-      Sql_parsers.use_unsafe_parser (Sql_parsers.parser_of_type _typ) }
 
 let break x = x

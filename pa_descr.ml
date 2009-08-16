@@ -82,26 +82,29 @@ let table_of_descr (_loc, (name, field_types)) =
     <:expr< Sql.unsafe (fun obj -> $descr$) >> in
   let result_parser =
     let parser_binding (_loc, name) =
-      <:binding< $lid:name$ = poly_parser.Sql.of_type $lid:name$ >> in
+      <:binding< $lid:name$ =
+            Sql.parse (Sql.recover_type $lid:name$
+                         (Sql.unsafe (List.assoc $str:name$ descr))) >> in
     let value_binding (_loc, name) =
       <:binding< $lid:name$ = $lid:name$ input >> in
     let meth (_loc, name) = <:class_str_item< method $lid:name$ = $lid:name$ >> in
     <:expr<
-      fun poly_parser ->
+      fun descr ->
         let $Ast.biAnd_of_list (List.map parser_binding fields)$ in
-        (fun input ->
-           let $Ast.biAnd_of_list (List.map value_binding fields)$ in
-           object $Ast.crSem_of_list (List.map meth fields)$ end) >> in
+        fun input ->
+          let $Ast.biAnd_of_list (List.map value_binding fields)$ in
+          object $Ast.crSem_of_list (List.map meth fields)$ end >> in
   let name_expr = match name with
     | (None, table) -> <:expr< (None, $str:table$) >>
     | (Some schema, table) -> <:expr< (Some $str:schema$, $str:table$) >> in
   let table =
-    <:expr< let $type_bindings$ in
-            Sql.table $descr$ $producer$ $result_parser$ $name_expr$ >> in
+    <:expr<
+      let $type_bindings$ in
+      Sql.table $descr$ $producer$ $result_parser$ $name_expr$ >> in
   if not !coherence_check then table
   else <:expr< let table = $table$ in do { Check.check_table table; table } >>
 
-(** Quotations setup *)
-let () =
-  Syntax.Quotation.add "table" Syntax.Quotation.DynAst.expr_tag
-    (fun loc _ quote -> table_of_descr (DescrGram.parse_string table_descr loc quote));
+      (** Quotations setup *)
+      let () =
+        Syntax.Quotation.add "table" Syntax.Quotation.DynAst.expr_tag
+          (fun loc _ quote -> table_of_descr (DescrGram.parse_string table_descr loc quote));

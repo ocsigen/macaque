@@ -84,7 +84,7 @@ module Sql_syntax = struct
     dep ["ocaml"; "ocamldep"; "use_comp"] [comp];
     dep ["ocaml"; "ocamldep"; "use_descr"] [descr];
     dep ["ocaml"; "ocamldep"; "use_bananas"] [bana];
-    dep ["ocaml"; "ocamldeop"; "use_macaque"] [comp;descr;bana];
+    dep ["ocaml"; "ocamldep"; "use_macaque"] [comp;descr;bana];
     ()
 end
 

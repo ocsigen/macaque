@@ -18,7 +18,33 @@
     Boston, MA 02111-1307, USA.
 *)
 
+open Sql_base
+
 open Sql_internals
+
+(* Flattening is intended to transform the query in a form current SQL
+   servers can understand : our view representation is very expressive
+   and some authorized syntaxes must be translated to a dumber
+   equivalent. For example, we do not differentiate accessing from
+   a row (t.a) or from a tuple ({a=1}.a). The second form does not lead
+   to valid SQL, so we reduce it to (1).
+
+   We try not to introduce any inefficiencies during the flattening
+   process, but this make a non-trivial algorithm even harder to write
+   correctly. The rule of the thumb is that, although macaque allows
+   a great flexibility in the use of row values in any place a non-row
+   value is authorized, the translation is somewhat flaky (and, sadly,
+   sometimes buggy) : it can happen that a row-returning computation
+   is duplicated for each field, or worse that the SQL rejects a query
+   at runtime (this is a bug and should be reported).
+
+   Of course, the usual workflow of innocent SQL users will not suffer
+   from this, and may benefit as well of the additional freedom we
+   have, in a sane, effective and moderate way. Do not, however, try
+   to compute the fibonacci function using the naive recursive
+   algorithm and a nested-rows set-theoretic-like representation of
+   natural numbers.
+*)
 
 let rec flatten_view view =
   { view with data = flatten_concrete view.data }
@@ -36,34 +62,27 @@ and flatten_select = function
   | Simple_select row -> Simple_select (flatten_value row)
   | Group_by (result, group) ->
       Group_by (flatten_value result, flatten_value group)
-and flatten_value ref =
+and flatten_value value =
   (*
-
-    Flattening is intended to transform the query in a form current
-    SQL servers can understand : our view representation is very
-    expressive and some authorized syntaxes must be translated to
-    a dumber equivalent. For example, we do not differentiate
-    accessing from a row (t.a) or from a tuple ({a=1}.a). The second
-    form does not lead to valid SQL, so we reduce it to (1).
 
     Preconditions to be met by the input structures :
     - input-record-type : no records other than
-      Row, Tuple, Case and Atom (Record _)
+    Row, Tuple, Case, Bind and Atom (Record _)
 
     Postconditions met by the flattened structure :
     - atom-records : all atom records are gone
     - output-field-row : only field-row (Field ((Row _, _), _)) access
-      (would provoque an SQL error; enforced by Sql_printers)
+    (would provoque an SQL error; enforced by Sql_printers)
     - composite-types : no nested composite types
-      (useful due to the incomple mapping of Macaque tuples
-       to SQL anonymous records)
-    - output-record-types : record types are all direct tuples,
-      or rows inside a field access
-      (would provoque an SQL error)
+    (useful due to the incomple mapping of Macaque tuples
+    to SQL anonymous records)
+    - output-record-types : record types are all bindings, direct tuples,
+    or rows inside a field access (no more direct row or case)
+    (would provoque an SQL error)
 
     Termination :
 
-    flatten is an intricate recursive algorithm with non-trivial
+    'flatten' is an intricate recursive algorithm with non-trivial
     recursive call decisions. This is necessary to ensure both
     corectness and termination of the transformation. Termination has
     been a bit tricky to establish, and some termination arguments are
@@ -72,42 +91,42 @@ and flatten_value ref =
     The simpler alternative, wich would be to code "flatten" as
     a one-step transform and use a fixpoint transformator, is made
     more difficult by the presence of function closures in the Sql.t
-    values, wich disable the use of the usual comparison
-    operators. Besides, the one-step version was found not to improve
+    values, wich disable the use of the usual equality operator.
+    Besides, the one-step version was found not to improve readability
+    and ease of the (informal) termination proof.
   *)
-  let get_record_descr = function
-    | Non_nullable (TRecord t) | Nullable (Some (TRecord t)) -> t.descr
-    | _ -> raise Not_found in
-  let is_record_type record =
-    try ignore (get_record_descr record); true
-    with Not_found -> false in
   let rec flatten = function
     (* atom-record *)
     | Atom (Record obj),
       ( Non_nullable (TRecord r)
         | Nullable (Some (TRecord r)) as t) ->
+        (* atom records are concrete objects produced by the parsing of a row result;
+           they don't have an AST attached and thus cannot be manipulated and printed;
+           they have to be converted back to equivalent tuples, using their "producer" field *)
         flatten (Tuple (r.producer obj), t)
+
     (* termination conditions *)
     | Null, t -> Null, t
     | Field ((Row _, _), _ :: _) as end_access, t
       when not (is_record_type t) -> end_access, t
-    (* field-field reduction
+
+    (* field reductions;
        termination : reduced value depth *)
     | Field (row, []), _ -> flatten row
     | Field ((Field (row, path), _), path'), t ->
         flatten (Field (row, path @ path'), t)
-    (* field-tuple reduction
-       termination : reduced value depth *)
     | Field ((Tuple tup, tuple_t), field::path), _ ->
         flatten ( Field (List.assoc field tup, path),
                   get_sql_type tuple_t [field] )
-    (* field-case reduction
+
+    (* field-case reduction;
        termination : constant value depth, but reduced
                      max{depth(node) | node inside a field access} *)
     | Field ((Case (cases, default), _), path), t ->
         let reduce v = Field (v, path), t in
-        let flatten_case (cond, case) =  cond, reduce case in
-        flatten (Case (List.map flatten_case cases, reduce default), t)
+        let reduce_case (cond, case) =  cond, reduce case in
+        flatten (Case (List.map reduce_case cases, reduce default), t)
+
     | Field (_, _), t when not (is_record_type t)->
         (* a field-access must be on a record type; this is enforced by typing;
            all legal record types according to input-record-types precondition
@@ -115,26 +134,29 @@ and flatten_value ref =
            the only remaining case, when the accessed value is a record type,
            is left for the output-record-types expansion case *)
         assert false
-    (* composite-types reduction
+
+    (* composite-types reduction;
        termination : reduced value depth (on subcalls) *)
     | Tuple tup, t ->
         assert (is_record_type t);
-        let field (name, ref) = match flatten ref with
+        let field (name, value) = match flatten value with
           | Tuple tup, _ ->
-              let child (child_name, child_ref) =
-                (name ^ "__" ^ child_name, child_ref) in
+              let child (child_name, child_val) =
+                (name ^ path_separator ^ child_name, child_val) in
               List.map child tup
           | flat_val -> [(name, flat_val)] in
         Tuple (List.flatten (List.map field tup)), t
+
     (* output-record-types :
        a non-tuple record must be transformed into a tuple
        termination :
-         only one such call can be made at each depth level as the next call
-         (earlier tuple case) will have subcalls of reduced depth *)
-    | row, t when is_record_type t ->
+       only one such call can be made at each depth level as the next call
+       (earlier tuple case) will have subcalls of reduced depth *)
+    | value, record_t as row when is_record_type record_t ->
+        let descr = (get_record_type record_t).descr in
         let field (name, child_t) =
-          name, (Field ((row, t), [name]), child_t) in
-        flatten (Tuple (List.map field (get_record_descr t)), t)
+          name, (Field (row, [name]), child_t) in
+        flatten (Tuple (List.map field descr), record_t)
     | (Field _), _ ->
         (* all non-record-type fields were matched earlier;
            record-types were just matched *)
@@ -142,15 +164,17 @@ and flatten_value ref =
     | (Row _), _ ->
         (* rows must be record types; matched earlier *)
         assert false
-    (* propagating the transformation to non-field, non-record subvalues
+
+
+    (* propagating the transformation to non-fields, non-records subvalues;
        termination : subcalls on inferior value depth *)
     | Atom v, t -> Atom v, t
     | Op (left, op, right), t ->
         Op (List.map flatten left, op, List.map flatten right), t
     | Case (cases, default), t ->
         let flatten_case (cond, case) = flatten cond, flatten case in
-        Case (List.map flatten_case cases, flatten default), t  in
-  flatten ref
+        Case (List.map flatten_case cases, flatten default), t
+  in flatten value
 and flatten_table (name, comp) = (name, flatten_concrete comp)
 
 
@@ -160,6 +184,3 @@ let flatten_query = function
   | Delete (table, row, where) -> Delete (table, row, flatten_where where)
   | Update (table, row, set, where) ->
       Update (table, row, flatten_value set, flatten_where where)
-
-
-

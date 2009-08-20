@@ -72,6 +72,9 @@ and string_of_value (value, _) =
   match value with
     | Atom v -> string_of_atom v
     | Null -> "NULL"
+    | Field ((Null, _), _) ->
+        (* NULL.foo is considered equivalent to NULL *)
+        "NULL"
     | Row (row_name, _) -> row_name
     | Cast (v, t) ->
         sprintf "CAST(%s AS %s)" (string_of_value v) (string_of_atom_type t)

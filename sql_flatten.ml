@@ -107,8 +107,12 @@ and flatten_value value =
 
     (* termination conditions *)
     | Null, t -> Null, t
-    | Field ((Row _, _), _ :: _) as end_access, t
-      when not (is_record_type t) -> end_access, t
+    | Field ((Row _, _), _ :: _), t as end_access
+      when not (is_record_type t) -> end_access
+    | Field ((Null, _), _), _ as field_null ->
+        (* NULL.foo is considered equivalent to NULL *)
+        field_null
+
 
     (* field reductions;
        termination : reduced value depth *)

@@ -14,9 +14,9 @@ let duplication x =
     match
       (match x with
          | null -> null
-         | x' -> nullable {a = nullable x'; b = nullable x'; c = nullable x'})
+         | x' -> nullable {a = nullable x'; b = nullable x'})
     with
-      | null -> {a = null; b = null; c = null}
+      | null -> {a = null; b = null}
       | row -> row
     >>
 

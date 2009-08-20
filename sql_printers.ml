@@ -73,6 +73,8 @@ and string_of_value (value, _) =
     | Atom v -> string_of_atom v
     | Null -> "NULL"
     | Row (row_name, _) -> row_name
+    | Cast (v, t) ->
+        sprintf "CAST(%s AS %s)" (string_of_value v) (string_of_atom_type t)
     | Field ((Row (row_name, _), _), fields) ->
         sprintf "%s.%s" row_name (String.concat path_separator fields)
     | Field (v, _) ->

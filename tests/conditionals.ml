@@ -4,7 +4,10 @@ let simple =
              c = match null with null -> 0 | n -> n } >>
 
 let row =
-  <:value< if false then {a = 1; b = 2} else {a = 2; b = 1} >>
+  <:value<
+    if false
+    then {a = 1; b = 2}
+    else {a = 2; b = 1} >>
 
 let duplication x =
   <:value<
@@ -19,7 +22,7 @@ let duplication x =
 
 let () =
   let dbh = PGOCaml.connect () in
-  let res = Query.Simple.view_one dbh << $simple$ >> in
+  let res = Query.Simple.view_one ~log:stdout dbh << $simple$ >> in
   Printf.printf "a:%d\tb:%d\tc:%d\n" res#!a res#!b res#!c;
   let res = Query.Simple.view_one dbh << $row$ >> in
   Printf.printf "a:%d\tb:%d\n" res#!a res#!b;

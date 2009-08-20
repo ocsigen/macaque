@@ -241,3 +241,4 @@ module View : sig
 end
 
 val break : 'a t -> Sql_internals.value
+val break_view : 'a view -> Sql_internals.view

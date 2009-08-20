@@ -169,6 +169,7 @@ and flatten_value value =
     (* propagating the transformation to non-fields, non-records subvalues;
        termination : subcalls on inferior value depth *)
     | Atom v, t -> Atom v, t
+    | Cast (v, cast_t), t -> Cast (flatten v, cast_t), t
     | Op (left, op, right), t ->
         Op (List.map flatten left, op, List.map flatten right), t
     | Case (cases, default), t ->

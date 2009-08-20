@@ -21,7 +21,8 @@
 open Sql_internals
   open Sql_types
 
-let sql_of_query q = Sql_printers.string_of_query (Sql_flatten.flatten_query q)
+let sql_of_query q =
+  Sql_printers.string_of_query (Sql_flatten.flatten_query q)
 let sql_of_view v = sql_of_query (Select v)
 
 let parse ty =
@@ -44,17 +45,21 @@ module Op = struct
        | Nullable t -> Nullable t
 
   let null = Null, Nullable None
-  let postfixop ref op = Op ([ref], op, [])
-  let is_null ref = postfixop ref "IS NULL", Non_nullable TBool
-  let is_not_null ref = postfixop ref "IS NOT NULL", Non_nullable TBool
+  let postfixop value op = Op ([value], op, [])
+  let is_null value = postfixop value "IS NULL", Non_nullable TBool
+  let is_not_null value = postfixop value "IS NOT NULL", Non_nullable TBool
 
   let option constr = function
     | None -> null
     | Some x -> nullable (constr x)
 
-  let same_op = op (fun t -> t)
-  let mono_op t = op (fun t' -> assert (t = t'); t)
-  let poly_op return_t = op (fun _ -> return_t)
+  let same_op op_str = op (fun t -> t) op_str
+  let mono_op t op_str = op (unify (Non_nullable t)) op_str
+  let poly_op return_t op_str =
+    let type_fun = function
+      | Non_nullable _ -> Non_nullable return_t
+      | Nullable _ -> Nullable (Some return_t) in
+    op type_fun op_str
 
   type 'phant arith_op = 'phant binary_op
   constraint 'phant = < in_t : #numeric_t as 't; out_t : 't; .. >
@@ -84,7 +89,7 @@ module Op = struct
   let (&&), (||) = logic "AND", logic "OR"
 
   let prefixop op v = Op ([], op, [v])
-  let not (ref, typ) = prefixop "NOT" (ref, typ), typ
+  let not (value, typ) = prefixop "NOT" (value, typ), typ
 
   let count x = prefixop "count" x, Non_nullable TInt
   let max (v, t) = prefixop "max" (v, t), t

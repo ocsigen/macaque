@@ -18,6 +18,7 @@
     Boston, MA 02111-1307, USA.
 *)
 
+open Sql_base
 open Sql_internals
 
 open Printf
@@ -26,49 +27,60 @@ let string_of_list printer sep li = String.concat sep (List.map printer li)
 
 let rec string_of_view view = string_of_concrete view.data
 and string_of_concrete = function
-| Selection q -> sprintf "(%s)" (string_of_selection q)
-| Table table_name -> string_of_table_name table_name
+  | Selection q -> sprintf "(%s)" (string_of_selection q)
+  | Table table_name -> string_of_table_name table_name
 and string_of_selection q =
+  let result = match q.select with
+    | Simple_select result
+    | Group_by (result, _) -> result in
+  let group_by = match q.select with
+    | Group_by (result, (Tuple (_::_ as const), _)) ->
+        " GROUP BY " ^
+          string_of_list (fun (_, r) -> string_of_value r) ", " const
+    | _ -> "" in
   sprintf "SELECT %s%s%s%s"
-    (string_of_row (match q.select with
-                      | Simple_select result
-                      | Group_by (result, _) -> result))
+    (string_of_row result)
     (string_of_from q.from)
     (string_of_where q.where)
-    (match q.select with
-       | Group_by (result, (Tuple (_::_ as const), _)) ->
-           " GROUP BY " ^
-             string_of_list (fun (_, r) -> string_of_value r) ", " const
-       | _ -> "")
+    group_by
 and string_of_from = function
   | [] -> ""
   | from -> " FROM " ^ string_of_list string_of_from_item ", " from
 and string_of_where = function
   | [] -> ""
   | where -> " WHERE " ^ string_of_list string_of_value " AND " where
-and string_of_row (ref, ref_type) = match ref with
+and string_of_row (row, row_type) = match row with
   | Tuple tup ->
       if tup = [] then "NULL"
       else
-        let binding (id, ref) =
+        let item (id, value) =
           (* recursive call instead of string_of_value
              as there may be flattened subtuples *)
-          let ref_str = string_of_row ref in
-          match (fst ref) with
-            | Row _ | Tuple _ -> ref_str
-            | _ -> sprintf "%s AS %s" ref_str id in
-        string_of_list binding ", " tup
-  | _ -> string_of_value (ref, ref_type)
+          let value_str = string_of_row value in
+          match fst value with
+            | Row _ | Tuple _ -> value_str
+            | _ -> sprintf "%s AS %s" value_str id in
+        string_of_list item ", " tup
+  | _ -> string_of_value (row, row_type)
 and string_of_assoc (assoc, _) =
   match assoc with
     | Tuple tup ->
-        let binding (id, ref) = sprintf "%s = %s" id (string_of_value ref) in
-        string_of_list binding ", " tup
+        let item (id, value) = sprintf "%s = %s" id (string_of_value value) in
+        string_of_list item ", " tup
     | _ -> invalid_arg "string_of_assoc"
-and string_of_value (ref, _) =
-  match ref with
+and string_of_value (value, _) =
+  match value with
     | Atom v -> string_of_atom v
     | Null -> "NULL"
+    | Row (row_name, _) -> row_name
+    | Field ((Row (row_name, _), _), fields) ->
+        sprintf "%s.%s" row_name (String.concat path_separator fields)
+    | Field (v, _) ->
+        failwith (Printf.sprintf "string_of_value : invalid field access (%s)"
+                    (string_of_value v))
+    | Tuple tup ->
+        sprintf "ROW(%s)"
+          (string_of_list (fun (_, r) -> string_of_value r) ", " tup)
     | Op ([], op, [v]) -> (* specific unary operator syntax *)
         sprintf "%s(%s)" op (string_of_value v)
     | Op (left, op, right) ->
@@ -80,10 +92,6 @@ and string_of_value (ref, _) =
           (match right with
              | [] -> ""
              | li -> " " ^ string_of_list string_of_value " " right)
-    | Field ((Row (row_name, _), _), fields) ->
-        sprintf "%s.%s" row_name (String.concat "__" fields)
-    | Field (_, _) -> failwith "string_of_value : invalid field access"
-    | Row (row_name, _) -> row_name
     | Case ([], default) -> string_of_value default
     | Case (cases, default) ->
         let string_of_case (cond, case) = 
@@ -92,9 +100,6 @@ and string_of_value (ref, _) =
         sprintf "(CASE %s ELSE %s END)"
           (string_of_list string_of_case " " cases)
           (string_of_value default)
-    | Tuple tup ->
-        sprintf "ROW(%s)"
-          (string_of_list (fun (_, r) -> string_of_value r) ", " tup)
 and string_of_field (row, name) = match name with
   | field_name when true -> sprintf "%s.%s" row field_name
   | _ -> assert false
@@ -109,7 +114,10 @@ and string_of_atom = function
   | String s -> sprintf "'%s'" (String.escaped s)
   | Bool b -> string_of_bool b
   | Float x -> string_of_float x
-  | Record t -> "BOUM TODO TODO"
+  | Record t ->
+      (* all records should have been expanded,
+         that's the !atom-records flatten postcondition *)
+      assert false
 
 let rec string_of_query = function
   | Select view -> string_of_view view

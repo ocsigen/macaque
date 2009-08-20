@@ -118,3 +118,4 @@ let handle_query_results : 'a query -> string array list -> 'a =
 type +'a table = Sql_internals.table
 
 let break x = x
+let break_view x = x

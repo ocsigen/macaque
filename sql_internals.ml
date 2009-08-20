@@ -103,22 +103,41 @@ type query =
 
 type result = select_result * sql_type
 
+let get_record_type = function
+  | Non_nullable (TRecord t) | Nullable (Some (TRecord t)) -> t
+  | _ -> raise Not_found
+
+let is_record_type record =
+  try ignore (get_record_type record); true
+  with Not_found -> false
 
 let rec unify t t' =
   let unify_atom a a' = match a, a' with
+    (* identity unifications *)
     | TInt, TInt -> TInt
     | TBool, TBool -> TBool
     | TFloat, TFloat -> TFloat
     | TString, TString -> TString
     | TRecord r, TRecord r' ->
-        let sort = List.sort compare in
-        let fields = List.map fst in
-        let d, d' = sort r.descr, sort r'.descr in
+        let fields descr = List.sort compare (List.map fst descr) in
+        let d, d' = r.descr, r'.descr in
         if fields d <> fields d' then failwith "unify";
-        let unify_item (id, t) (id', t') =
-          assert (id = id'); (id, unify t t') in
-        TRecord  { r with descr = List.map2 unify_item d d' }
-    | (TInt | TBool | TFloat | TString | TRecord _), _ -> failwith "unify" in
+        let unified_descr =
+          let unify_item (id, t) (id', t') =
+            assert (id = id'); (id, unify t t') in
+          let assoc (id, t) d' = (id, List.assoc id d') in
+          List.map (fun item -> unify_item item (assoc item d')) d in
+        TRecord  { r with descr = unified_descr }
+
+    (* numeric unifications *)
+    | TInt, TFloat | TFloat, TInt -> TFloat
+
+    (* failure *)
+    | (TInt | TBool | TFloat | TString | TRecord _), _ ->
+        failwith
+          (Printf.sprintf "unify (%s and %s)"
+             (string_of_atom_type a)
+             (string_of_atom_type a')) in
   match t, t' with
     | Non_nullable a, Non_nullable a' ->
         (* none of them is nullable *)
@@ -126,6 +145,7 @@ let rec unify t t' =
     | t, t' ->
         (* at least one of them is nullable
 
+           Nullability unification :
            we choose to unify eg. (Nullable (Some t), Non_nullable t)
            instead of throwing an error because the type system
            actually doesn't guarantee that this runtime nullability

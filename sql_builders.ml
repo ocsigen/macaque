@@ -4,24 +4,8 @@ open Sql_types
 (** operations *)
 
 let op type_fun op a b =
- Op ([a], op, [b]),
-  match get_type a, get_type b with
-    | Non_nullable t, Non_nullable t' ->
-        (* none of them is nullable *)
-        assert (t = t');
-        Non_nullable (type_fun t)
-    | t, t' ->
-        (* at least one of them is nullable *)
-        let some_t = function
-          | Non_nullable t | Nullable (Some t) -> Some t
-          | Nullable None -> None in
-        Nullable
-          (match some_t t, some_t t' with
-             | Some t, Some t' ->
-                 assert (t = t');
-                 Some (type_fun t)
-             | Some t, None | None, Some t -> Some (type_fun t)
-             | None, None -> None)
+  Op ([a], op, [b]),
+  type_fun (unify (get_type a) (get_type b))
 
 (** values *)
 
@@ -45,23 +29,26 @@ let tuple obj producer record_parser =
   Tuple fields, Non_nullable (TRecord record_t)
 
 let if_then_else p a b =
-  Case ([(p, a)], b), (unify (get_type a) (get_type b))
+  let t = unify (get_type a) (get_type b) in
+  Case ([(p, a)], b), t
 
-let match_null matched null_case other_case =
+let match_null matched null_case other_case_fun =
   match get_type matched with
-    | Nullable None -> null_case
+    | Nullable None when false -> null_case (* CURRENT STATE : disabled for testing *)
         (* this special case is a work-around to the match_null
            problem reported in tests/match_null.ml
-           
+
            it makes match_null semantic much more fragile : we must
            NOT have a non-null value with a 'Nullable None' type, wich
            is only weakly enforced in the rest of the code due to
-           complex SQL nullability behaviors *)
+           complex SQL nullability behaviors
+
+           TODO : replace by a general inference framework *)
     | _ ->
-        let cond = Op ([matched], "IS NULL", []), Non_nullable TBool in
-        let else_val = other_case matched in
-        Case ([(cond, null_case)], else_val),
-        (unify (get_type null_case) (get_type else_val))
+        let other_case = other_case_fun matched in
+        let t = unify (get_type null_case) (get_type other_case) in
+        let is_null = Op ([matched], "IS NULL", []), Non_nullable TBool in
+        Case ([(is_null, null_case)], other_case), t
 
 (** tables *)
 

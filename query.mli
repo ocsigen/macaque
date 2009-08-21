@@ -20,6 +20,7 @@
 
 module type THREAD = sig
   include PGOCaml_generic.THREAD
+  val catch : (unit -> 'a t) -> (exn -> 'a t) -> 'a t
 end
 
 module type QUERY = sig

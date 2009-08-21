@@ -20,7 +20,7 @@
 
 module type THREAD = sig
   include PGOCaml_generic.THREAD
-  (* TODO : add exception handling *)
+  val catch : (unit -> 'a t) -> (exn -> 'a t) -> 'a t
 end
 
 module type QUERY = sig
@@ -45,15 +45,19 @@ struct
        | None -> ()
        | Some out -> Printf.fprintf out "%s\n%!" query);
     let name = "query_result" in
+    let close_on_error query =
+      Thread.catch query (fun exn ->
+      Db.close_statement dbh ~name () >>= fun () ->
+      Thread.fail exn) in
     Db.prepare dbh ~query ~name () >>= fun () ->
-    Db.execute dbh ~name ~params:[] () >>= fun result ->
+    close_on_error (Db.execute dbh ~name ~params:[]) >>= fun result ->
     Db.close_statement dbh ~name () >>= fun () ->
-      let result = 
+      let result =
         let nullable = function
           | None -> "NULL"
           | Some str -> str in
         List.map (fun row -> Array.of_list (List.map nullable row)) result in
-    Thread.return (Sql.handle_query_results sql_query (Sql.unsafe result))
+      Thread.return (Sql.handle_query_results sql_query (Sql.unsafe result))
 
   let view dbh ?log v =
     query dbh ?log (Sql.select v)
@@ -83,6 +87,9 @@ module Simple_thread = struct
   let return x = x
   let (>>=) v f =  f v
   let fail = raise
+  let catch f catcher =
+    try f ()
+    with exn -> catcher exn
 
   type in_channel = Pervasives.in_channel
   type out_channel = Pervasives.out_channel

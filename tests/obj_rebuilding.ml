@@ -9,5 +9,5 @@ let () =
   let () =  
     let res = (Query.Simple.view_one ~log:stdout dbh view) in
     PGOCaml.close dbh;
-    Printf.printf "%d\n" res#!a in
+    Printf.printf "%ld\n" res#!a in
   ()

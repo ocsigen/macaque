@@ -19,5 +19,5 @@ let null = << {null = null} | >>
 let () =
   let dbh = PGOCaml.connect () in
   List.iter (fun r -> ignore (r#?null = None)) (Query.Simple.view dbh null);
-  List.iter (fun r -> ignore (r#?value = Some 1))
+  List.iter (fun r -> ignore (r#?value = Some 1l))
     (Query.Simple.view dbh (singleton_option <:value< 1 >>))

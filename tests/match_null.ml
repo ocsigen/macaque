@@ -6,7 +6,7 @@ let cast nullable_int =
 let () =  
   let view = << {a = $cast$ null; b = $cast$ 1} >> in
   let t = Query.Simple.view_one ~log:stdout (PGOCaml.connect ()) view in
-  Printf.printf "a:%d\tb:%d\n" t#!a t#!b
+  Printf.printf "a:%ld\tb:%ld\n" t#!a t#!b
 
 (*
   with this test case, a vicious bug occured :

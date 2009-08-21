@@ -25,3 +25,14 @@ type 'a result_parser = string array * int ref -> 'a
 type untyped = Obj.t
 
 let path_separator = "__"
+
+
+type oid = PGOCaml.oid
+and int16 = PGOCaml.int16
+and bytea = PGOCaml.bytea
+(* TODO ask PGOCaml mainstream for type aliases *)
+and time = CalendarLib.Time.t
+and date = CalendarLib.Date.t
+and interval = CalendarLib.Calendar.Period.t
+and timestamp = CalendarLib.Calendar.t 
+and timestamptz = PGOCaml.timestamptz

@@ -23,9 +23,9 @@ let duplication x =
 let () =
   let dbh = PGOCaml.connect () in
   let res = Query.Simple.view_one ~log:stdout dbh << $simple$ >> in
-  Printf.printf "a:%d\tb:%d\tc:%d\n" res#!a res#!b res#!c;
-  let res = Query.Simple.view_one dbh << $row$ >> in
-  Printf.printf "a:%d\tb:%d\n" res#!a res#!b;
+  Printf.printf "a:%ld\tb:%ld\tc:%ld\n" res#!a res#!b res#!c;
+  let res = Query.Simple.view_one ~log:stdout dbh << $row$ >> in
+  Printf.printf "a:%ld\tb:%ld\n" res#!a res#!b;
   print_endline (Sql.sql_of_view (Sql.View.one (duplication <:value< 1 + 1 >>)));
   PGOCaml.close dbh
 

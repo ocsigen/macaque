@@ -19,6 +19,7 @@
 *)
 
 open Sql_base
+module SQLI = Sql_internals
 
 type nullable
 type non_nullable
@@ -26,16 +27,24 @@ type non_nullable
 class type ['t] type_info = object method typ : 't end
 class type numeric_t = object method numeric : unit end
 
-class type int_t = object inherit [int] type_info inherit numeric_t end
 class type bool_t = object inherit [bool] type_info end
+class type int16_t = object inherit [int16] type_info inherit numeric_t end
+class type int32_t = object inherit [int32] type_info inherit numeric_t end
+class type int64_t = object inherit [int64] type_info inherit numeric_t end
 class type float_t = object inherit [float] type_info inherit numeric_t end
 class type string_t = object inherit [string] type_info end
+class type bytea_t = object inherit [bytea] type_info end
+class type time_t = object inherit [time] type_info end
+class type date_t = object inherit [date] type_info end
+class type timestamp_t = object inherit [timestamp] type_info end
+class type timestamptz_t = object inherit [timestamptz] type_info end
+class type interval_t = object inherit [interval] type_info end
 
 class type ['row] row_t = object inherit ['row] type_info end
 
 type 't type_info_only = < t : 't type_info >
 
-type +'a t = Sql_internals.value
+type +'a t = SQLI.value
 let untyped_t x = x
 
 type 'phant binary_op = 'a t -> 'b t -> 'c t
@@ -45,24 +54,24 @@ constraint 'c = < t : 'out_t; nul : 'n >
 constraint 'phant =
   < in_t : 'in_t; out_t : 'out_t; nul : 'n; a : 'a; b : 'b >
 
-type 'a record_parser = 'a Sql_internals.record_parser
+type 'a record_parser = 'a SQLI.record_parser
 
-type +'a view = Sql_internals.view
+type +'a view = SQLI.view
 let untyped_view view = view
 
-type +'a query = Sql_internals.query
-type where = Sql_internals.where
-type from = Sql_internals.from
+type +'a query = SQLI.query
+type where = SQLI.where
+type from = SQLI.from
 
-type 'a sql_type = Sql_internals.sql_type
+type 'a sql_type = SQLI.sql_type
 let untyped_type x = x
 let recover_type x y =
-  assert (Sql_internals.is_unifiable x y); y
+  assert (SQLI.is_unifiable x y); y
 
 let get_type (_, t) = t
 
 
-type +'a result = Sql_internals.result
+type +'a result = SQLI.result
 constraint 'a = < .. >
 
 type 'a unsafe = 'a
@@ -75,26 +84,34 @@ type ('a, 'b) witness = 'b
 let nullable_witness = true
 let non_nullable_witness = false
 
-type 'a atom = Sql_internals.atom
+type 'a atom = SQLI.atom
 
 let get_val : < get : _; t : 'a #type_info; .. > atom -> 'a =
   let (!?) = Obj.magic in
   (* the magic is correct by type safety of 'a t *)
   function
-    | Sql_internals.Int i -> !?i
-    | Sql_internals.Float x -> !?x
-    | Sql_internals.Bool b -> !?b
-    | Sql_internals.String s -> !?s
-    | Sql_internals.Record o -> !?o
+    | SQLI.Bool b -> !?b
+    | SQLI.Int16 i -> !?i
+    | SQLI.Int32 i -> !?i
+    | SQLI.Int64 i -> !?i
+    | SQLI.Float x -> !?x
+    | SQLI.Bytea t -> !?t
+    | SQLI.String s -> !?s
+    | SQLI.Time t -> !?t
+    | SQLI.Date d -> !?d
+    | SQLI.Timestamp t -> !?t
+    | SQLI.Timestamptz t -> !?t
+    | SQLI.Interval i -> !?i
+    | SQLI.Record o -> !?o
 
 let get ((r, t) : 'a t) =
   match r with
-    | Sql_internals.Atom (v : 'a atom) -> get_val v
+    | SQLI.Atom (v : 'a atom) -> get_val v
     | _ -> invalid_arg "get"
 
 let getn ((r, t) : 'a t) = match r with
-  | Sql_internals.Null -> None
-  | Sql_internals.Atom (v : 'a atom) -> Some (get_val v)
+  | SQLI.Null -> None
+  | SQLI.Atom (v : 'a atom) -> Some (get_val v)
   | _ -> invalid_arg "getn"
 
 type grouped_row = unit
@@ -111,11 +128,11 @@ let handle_query_results : 'a query -> string array list -> 'a =
   (* the magic is correct by type safety of 'a query *)
   fun query result ->
     match query with
-      | Sql_internals.Select comp ->
+      | SQLI.Select comp ->
           !? (List.map (Sql_parsers.parser_of_comp comp) result)
       | _ -> !? ()
 
-type +'a table = Sql_internals.table
+type +'a table = SQLI.table
 
 let break x = x
 let break_view x = x

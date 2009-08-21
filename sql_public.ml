@@ -31,9 +31,17 @@ let parse ty =
 
 module Value = struct
   let bool b = Atom (Bool b), Non_nullable TBool
-  let int i = Atom (Int i), Non_nullable TInt
+  let int16 i = Atom (Int16 i), Non_nullable TInt16
+  let int32 i = Atom (Int32 i), Non_nullable TInt32
+  let int64 i = Atom (Int64 i), Non_nullable TInt64
   let float x = Atom (Float x), Non_nullable TFloat
   let string s = Atom (String s), Non_nullable TString
+  let bytea i = Atom (Bytea i), Non_nullable TBytea
+  let time i = Atom (Time i), Non_nullable TTime
+  let date i = Atom (Date i), Non_nullable TDate
+  let timestamp i = Atom (Timestamp i), Non_nullable TTimestamp
+  let timestamptz i = Atom (Timestamptz i), Non_nullable TTimestamptz
+  let interval i = Atom (Interval i), Non_nullable TInterval
 end
 
 module Op = struct
@@ -91,7 +99,7 @@ module Op = struct
   let prefixop op v = Op ([], op, [v])
   let not (value, typ) = prefixop "NOT" (value, typ), typ
 
-  let count x = prefixop "count" x, Non_nullable TInt
+  let count x = prefixop "count" x, Non_nullable TInt64
   let max (v, t) = prefixop "max" (v, t), t
   let sum (v, t) = prefixop "sum" (v, t), t
 end
@@ -100,9 +108,18 @@ module Table_type = struct
   let _type t = function
     | true -> Nullable (Some t)
     | false -> Non_nullable t
-  let integer = _type TInt
   let boolean = _type TBool
+  let smallint = _type TInt16
+  let integer = _type TInt32
+  let bigint = _type TInt64
+  let double = _type TFloat
   let text = _type TString
+  let bytea = _type TBytea
+  let time = _type TTime
+  let date = _type TDate
+  let timestamp = _type TTimestamp
+  let timestamptz = _type TTimestamptz
+  let interval = _type TInterval
 end
 
 module View = struct

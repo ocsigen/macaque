@@ -167,7 +167,8 @@ let () =
                  (_loc, (name, (_loc, Field(v, path)))) ]];
 
    atom: [[ `ANTIQUOT("", v) -> quote _loc v
-          | `INT(i, _) -> <:expr< Sql.Value.int $`int:i$ >>
+          | `INT32(i, _) -> <:expr< Sql.Value.int32 $`int32:i$ >>
+          | `INT(i, _) -> <:expr< Sql.Value.int32 (Int32.of_int $`int:i$) >>
           | `STRING(_, s) -> <:expr< Sql.Value.string $`str:s$ >>
           | `FLOAT(f, _) -> <:expr< Sql.Value.float $`flo:f$ >>
           | "true" -> <:expr< Sql.Value.bool True >>

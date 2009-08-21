@@ -49,10 +49,18 @@ and value' =
   | Tuple of value tuple
   | Case of (value * value) list * value (* [when .. then ..]+ else ..*)
 and atom =
-  | Int of int
+  | Bool of bool
+  | Int16 of int16
+  | Int32 of int32
+  | Int64 of int64
   | Float of float
   | String of string
-  | Bool of bool
+  | Bytea of bytea
+  | Time of time
+  | Date of date
+  | Timestamp of timestamp
+  | Timestamptz of timestamptz
+  | Interval of interval
   | Record of untyped (* runtime object instance *)
 and table_name = string option * string
 and row_name = string
@@ -62,10 +70,18 @@ and sql_type =
   | Non_nullable of atom_type
   | Nullable of atom_type option
 and atom_type =
-  | TInt
+  | TBool
+  | TInt16
+  | TInt32
+  | TInt64
   | TFloat
   | TString
-  | TBool
+  | TBytea
+  | TTime
+  | TDate
+  | TTimestamp
+  | TTimestamptz
+  | TInterval
   | TRecord of unit generic_view
 and 'a record_parser = descr -> 'a result_parser
 
@@ -83,16 +99,32 @@ let rec get_sql_type ref_type = function
         | _ -> invalid_arg "get_sql_type"
 
 let atom_type_of_string = function
-  | "integer" -> TInt
-  | "text" -> TString
   | "boolean" -> TBool
-  | "double" -> TFloat
+  | "smallint" -> TInt16
+  | "integer" -> TInt32
+  | "bigint" -> TInt64
+  | "double precision" -> TFloat
+  | "text" -> TString
+  | "bytea" -> TBytea
+  | "time" -> TTime
+  | "date" -> TDate
+  | "timestamp" -> TTimestamp
+  | "timestamptz" -> TTimestamptz
+  | "interval" -> TInterval
   | other -> failwith ("unknown sql type " ^ other)
 let string_of_atom_type = function
-  | TInt -> "integer"
-  | TString -> "text"
   | TBool -> "boolean"
-  | TFloat -> "double"
+  | TInt16 -> "smallint"
+  | TInt32 -> "integer"
+  | TInt64 -> "bigint"
+  | TFloat -> "double precision"
+  | TString -> "text"
+  | TBytea -> "bytea"
+  | TTime -> "time"
+  | TDate -> "date"
+  | TTimestamp -> "timestamp"
+  | TTimestamptz -> "timestampz"
+  | TInterval -> "interval"
   | TRecord _ -> "record"
 
 type query =
@@ -114,10 +146,9 @@ let is_record_type record =
 let rec unify t t' =
   let unify_atom a a' = match a, a' with
     (* identity unifications *)
-    | TInt, TInt -> TInt
-    | TBool, TBool -> TBool
-    | TFloat, TFloat -> TFloat
-    | TString, TString -> TString
+    | ( TBool | TInt16 | TInt32 | TInt64 | TFloat
+      | TString | TBytea | TTime | TDate | TInterval
+      | TTimestamp | TTimestamptz) as t, t' when t = t' -> t
     | TRecord r, TRecord r' ->
         let fields descr = List.sort compare (List.map fst descr) in
         let d, d' = r.descr, r'.descr in
@@ -129,11 +160,10 @@ let rec unify t t' =
           List.map (fun item -> unify_item item (assoc item d')) d in
         TRecord  { r with descr = unified_descr }
 
-    (* numeric unifications *)
-    | TInt, TFloat | TFloat, TInt -> TFloat
-
     (* failure *)
-    | (TInt | TBool | TFloat | TString | TRecord _), _ ->
+    | ( TBool | TInt16 | TInt32 | TInt64 | TFloat
+      | TString | TBytea | TTime | TDate | TInterval
+      | TTimestamp | TTimestamptz | TRecord _), _ ->
         failwith
           (Printf.sprintf "unify (%s and %s)"
              (string_of_atom_type a)

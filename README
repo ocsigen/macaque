@@ -7,8 +7,8 @@ It has the following objectives :
 - use expressive types to avoid runtime errors
 
 macaque is still a work in progress, please send feedback to
-`bluestorm dot dylc (gmail)`. I'm interested in bug reports,
-reasonable feature requests and good meals.
+`bluestorm dot dylc (gmail)`. I'm interested in bug reports and
+reasonable feature requests.
 
 Usual makefile provided : make, make install, bleh, make uninstall
 
@@ -134,12 +134,12 @@ server is relatively minor and well separated. It is done through the
 Query module.
 
 The Query module is designed to work with PGOCaml (and is actually the
-only part of macaque depending on PGOCaml). It thus reproduces the
-functorized design of PGOCaml, wich is intended to support flexible
-threading/concurrence models. See PGOCaml documentation for more
-information. The casual user can use the Query.Simple module, wich is
-a directly-usable implementation of the QUERY interface, with no
-threading integration.
+only part of macaque with a hard dependence on PGOCaml). It thus
+reproduces the functorized design of PGOCaml, wich is intended to
+support flexible threading/concurrence models. See PGOCaml
+documentation for more information. The casual user can use the
+Query.Simple module, wich is a directly-usable implementation of the
+QUERY interface, with no threading integration.
 
 The Query interface is quite simple :
 
@@ -575,3 +575,48 @@ as solid as possible :
   were to arise, it would be easy for a user to mechanically replace
   all pa_bananas syntax uses by camlp4-free equivalent expressions,
   and drop pa_banans from his compilation chain entirely.
+
+
+#### Macaque and PG'OCaml
+
+Macaque relies on PG'OCaml low-level interface. It is fully compatible
+with PG'OCaml : you can use a database handler for Macaque queries and
+PG'OCaml queries at the same time (PG'OCaml stocks some private
+information in those handler; Macaque doesn't access nor modify them).
+
+PG'OCaml is more mature and its general approach leads to a safer
+software : Macaque will probably catch less errors at compile-time
+than PG'OCaml (see the PostGreSQL typing issues of the next section
+for an area where I believe Macaque lacks behind PG'OCaml in terms of
+safety), and it is very young software wich probably have quite a few
+bugs remaining.
+
+This inconvenient comes with the flexibility Macaque brings : it is
+composable, and does not need the SQL server available at compile time
+(or, more exactly, camlp4-time).
+
+I also believe that PG'OCaml prepared queries model is a bit more
+efficient than Macaque raw-SQL-queries output. I have done absolutely
+no work on Macaque optimisation, and my priority are rather safety and
+composability. If you're interested in investigating Macaque
+performances, let me know.
+
+
+#### NULL and semantic issues
+
+I have tried to reproduce SQL behaviour as closely as possible. In
+particular, all operators are really SQL operators, so they will have
+the SQL behaviour, for example `null = null` is null, not false.
+
+I have encountered issues with PostGreSQL typing system
+though. PostGreSQL gives NULL the type 'unknown', wich is problematic
+because sql operators are strongly typed, but the type system is not
+very expressive. For example (NULL + 0) will work okay, but :
+
+> base=> SELECT e.n + 0 FROM (SELECT NULL AS n) AS e;
+> ERROR:  failed to find conversion function from unknown to integer
+
+I have tried to work around those issues, but think some of them are
+probably lurking somewhere. It is unfortunate as it undermines Macaque
+static safety : these runtime errors are subtle and quite difficult to
+prevent. Please report them if you find some. I hope not.

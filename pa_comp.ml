@@ -220,31 +220,28 @@ end
 
 
 let rec view_of_comp (_loc, (result, items)) =
-  let comp_item (from, where, env, code_cont) (_loc, item) = match item with
+  let comp_item (from, where, env) (_loc, item) = match item with
     | Cond cond ->
         let where_item =
           <:expr< Sql.untyped_t $value_of_comp env (_loc, cond)$ >> in
-        let where_name = "where_" ^ string_of_int (Random.int max_int) in
-        let code_cont k = code_cont
-          <:expr< let $lid:where_name$ = $where_item$ in $k$ >> in
-        (from, <:expr< $lid:where_name$ >> :: where, env, code_cont)
+        (from, where_item :: where, env)
     | Bind (name, table) ->
         let name_str, env = Env.new_row name env in
-        let from_item = <:expr< ($str:name_str$, Sql.untyped_view $table_of_comp table$) >> in
-        let code_cont k =
-          let runtime_name = <:expr< Sql.unsafe $str:name_str$ >> in
-          code_cont
-            <:expr< let $lid:name$ =
-                      Sql.row $runtime_name$ $table_of_comp table$ in
-                    $k$ >> in
-        (from_item :: from, where, env, code_cont) in
-  let (from, where, env, code_cont) =
-    List.fold_left comp_item
-      ([], [], Env.empty, (fun k -> k)) items in
-  code_cont <:expr< Sql.view
-                      $result_of_comp env result$
-                      $camlp4_list _loc (List.rev from)$
-                      $camlp4_list _loc (List.rev where)$ >>
+        let from_table =
+          <:expr< ($str:name_str$, Sql.untyped_view $table_of_comp table$) >> in
+        let from_row = 
+          let name_arg = <:expr< Sql.unsafe $str:name_str$ >> in
+          <:binding< $lid:name$ = Sql.row $name_arg$ $table_of_comp table$ >> in
+        ((from_row, from_table) :: from, where, env) in
+  let (from, where, env) =
+    List.fold_left comp_item ([], [], Env.empty) items in
+  let from_rows, from_tables = List.split from in
+  <:expr<
+    let $Ast.biAnd_of_list (List.rev from_rows)$ in
+    Sql.view
+      $result_of_comp env result$
+      $camlp4_list _loc (List.rev from_tables)$
+      $camlp4_list _loc (List.rev where)$ >>
 and result_of_comp env (_loc, r) = match r with
   | Simple_select row -> <:expr< Sql.simple_select $value_of_comp env (_loc, row)$ >>
   | Group_by (group, by) ->

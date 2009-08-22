@@ -115,7 +115,7 @@ and string_of_table_name = function
   | (None, table) -> table
   | (Some schema, table) -> sprintf "%s.%s" schema table
 and string_of_atom =
-  let quote printer value = sprintf "'%s'" (printer value)
+  let quote printer value = sprintf "'%s'" (printer value) in
   function
     | Bool b -> macaque_string_of_bool b
     | Int16 i -> PGOCaml.string_of_int16 i

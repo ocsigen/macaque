@@ -193,3 +193,7 @@ let rec unify t t' =
 let is_unifiable t t' =
   try ignore (unify t t'); true
   with Failure "unify" -> false
+
+let is_null_type = (=) (Nullable None)
+
+let null = Null, Nullable None

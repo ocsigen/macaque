@@ -52,14 +52,10 @@ module Op = struct
        | Non_nullable t -> Nullable (Some t)
        | Nullable t -> Nullable t
 
-  let null = Null, Nullable None
-  let postfixop value op = Op ([value], op, [])
+  let null = null
+  let postfixop value op = Op ([null_workaround value], op, [])
   let is_null value = postfixop value "IS NULL", Non_nullable TBool
   let is_not_null value = postfixop value "IS NOT NULL", Non_nullable TBool
-
-  let option constr = function
-    | None -> null
-    | Some x -> nullable (constr x)
 
   let same_op op_str = op (fun t -> t) op_str
   let mono_op t op_str = op (unify (Non_nullable t)) op_str
@@ -85,9 +81,9 @@ module Op = struct
   let (<), (<=), (<>), (=), (>=), (>) =
     comp "<", comp "<=", comp "<>", comp "=", comp ">=", comp ">"
   let is_distinct_from a b =
-    Op ([a], "IS DISTINCT FROM", [b]), Non_nullable TBool
+    fixed_op "IS DISTINCT FROM" a b (Non_nullable TBool)
   let is_not_distinct_from a b =
-    Op ([a], "IS NOT DISTINCT FROM", [b]), Non_nullable TBool
+    fixed_op "IS NOT DISTINCT FROM" a b (Non_nullable TBool)
 
   type 'phant logic_op = 'phant binary_op
   constraint 'phant = < in_t : #bool_t as 't; out_t : 't; .. >
@@ -96,10 +92,11 @@ module Op = struct
 
   let (&&), (||) = logic "AND", logic "OR"
 
-  let prefixop op v = Op ([], op, [v])
+  let prefixop op v = Op ([], op, [null_workaround v])
   let not (value, typ) = prefixop "NOT" (value, typ), typ
 
   let count x = prefixop "count" x, Non_nullable TInt64
+  let min (v, t) = prefixop "min" (v, t), t
   let max (v, t) = prefixop "max" (v, t), t
   let sum (v, t) = prefixop "sum" (v, t), t
 end

@@ -2,10 +2,27 @@ open Sql_internals
 open Sql_types
 
 (** operations *)
+let null_workaround (v, t) =
+  (* NULL WORKAROUND
+     
+     It is assumed that any value with type Nullable None is NULL.
+     This can work around several PostGreSQL Typing limitations
+     wrt. NULL, such as the (NULL + NULL) issue or, worse :
+     SELECT NULL + e.n FROM (SELECT NULL AS n) AS e
+  *)
+  if is_null_type t then null
+  else (v, t)
+
+let fixed_op op a b return_t =
+  let input_t = unify (get_type a) (get_type b) in
+  let retype value =
+    let (v, _) = null_workaround value in
+    v, input_t in
+  null_workaround (Op ([retype a], op, [retype b]), return_t)
 
 let op type_fun op a b =
-  Op ([a], op, [b]),
-  type_fun (unify (get_type a) (get_type b))
+  let input_t = unify (get_type a) (get_type b) in
+  fixed_op op a b (type_fun input_t)
 
 (** values *)
 
@@ -34,16 +51,13 @@ let if_then_else p a b =
 
 let match_null matched null_case other_case_fun =
   match get_type matched with
-    | Nullable None when false -> null_case (* CURRENT STATE : disabled for testing *)
-        (* this special case is a work-around to the match_null
-           problem reported in tests/match_null.ml
+    | Nullable None when false -> null_case
+        (* match_null's NULL WORKAROUND
 
-           it makes match_null semantic much more fragile : we must
-           NOT have a non-null value with a 'Nullable None' type, wich
-           is only weakly enforced in the rest of the code due to
-           complex SQL nullability behaviors
-
-           TODO : replace by a general inference framework *)
+           In accordance with the general NULL WORKAROUND discipline
+           (wich assumes that every value with type (Nullable None) is
+           effectively a Null value), match_null values are
+           precomputed. *)
     | _ ->
         let other_case = other_case_fun matched in
         let t = unify (get_type null_case) (get_type other_case) in

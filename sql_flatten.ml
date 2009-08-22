@@ -105,14 +105,9 @@ and flatten_value value =
            they have to be converted back to equivalent tuples, using their "producer" field *)
         flatten (Tuple (r.producer obj), t)
 
-    (* termination conditions *)
-    | Null, t -> Null, t
+    (* field reduction termination *)
     | Field ((Row _, _), _ :: _), t as end_access
       when not (is_record_type t) -> end_access
-    | Field ((Null, _), _), _ as field_null ->
-        (* NULL.foo is considered equivalent to NULL *)
-        field_null
-
 
     (* field reductions;
        termination : reduced value depth *)
@@ -122,6 +117,7 @@ and flatten_value value =
     | Field ((Tuple tup, tuple_t), field::path), _ ->
         flatten ( Field (List.assoc field tup, path),
                   get_sql_type tuple_t [field] )
+    | Field ((Null, _), _), t -> Null, t
 
     (* field-case reduction;
        termination : constant value depth, but reduced
@@ -172,6 +168,7 @@ and flatten_value value =
 
     (* propagating the transformation to non-fields, non-records subvalues;
        termination : subcalls on inferior value depth *)
+    | Null, t -> Null, t
     | Atom v, t -> Atom v, t
     | Cast (v, cast_t), t -> Cast (flatten v, cast_t), t
     | Op (left, op, right), t ->

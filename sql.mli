@@ -260,6 +260,8 @@ module Op : sig
 
   val count :
     _ group -> < t : int64_t; nul : non_nullable > t
+  val min :
+    < t : #numeric_t as 't; nul : 'n; .. > group -> < t : 't; nul : 'n > t
   val max :
     < t : #numeric_t as 't; nul : 'n; .. > group -> < t : 't; nul : 'n > t
   val sum :

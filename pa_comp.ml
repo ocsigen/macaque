@@ -192,30 +192,26 @@ module Env : sig
   type env
   val empty : env
   val new_row : ident -> env -> ident * env
-  val row : ident -> env -> string
   val bound_vars : env -> string list
 end = struct
-  module SSet = Set.Make(String)
   module SMap = Map.Make(String)
-  type env = { used : SSet.t;
-               map : string SMap.t }
+  type env = string SMap.t
 
-  let unique name env =
-    let rec unique name env =
-      if not (SSet.mem name env.used) then name
-      else unique (name ^ "_") env in
-    let name' = unique name env in
-    name', { used = SSet.add name' env.used;
-             map = SMap.add name name' env.map }
+  let empty = SMap.empty
 
-  let empty = { used = SSet.empty; map = SMap.empty }
-  let row row {map=env} =
-    try SMap.find row env
-    with Not_found -> row
+  let new_row name env =
+    let mangle name =
+      let len = String.length name in
+      let res = String.create len in
+      for i = 0 to len - 1 do
+        res.[i] <- (match name.[i] with '\'' -> '$' | c -> c)
+      done;
+      res in
+    let name' = mangle name in
+    name', SMap.add name name' env
 
-  let new_row = unique
-
-  let bound_vars env = SSet.elements env.used
+  let bound_vars env =
+    SMap.fold (fun k _ li -> k::li) env []
 end
 
 

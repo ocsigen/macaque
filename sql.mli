@@ -38,7 +38,7 @@ class type int32_t = object inherit [int32] type_info inherit numeric_t end
 class type int64_t = object inherit [int64] type_info inherit numeric_t end
 class type float_t = object inherit [float] type_info inherit numeric_t end
 class type string_t = object inherit [string] type_info end
-class type bytea_t = object inherit [bytea] type_info end
+(* class type bytea_t = object inherit [bytea] type_info end *)
 class type time_t = object inherit [time] type_info end
 class type date_t = object inherit [date] type_info end
 class type timestamp_t = object inherit [timestamp] type_info end
@@ -162,8 +162,8 @@ module Table_type : sig
     < get : unit; nul : 'nul; t : float_t > sql_type
   val text : ('nul, bool) witness ->
     < get : unit; nul : 'nul; t : string_t > sql_type
-  val bytea : ('nul, bool) witness ->
-    < get : unit; nul : 'nul; t : bytea_t > sql_type
+  (* val bytea : ('nul, bool) witness -> *)
+  (*   < get : unit; nul : 'nul; t : bytea_t > sql_type *)
   val time : ('nul, bool) witness ->
     < get : unit; nul : 'nul; t : time_t > sql_type
   val date : ('nul, bool) witness ->
@@ -204,7 +204,7 @@ module Value : sig
   val int64 : int64 -> < t : int64_t; get : unit; nul : _ > t
   val float : float -> < t : float_t; get : unit; nul : _ > t
   val string : string -> < t : string_t; get : unit; nul : _ > t
-  val bytea : bytea -> < t : bytea_t; get : unit; nul : _ > t
+  (* val bytea : bytea -> < t : bytea_t; get : unit; nul : _ > t *)
   val time : time -> < t : time_t; get : unit; nul : _ > t
   val date : date -> < t : date_t; get : unit; nul : _ > t
   val timestamp : timestamp -> < t : timestamp_t; get : unit; nul : _ > t

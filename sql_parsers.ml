@@ -31,8 +31,8 @@ let floatval_of_string s =
   pack (Float (PGOCaml.float_of_string s)) TFloat
 let stringval_of_string s =
   pack (String (PGOCaml.string_of_string s)) TString
-let byteaval_of_string s =
-  pack (Bytea (PGOCaml.bytea_of_string s)) TBytea
+(* let byteaval_of_string s = *)
+(*   pack (Bytea (PGOCaml.bytea_of_string s)) TBytea *)
 let timeval_of_string s =
   pack (Time (PGOCaml.time_of_string s)) TTime
 let dateval_of_string s =
@@ -50,7 +50,7 @@ let int32_field_parser = unsafe_parser (incr &&& int32val_of_string)
 let int64_field_parser = unsafe_parser (incr &&& int64val_of_string)
 let float_field_parser = unsafe_parser (incr &&& floatval_of_string)
 let string_field_parser = unsafe_parser (incr &&& stringval_of_string)
-let bytea_field_parser = unsafe_parser (incr &&& byteaval_of_string)
+(* let bytea_field_parser = unsafe_parser (incr &&& byteaval_of_string) *)
 let time_field_parser = unsafe_parser (incr &&& timeval_of_string)
 let date_field_parser = unsafe_parser (incr &&& dateval_of_string)
 let timestamp_field_parser = unsafe_parser (incr &&& timestampval_of_string)
@@ -88,7 +88,7 @@ let parser_of_type =
     | TInt64 -> int64_field_parser
     | TFloat -> float_field_parser
     | TString -> string_field_parser
-    | TBytea -> bytea_field_parser
+    (* | TBytea -> bytea_field_parser *)
     | TTime -> time_field_parser
     | TDate -> date_field_parser
     | TTimestamp -> timestamp_field_parser

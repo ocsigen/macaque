@@ -55,7 +55,7 @@ and atom =
   | Int64 of int64
   | Float of float
   | String of string
-  | Bytea of bytea
+  (* | Bytea of bytea *)
   | Time of time
   | Date of date
   | Timestamp of timestamp
@@ -76,7 +76,7 @@ and atom_type =
   | TInt64
   | TFloat
   | TString
-  | TBytea
+  (* | TBytea *)
   | TTime
   | TDate
   | TTimestamp
@@ -105,7 +105,7 @@ let atom_type_of_string = function
   | "bigint" -> TInt64
   | "double precision" -> TFloat
   | "text" -> TString
-  | "bytea" -> TBytea
+  (* | "bytea" -> TBytea *)
   | "time" -> TTime
   | "date" -> TDate
   | "timestamp" -> TTimestamp
@@ -119,7 +119,7 @@ let string_of_atom_type = function
   | TInt64 -> "bigint"
   | TFloat -> "double precision"
   | TString -> "text"
-  | TBytea -> "bytea"
+  (* | TBytea -> "bytea" *)
   | TTime -> "time"
   | TDate -> "date"
   | TTimestamp -> "timestamp"
@@ -147,7 +147,7 @@ let rec unify t t' =
   let unify_atom a a' = match a, a' with
     (* identity unifications *)
     | ( TBool | TInt16 | TInt32 | TInt64 | TFloat
-      | TString | TBytea | TTime | TDate | TInterval
+      | TString (* | TBytea  *)| TTime | TDate | TInterval
       | TTimestamp | TTimestamptz) as t, t' when t = t' -> t
     | TRecord r, TRecord r' ->
         let fields descr = List.sort compare (List.map fst descr) in
@@ -162,7 +162,7 @@ let rec unify t t' =
 
     (* failure *)
     | ( TBool | TInt16 | TInt32 | TInt64 | TFloat
-      | TString | TBytea | TTime | TDate | TInterval
+      | TString (* | TBytea *) | TTime | TDate | TInterval
       | TTimestamp | TTimestamptz | TRecord _), _ ->
         failwith
           (Printf.sprintf "unify (%s and %s)"

@@ -35,4 +35,4 @@ and time = CalendarLib.Time.t
 and date = CalendarLib.Date.t
 and interval = CalendarLib.Calendar.Period.t
 and timestamp = CalendarLib.Calendar.t 
-and timestamptz = PGOCaml.timestamptz
+and timestamptz = PGOCaml.timestamptz (* = CalendarLib.Calendar.t * CalendarLib.Time_Zone.t *)

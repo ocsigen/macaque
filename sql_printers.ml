@@ -117,13 +117,13 @@ and string_of_table_name = function
 and string_of_atom =
   let quote printer value = sprintf "'%s'" (printer value)
   function
-    | Bool b -> if b then "TRUE" else "FALSE"
+    | Bool b -> macaque_string_of_bool b
     | Int16 i -> PGOCaml.string_of_int16 i
     | Int32 i -> PGOCaml.string_of_int32 i
     | Int64 i -> PGOCaml.string_of_int64 i
     | Float x -> PGOCaml.string_of_float x
     | String s -> quote String.escaped s
-    | Bytea i -> quote PGOCaml.string_of_bytea i
+    (* | Bytea i -> macaque_string_of_bytea *)
     | Time i -> quote PGOCaml.string_of_time i
     | Date i -> quote PGOCaml.string_of_date i
     | Timestamp i -> quote PGOCaml.string_of_timestamp i
@@ -133,6 +133,9 @@ and string_of_atom =
         (* all records should have been expanded,
            that's the !atom-records flatten postcondition *)
         assert false
+and macaque_string_of_bool b =
+  if b then "TRUE" else "FALSE"
+
 
 let rec string_of_query = function
   | Select view -> string_of_view view

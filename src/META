@@ -8,6 +8,6 @@ package "syntax" (
   requires = "macaque,camlp4"
   version = "BETA"
   description = "Syntax extension: Comprehension syntax for composable SQL statements"
-  archive(syntax,preprocessor) = "pa_comp.cmo pa_descr.cmo"
-  archive(syntax,toploop) = "pa_comp.cmo pa_descr.cmo"
+  archive(syntax,preprocessor) = "pa_comp.cmo pa_descr.cmo pa_bananas.cmo"
+  archive(syntax,toploop) = "pa_comp.cmo pa_descr.cmo pa_bananas.cmo"
 )

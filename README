@@ -10,7 +10,8 @@ macaque is still a work in progress, please send feedback to
 `bluestorm dot dylc (gmail)`. I'm interested in bug reports and
 reasonable feature requests.
 
-Usual makefile provided : make, make install, bleh, make uninstall
+Usual makefile provided (in src/) : make, make install, bleh, make uninstall
+Depends on PG'Ocaml
 
 
 

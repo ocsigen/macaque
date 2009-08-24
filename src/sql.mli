@@ -121,7 +121,10 @@ constraint 'a = < .. >
 type from = untyped view tuple
 type where = untyped t list
 
-val view : 'a result -> from -> where -> 'a view
+val view : 'a result ->
+  ?limit: < t : #numeric_t; .. > t ->
+  ?offset: < t : #numeric_t; .. > t ->
+  from -> where -> 'a view
 val simple_select : < t : 'a #row_t; .. > t -> 'a result
 
 (** group by and accumulators *)

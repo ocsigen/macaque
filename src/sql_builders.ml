@@ -74,8 +74,13 @@ let table descr producer record_parser name =
 
 
 (** views *)
-let view (select, select_type) from where =
-  let query = { select = select; from = from; where = where } in
+let view (select, select_type) ?limit ?offset from where =
+  let query =
+    { select = select;
+      from = from;
+      where = where;
+      limit = limit;
+      offset = offset } in
   match select_type with
     | Non_nullable (TRecord t) | Nullable (Some (TRecord t)) ->
         { t with data = Selection query }

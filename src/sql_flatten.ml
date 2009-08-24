@@ -46,6 +46,10 @@ open Sql_internals
    natural numbers.
 *)
 
+let flatten_option flatten_fun = function
+  | None -> None
+  | Some x -> Some (flatten_fun x)
+
 let rec flatten_view view =
   { view with data = flatten_concrete view.data }
 and flatten_concrete = function
@@ -54,7 +58,9 @@ and flatten_concrete = function
 and flatten_selection q =
   { select = flatten_select q.select;
     from = flatten_from q.from;
-    where = flatten_where q.where }
+    where = flatten_where q.where;
+    limit = flatten_option flatten_value q.limit;
+    offset = flatten_option flatten_value q.offset }
 and flatten_from from =
   List.map (fun (id, view) -> (id, flatten_view view)) from
 and flatten_where w = List.map flatten_value w

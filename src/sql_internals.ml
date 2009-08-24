@@ -30,7 +30,12 @@ and table = table_name generic_view
 and concrete_view =
   | Table of table_name
   | Selection of select
-and select = { select : select_result; from : from; where : where }
+and select =
+  { select : select_result;
+    from : from;
+    where : where;
+    limit : value option;
+    offset : value option }
 and select_result =
   | Simple_select of row
   | Group_by of row * row

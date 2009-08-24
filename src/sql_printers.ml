@@ -38,17 +38,25 @@ and string_of_selection q =
         " GROUP BY " ^
           string_of_list (fun (_, r) -> string_of_value r) ", " const
     | _ -> "" in
-  sprintf "SELECT %s%s%s%s"
+  sprintf "SELECT %s%s%s%s%s%s"
     (string_of_row result)
     (string_of_from q.from)
     (string_of_where q.where)
     group_by
+    (string_of_limit q.limit)
+    (string_of_offset q.offset)
 and string_of_from = function
   | [] -> ""
   | from -> " FROM " ^ string_of_list string_of_from_item ", " from
 and string_of_where = function
   | [] -> ""
   | where -> " WHERE " ^ string_of_list string_of_value " AND " where
+and string_of_limit = function
+  | None -> ""
+  | Some v -> " LIMIT " ^ string_of_value v
+and string_of_offset = function
+  | None -> ""
+  | Some v -> " OFFSET " ^ string_of_value v
 and string_of_row (row, row_type) = match row with
   | Tuple tup ->
       if tup = [] then "NULL"

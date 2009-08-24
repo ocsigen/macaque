@@ -39,7 +39,13 @@ and insert = table located * select located
 and delete = table binding located * where located
 and update = table binding located * value located * where located
 and where = value located list
-and select = select_result located * comp_item located list
+and select =
+  { result : select_result located;
+    items : comp_item located list;
+    order_by : (value located * order) located list option;
+    limit : value located option;
+    offset : value located option }
+and order = Asc | Desc
 and select_result =
   | Simple_select of value
   | Group_by of tuple located * tuple located
@@ -110,14 +116,30 @@ let () =
                   items = OPT [ "|"; li = LIST0 value SEP ";" -> li ];
                   `EOI ->
                     (_loc, Update (bind, res, (_loc, opt_list items))) ]];
-   view: [[ result = result; items = OPT ["|"; li = LIST0 comp_item SEP ";" -> li] ->
-              (_loc, (result, opt_list items)) ]];
+   view: [[ result = result;
+            (* order_by = OPT order_by; TODO backend support *)
+            limit = OPT limit;
+            offset = OPT offset;
+            items = OPT ["|"; li = LIST0 comp_item SEP ";" -> li] ->
+              (_loc, { result = result;
+                       order_by = None;
+                       limit = limit;
+                       offset = offset;
+                       items = opt_list items }) ]];
    result: [[ (_, v) = value -> (_loc, Simple_select v)
             | "group"; group = tuple; by = OPT ["by"; by = tuple -> by] ->
               let by = match by with
                 | Some by -> by
                 | None -> (_loc, []) in
                 (_loc, Group_by (group, by)) ]];
+   order_by: [[ "order"; "by"; li = LIST1 sort_expr SEP "," -> li ]];
+   sort_expr: [[ v = value; order = OPT ["asc" | "desc"] ->
+                   let order = match order with
+                     | None | Some "asc" -> Asc
+                     | _ -> Desc in
+                   (_loc, (v, order)) ]];
+   limit: [[ "limit"; v = value -> v ]];
+   offset: [[ "offset"; v = value -> v ]];
    comp_item: [[ (_, binding) = row_binding -> (_loc, Bind binding)
                | (_, cond) = value -> (_loc, Cond cond) ]];
    row_binding: [[ handle = LIDENT; "in"; table = table ->  (_loc, (handle, table)) ]];
@@ -188,6 +210,12 @@ let camlp4_path _loc path =
   let str (_loc, s) = <:expr< $str:s$ >> in
   camlp4_list _loc (List.map str path)
 
+let camlp4_option _loc = function
+  | None -> <:expr< None >>
+  | Some expr ->
+      let _loc = Ast.loc_of_expr expr in
+      <:expr< Some $expr$ >>
+
 module Env : sig
   type env
   val empty : env
@@ -213,9 +241,11 @@ end = struct
   let bound_vars env =
     SMap.fold (fun k _ li -> k::li) env []
 end
+let option_of_comp f = function
+  | None -> None
+  | Some x -> Some (f x)
 
-
-let rec view_of_comp (_loc, (result, items)) =
+let rec view_of_comp (_loc, (select : select) ) =
   let comp_item (from, where, env) (_loc, item) = match item with
     | Cond cond ->
         let where_item =
@@ -230,12 +260,18 @@ let rec view_of_comp (_loc, (result, items)) =
           <:binding< $lid:name$ = Sql.row $name_arg$ $table_of_comp table$ >> in
         ((from_row, from_table) :: from, where, env) in
   let (from, where, env) =
-    List.fold_left comp_item ([], [], Env.empty) items in
+    List.fold_left comp_item ([], [], Env.empty) select.items in
+  let limit = option_of_comp (value_of_comp Env.empty) select.limit in
+  let offset = option_of_comp (value_of_comp Env.empty) select.offset in
   let from_rows, from_tables = List.split from in
   <:expr<
-    let $Ast.biAnd_of_list (List.rev from_rows)$ in
+    let $Ast.biAnd_of_list (List.rev from_rows)$
+        (* limit and offset *)
+    and __limit = $camlp4_option _loc limit$
+    and __offset = $camlp4_option _loc offset$ in
     Sql.view
-      $result_of_comp env result$
+      $result_of_comp env select.result$
+      ?limit:__limit ?offset:__offset
       $camlp4_list _loc (List.rev from_tables)$
       $camlp4_list _loc (List.rev where)$ >>
 and result_of_comp env (_loc, r) = match r with
@@ -399,8 +435,8 @@ let () =
        Syntax.Quotation.add name Syntax.Quotation.DynAst.expr_tag
          (fun loc _ quote ->
             query_of_comp (CompGram.parse_string gram_rule loc quote)))
-    ["select", select_eoi;
-     "insert", insert_eoi;
-     "delete", delete_eoi;
-     "update", update_eoi];
+    [ "select", select_eoi;
+      "insert", insert_eoi;
+      "delete", delete_eoi;
+      "update", update_eoi ];
   Syntax.Quotation.default := "view"

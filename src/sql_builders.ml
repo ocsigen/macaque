@@ -74,11 +74,12 @@ let table descr producer record_parser name =
 
 
 (** views *)
-let view (select, select_type) ?limit ?offset from where =
+let view (select, select_type) ?order_by ?limit ?offset from where =
   let query =
     { select = select;
       from = from;
       where = where;
+      order_by = order_by;
       limit = limit;
       offset = offset } in
   match select_type with
@@ -86,6 +87,7 @@ let view (select, select_type) ?limit ?offset from where =
         { t with data = Selection query }
     | _ -> assert false
 
+type order = Sql_internals.order = Asc | Desc
 
 (** results *)
 

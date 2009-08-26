@@ -34,8 +34,10 @@ and select =
   { select : select_result;
     from : from;
     where : where;
+    order_by : (value * order) list option;
     limit : value option;
     offset : value option }
+and order = Asc | Desc
 and select_result =
   | Simple_select of row
   | Group_by of row * row

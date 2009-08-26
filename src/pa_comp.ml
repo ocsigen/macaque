@@ -117,12 +117,12 @@ let () =
                   `EOI ->
                     (_loc, Update (bind, res, (_loc, opt_list items))) ]];
    view: [[ result = result;
-            (* order_by = OPT order_by; TODO backend support *)
+            order_by = OPT order_by;
             limit = OPT limit;
             offset = OPT offset;
             items = OPT ["|"; li = LIST0 comp_item SEP ";" -> li] ->
               (_loc, { result = result;
-                       order_by = None;
+                       order_by = order_by;
                        limit = limit;
                        offset = offset;
                        items = opt_list items }) ]];
@@ -263,17 +263,31 @@ let rec view_of_comp (_loc, (select : select) ) =
     List.fold_left comp_item ([], [], Env.empty) select.items in
   let limit = option_of_comp (value_of_comp Env.empty) select.limit in
   let offset = option_of_comp (value_of_comp Env.empty) select.offset in
+  let order_by = option_of_comp (order_by_of_comp env _loc) select.order_by in
   let from_rows, from_tables = List.split from in
   <:expr<
-    let $Ast.biAnd_of_list (List.rev from_rows)$
-        (* limit and offset *)
-    and __limit = $camlp4_option _loc limit$
-    and __offset = $camlp4_option _loc offset$ in
-    Sql.view
-      $result_of_comp env select.result$
-      ?limit:__limit ?offset:__offset
-      $camlp4_list _loc (List.rev from_tables)$
-      $camlp4_list _loc (List.rev where)$ >>
+    let (result, from, _where, order_by) =
+      (* restricted scope zone *)
+      let $Ast.biAnd_of_list (List.rev from_rows)$ in
+      ( $result_of_comp env select.result$,
+        $camlp4_list _loc (List.rev from_tables)$,
+        $camlp4_list _loc (List.rev where)$,
+        $camlp4_option _loc order_by$ )
+    and limit = $camlp4_option _loc limit$
+    and offset = $camlp4_option _loc offset$ in
+    (* limit and offset are computed outside the binding scope,
+       to avoid illegal variable capture
+       (SELECT foo FROM .. LIMIT foo.count) *)
+    Sql.view result ?order_by ?limit ?offset from _where >>
+and table_of_comp (_loc, table) = table
+and order_by_of_comp env _loc order_by =
+  let order_of_comp (_loc, (value, order)) =
+    let value = value_of_comp env value in
+    let order = match order with
+      | Asc -> <:expr< Sql.Asc >>
+      | Desc -> <:expr< Sql.Desc >> in
+    <:expr< (Sql.untyped_t $value$, $order$) >> in
+  camlp4_list _loc (List.map order_of_comp order_by)
 and result_of_comp env (_loc, r) = match r with
   | Simple_select row -> <:expr< Sql.simple_select $value_of_comp env (_loc, row)$ >>
   | Group_by (group, by) ->
@@ -378,7 +392,6 @@ and value_of_comp env (_loc, r) =
         Sql.tuple $obj$
           (Sql.unsafe (fun obj -> $producer$))
           (Sql.unsafe $result_parser$) >>
-and table_of_comp (_loc, table) = table
 
 let rec query_of_comp (_loc, query) = match query with
   | Select select ->

@@ -59,6 +59,7 @@ and flatten_selection q =
   { select = flatten_select q.select;
     from = flatten_from q.from;
     where = flatten_where q.where;
+    order_by = flatten_option flatten_order q.order_by;
     limit = flatten_option flatten_value q.limit;
     offset = flatten_option flatten_value q.offset }
 and flatten_from from =
@@ -68,6 +69,13 @@ and flatten_select = function
   | Simple_select row -> Simple_select (flatten_value row)
   | Group_by (result, group) ->
       Group_by (flatten_value result, flatten_value group)
+and flatten_table (name, comp) = (name, flatten_concrete comp)
+and flatten_order order_by =
+  let flatten (value, order) =
+    match flatten_value value with
+      | Tuple tup, _ -> List.map (fun (_, v) -> (v, order)) tup
+      | v -> [(v, order)] in
+  List.flatten (List.map flatten order_by)
 and flatten_value value =
   (*
 
@@ -183,7 +191,6 @@ and flatten_value value =
         let flatten_case (cond, case) = flatten cond, flatten case in
         Case (List.map flatten_case cases, flatten default), t
   in flatten value
-and flatten_table (name, comp) = (name, flatten_concrete comp)
 
 
 let flatten_query = function

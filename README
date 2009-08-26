@@ -23,10 +23,10 @@ macaque builds SQL queries/views/values at three different levels :
   UPDATE queries. They can not be composed.
 
   Examples :
-    <:select< row | row in $sql_table$; row.id < 50 >>
+      <:select< row | row in $sql_table$; row.id < 50 >>
     Select all rows from table 'sql_table' whose 'id' is inferior to '50'
 
-    <:delete< row in $sql_table$ | row.id > 50 >>
+      <:delete< row in $sql_table$ | row.id > 50 >>
     Delete all rows from 'sql_table' whose 'id' is superior to '50'    
     
   Type : macaques queries have type 'a Sql.query, where 'a is the
@@ -38,20 +38,27 @@ macaque builds SQL queries/views/values at three different levels :
   results; view are composable and can be used nearly anywhere a SQL
   table can.
 
-  Examples :  
-  <:view< {user = u.name; category = cat.name} |
-          u in $table:users$;
-          u.id > 32 + 10;
-          cat in $table:categories$;
-          cat.id = u.cat >>
+  Examples :
+    <:view< {user = u.name; category = cat.name} |
+            u in $table:users$;
+            u.id > 32 + 10;
+            cat in $table:categories$;
+            cat.id = u.cat >>
   User name and category of the user with id superior to '42'
 
-  <:view< {name = row.user} | row in $prev_view$; row.category = "simple user" >>
+    <:view< {name = row.user} |
+            row in $prev_view$;
+            row.category = "simple user" >>
   Names of all simple users of the 'prev_view' view (for example
   the previous example)
   
-  let names view = <:view< {name = t.name} | t in $view$ >>
+    let names view = <:view< {name = t.name} | t in $view$ >>
   Generic function that will project any view on its "name" column
+
+    let names view = <:view< {name = t.name; t = t} | t in $view$ >>
+  Generic function that will build an associative table, wich the
+  'name' column in the 'name' field and the whole column in the 't'
+  field.
   
   Type : 'a Sql.view, where 'a is the type of a row (considered as a value).
 
@@ -65,20 +72,20 @@ macaque builds SQL queries/views/values at three different levels :
   float, string, and results of SQL data functions and operators.
   
   Examples :
-  <:value< 1 + 1 >>
+    <:value< 1 + 1 >>
   2 (as a Sql Value, not a Caml int)
 
-  <:value< 1 = 1 >>
+    <:value< 1 = 1 >>
   true (as a Sql Value, not a Caml bool)
 
-  <:value< nullable foo.id >>
+    <:value< nullable foo.id >>
   field 'id' of table 'foo', considered as a nullable value (wich can
   take the NULL value)
   
-  let double (n : int) = <:value< 2 * $int:n$ >>
+    let double (n : int) = <:value< 2 * $int:n$ >>
   returns twice the given int, as a Sql value
 
-  <:value< { foo = 1; bar = "baz" } >>
+    <:value< { foo = 1; bar = "baz" } >>
   returns the immediate row with column 'foo' and 'bar' of values 1 and 'baz'
 
   Type : 'a Sql.t, the most pervasive type in macaque. 'a is actually
@@ -246,27 +253,35 @@ syntaxes into the Objective Caml language. General principles are as follows :
     named parameters and their meaning; similarly, operators are
     defined in Sql.Op.
 
-Loosely defined syntax (camlp4 quotations symbols are not represented)
+Loosely defined syntax
+(- camlp4 quotations symbols aren't represented,
+ - [foo] means optional foo (one or none)
+ - foo sep ... means list of foos separated by sep (';' or ',')) :
         select ::= view
-        insert ::= table ":=" value "|" comprehension_item list
-        delete ::= row name "in" table "|" guard list
-        update ::= row name "in" table ":=" value "|" guard list
-        view ::= value "|" comprehension_item list
-               | "group" tuple "by" tuple "|" comprehension_item list
-        comprehension_item ::= row_binding
+        insert ::= table ':=' value ['|' comprehension-item ';' ...]
+        delete ::= row name 'in' table ['|' guard ';' ...]
+        update ::= row name 'in' table ':=' value ['|' guard ';' ...]
+        view ::= view-result view-modifiers ['|' comprehension-item ';' ...]
+        view-result ::= value
+                      | 'group' tuple ['by' tuple]
+        view-modifiers ::= ['order' 'by' order ',' ...] ['limit' value] ['offset' value]
+        order ::= value ['asc' | 'desc']
+        comprehension-item ::= row-binding
                              | guard
-        row_binding ::= row name "in" view
+        row-binding ::= row-name 'in' view
         guard ::= boolean value
         value ::= litteral constants
-                | 0-ary operator : "null"
-                | 1-ary operator : "nullable" value
-                | infix binary operator : value "+" value
-                | tuple : "{" field name "=" value ";" ... "}"
-                | field access : value "." field name list
+                | 0-ary operator : 'null'
+                | 1-ary operator : 'nullable' value
+                | infix binary operator : value '+' value
+                | tuple : tuple
+                | field access : field-access
+        tuple ::= '{' tuple-field ';' ... '}'
+        tuple-field ::= field-name '=' value
+                      | field-access
+        field-access ::= value '.' field-name '.' ...
 
 Notes :
-
- - comprehension item lists are separated by semicolons (;)
 
  - "table" denotes a place where an ('a table) type is required
 
@@ -299,6 +314,73 @@ Notes :
 
 
 
+### View expressions
+
+  view ::= view-result view-modifiers ['|' comprehension-item ';' ...]
+
+#### View results
+
+View results are either a simple value or a GROUP BY expression (see
+the [GROUP BY expressions and aggregate functions] part of this
+README).
+
+The usual return value is a SQL tuple: {a = foo; b = bar} will return
+a view with columns named 'a' and 'b' and values corresponding to the
+'foo' and 'bar' expressions.
+You can also give the name of a row : << t | t in .. >>
+
+Columns values can be tuples themselves. This is a quite
+Macaque-specific feature, wich makes the language much more
+homogenous. Tuple types (column or immediate records) can be nested
+arbitrarily. For example, a cartesian product view :
+
+   let cartesian_product va vb = << {a = a; b = b} | a in $va$; b in $vb$ >>
+
+Care is taken that tuple values support all operations the plain SQL
+values support : Macaque works hard to translate them to expressions
+the usual SQL server can understand (tuple flattening). This part of
+macaque is rather delicate and you might encounter bugs with
+no-yet-well-tested combinations of nested tuples and other macaque
+features.
+
+#### View modifiers
+
+View modifiers correspond to following SQL features : LIMIT, OFFSET
+and ORDER BY. Their behaviour should not come as a surprise : ORDER BY
+will sort the returned rows according to the specified sorting
+criteria, LIMIT will restrict the number of returned rows, and OFFSET
+will skip a given number of rows (for example, LIMIT 2 OFFSET 3 will
+return the 4th and 5th row of a view).
+
+ORDER BY syntax mimics the usual SQL syntax :
+  << ... order by foo asc, bar desc, ... >>
+
+The ordering modifier ('asc' | 'desc') is optional, 'asc' will be
+choosed by default. If the ordering expression (foo, bar) is a record
+(tuple, row), no guarantee is given as to the column ordering decided
+(fields of a macaque record are not ordered, so a lexicographic order
+cannot be chosen) : the view result will be sorted on each column of
+the tuple (in an unspecified order), with the given ordering modifier.
+
+ORDER BY expressions are in the comprehension items scope : they can
+depend on the rows bound in the latter part of the
+comprehension. LIMIT and OFFSET are not : obviously << foo LIMIT
+foo.id | foo in $..$ >> is not a well-formed query.
+
+#### Comprehension items
+
+There is one important thing to know about comprehension items : row
+bindings are not sequential, they're simultaneous (let .. and .. and
+.. in ..) ! This is a not so happy feature, as the comprehension
+syntax strongly suggest a sequential binding : there is an impedence
+mismatch between the comprehension syntax and the SQL behaviour. For
+further discussion, see the [semantic of row bindings] part of the
+[Remarks] section of this manual.
+
+Of course, guards can depend on the declared rows.
+
+
+
 ### GROUP BY expressions and aggregate functions
 
 The SQL query "SELECT fields GROUP BY group_fields" roughly translate
@@ -311,6 +393,11 @@ and the BY records ({group_fields}).
 Example :
   << group {subtotal = sum[t.a]} by {k = t.b} | t in $view$ >>
 Will expand to "SELECT SUM(t.a) AS subtotal, t.b AS k  GROUP BY t.b FROM (...) AS t"
+
+#### Empty GROUP part
+
+GROUP BY expressions with all fields in the BY part are equivalent to
+a SELECT DISTINCT query.
 
 #### Restrictions on the GROUP record, accumulators [..] syntax
 
@@ -465,7 +552,7 @@ including (nested) rows...
 
 
 
-### Specific fourberies
+### Specific type fourberies
 
 macaque being strongly (and intricately) typed, you will often find
 yourself confronted to hostile error messages, wich means someone has
@@ -540,6 +627,42 @@ factorization among your SQL queries
 
 
 ### Remarks
+
+#### Side effects
+
+It is probably an obvious thing to say, but users should not put
+expressions wich have side-effect when evaluated inside macaque
+expressions. No guarantee is given that any part of a macaque
+expression will be evaluated at all, or only once.
+
+In case of doubt, you should explicitely evaluate expressions before
+handling them to the macaque expression :
+  let my_val = my_expr in << ... $my_val$ ... >>
+
+#### Semantic of row bindings
+
+From the "View expressions > Comprehension items" part of this README :
+
+  There is one important thing to know about comprehension items : row
+  bindings are not sequential, they're simultaneous (let .. and .. and
+  .. in ..) ! This is a not so happy feature, as the comprehension
+  syntax strongly suggest a sequential binding : there is an impedence
+  mismatch between the comprehension syntax and the SQL behaviour.
+  
+
+The rationale behind this choice is purely pragmatic : SQL queries use
+simultaneous bindings, and reproducing that choice much facilitate the
+translation. It would be possible to have sequential bindings, but
+that's somewhat more complicated, and I supposed it was unnatural to
+the SQL query writer anyway.
+
+I'm not quite satisfacted with this state of affairs, so it is
+possible that I replace the current behaviour with sequential
+declarations in the future. Please do not write code that would break
+if that was the case : << .. | t1 in $..$; t2 in $ .. t1 $ >> when t1
+is already in the scope. Such trickery tremendously hurts readability
+anyway, so you should not use it even if it wasn't for compatibility
+reasons.
 
 #### Camlp4 use
 

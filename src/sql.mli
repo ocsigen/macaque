@@ -121,7 +121,10 @@ constraint 'a = < .. >
 type from = untyped view tuple
 type where = untyped t list
 
+type order = Asc | Desc
+
 val view : 'a result ->
+  ?order_by: (untyped t * order) list ->
   ?limit: < t : #numeric_t; .. > t ->
   ?offset: < t : #numeric_t; .. > t ->
   from -> where -> 'a view

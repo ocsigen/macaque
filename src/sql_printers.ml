@@ -38,19 +38,27 @@ and string_of_selection q =
         " GROUP BY " ^
           string_of_list (fun (_, r) -> string_of_value r) ", " const
     | _ -> "" in
-  sprintf "SELECT %s%s%s%s%s%s"
-    (string_of_row result)
-    (string_of_from q.from)
-    (string_of_where q.where)
-    group_by
-    (string_of_limit q.limit)
-    (string_of_offset q.offset)
+  "SELECT "
+  ^ (string_of_row result)
+  ^ (string_of_from q.from)
+  ^ (string_of_where q.where)
+  ^ group_by
+  ^ (string_of_order_by q.order_by)
+  ^ (string_of_limit q.limit)
+  ^ (string_of_offset q.offset)
 and string_of_from = function
   | [] -> ""
   | from -> " FROM " ^ string_of_list string_of_from_item ", " from
 and string_of_where = function
   | [] -> ""
   | where -> " WHERE " ^ string_of_list string_of_value " AND " where
+and string_of_order_by = function
+  | None -> ""
+  | Some ordering ->
+      let string_of_order (value, order) =
+        sprintf "%s %s" (string_of_value value)
+          (match order with Asc -> "ASC" | Desc -> "DESC") in
+      " ORDER BY " ^ string_of_list string_of_order ", " ordering
 and string_of_limit = function
   | None -> ""
   | Some v -> " LIMIT " ^ string_of_value v

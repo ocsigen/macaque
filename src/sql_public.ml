@@ -99,6 +99,12 @@ module Op = struct
   let min (v, t) = prefixop "min" (v, t), t
   let max (v, t) = prefixop "max" (v, t), t
   let sum (v, t) = prefixop "sum" (v, t), t
+
+  let label seq_name = Atom (String seq_name), Non_nullable TString
+  let nextval (seq_name, typ) =
+    prefixop "nextval" (label seq_name), Non_nullable typ
+  let currval (seq_name, typ) =
+    prefixop "currval" (label seq_name), Non_nullable typ
 end
 
 module Table_type = struct

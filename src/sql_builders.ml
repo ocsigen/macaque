@@ -72,6 +72,11 @@ let table descr producer record_parser name =
     record_parser = Sql_parsers.unsafe_record_parser record_parser;
     data = name }
 
+(** sequences *)
+type 'a sequence = string * atom_type
+let serial seq_name = seq_name, TInt32
+let bigserial seq_name = seq_name, TInt64
+let sequence = bigserial
 
 (** views *)
 let view (select, select_type) ?order_by ?limit ?offset from where =

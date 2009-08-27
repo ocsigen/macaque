@@ -18,3 +18,5 @@ let liste = <:table< liste (
   recette integer,
   ingredient integer
 ) >>
+
+let test_seq = Sql.sequence "test_seq"

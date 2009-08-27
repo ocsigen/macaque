@@ -130,6 +130,12 @@ val view : 'a result ->
   from -> where -> 'a view
 val simple_select : < t : 'a #row_t; .. > t -> 'a result
 
+(** sequences *)
+type 'a sequence
+val serial : string -> int32_t sequence
+val bigserial : string -> int64_t sequence
+val sequence : string -> int64_t sequence
+
 (** group by and accumulators *)
 type grouped_row
 val grouped_row : grouped_row
@@ -264,6 +270,7 @@ module Op : sig
   val not :
     < t : #bool_t; nul : 'n; .. > t -> < t : bool_t; nul : 'n; > t
 
+  (** aggregate functions *)
   val count :
     _ group -> < t : int64_t; nul : non_nullable > t
   val min :
@@ -272,6 +279,10 @@ module Op : sig
     < t : #numeric_t as 't; nul : 'n; .. > group -> < t : 't; nul : 'n > t
   val sum :
     < t : #numeric_t as 't; nul : 'n; .. > group -> < t : 't; nul : 'n > t
+
+  (** sequence functions *)
+  val nextval : 'a sequence -> < t : 'a; nul : non_nullable > t
+  val currval : 'a sequence -> < t : 'a; nul : non_nullable > t
 end
 
 (** standard view operators

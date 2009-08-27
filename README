@@ -476,6 +476,29 @@ pa_descr-defined table with the '-check_tables' command line option
 (see the [OCamlbuild] section of this README).
 
 
+#### Auto-incrementing columns
+
+Column default values are not supported (yet ?). In particular, you
+can't declare a column as "SERIAL" and have automatic incrementation
+at row insertion. It is however possible to emulate this feature with
+explicite SEQUENCE manipulations
+
+It is not possible to create new sequences from Macaque (this is
+coherent with the choice that pa_descr tables are description, not
+declarations). To manipulate an existing SQL sequence, you have to
+build a `Sql.sequence' type from its name, using one of the
+following functions :
+
+  val serial : string -> int32_t sequence
+  val bigserial : string -> int64_t sequence
+  val sequence : string -> int64_t sequence
+
+It is then easy to increment a sequence at row insertion, as shown in
+the example of the [sequence functions] subsubsection of this README :
+
+  <:insert< $table$ := {id = nextval $table_id_seq$; .. } >>
+
+
 
 
 ## OCamlbuild
@@ -507,6 +530,21 @@ module, using the standard ocaml syntax (and operator associativities
 and precedences) :
     <:value< $a$ + $b$ >> is equivalent to `Sql.Op.(+) a b`
     <:value< nullable $foo$ >> is equivalent to `Sql.Op.nullable foo`
+
+##### aggregate function
+
+  Sql.Op has some aggregate functions. See the [GROUP BY expressions
+  and aggregate functions] section of this README for more
+  information.
+
+##### sequence functions
+
+  Sql.Op has some sequence functions. Currently supported are
+  `currval` and `nextval`. They can be used to have an
+  auto-incrementing identifier :
+
+    <:insert< $table$ := {id = nextval $table_id_seq$; .. } >>
+
 
 #### pa_comp value types antiquotations
 

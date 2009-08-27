@@ -27,8 +27,8 @@ macaque builds SQL queries/views/values at three different levels :
     Select all rows from table 'sql_table' whose 'id' is inferior to '50'
 
       <:delete< row in $sql_table$ | row.id > 50 >>
-    Delete all rows from 'sql_table' whose 'id' is superior to '50'    
-    
+    Delete all rows from 'sql_table' whose 'id' is superior to '50'
+
   Type : macaques queries have type 'a Sql.query, where 'a is the
   return type of the query : a row list for SELECT queries, unit
   otherwise.
@@ -51,7 +51,7 @@ macaque builds SQL queries/views/values at three different levels :
             row.category = "simple user" >>
   Names of all simple users of the 'prev_view' view (for example
   the previous example)
-  
+
     let names view = <:view< {name = t.name} | t in $view$ >>
   Generic function that will project any view on its "name" column
 
@@ -59,7 +59,7 @@ macaque builds SQL queries/views/values at three different levels :
   Generic function that will build an associative table, wich the
   'name' column in the 'name' field and the whole column in the 't'
   field.
-  
+
   Type : 'a Sql.view, where 'a is the type of a row (considered as a value).
 
   Note : views and select queries are distinct objects (view =
@@ -70,7 +70,7 @@ macaque builds SQL queries/views/values at three different levels :
 
 - /value/ level : values represent SQL values and expressions : int,
   float, string, and results of SQL data functions and operators.
-  
+
   Examples :
     <:value< 1 + 1 >>
   2 (as a Sql Value, not a Caml int)
@@ -81,7 +81,7 @@ macaque builds SQL queries/views/values at three different levels :
     <:value< nullable foo.id >>
   field 'id' of table 'foo', considered as a nullable value (wich can
   take the NULL value)
-  
+
     let double (n : int) = <:value< 2 * $int:n$ >>
   returns twice the given int, as a Sql value
 
@@ -107,10 +107,10 @@ There is actually a fourth important level, /table/ :
   but a "table:" antiquotation can be used instead.
 
   Examples :
-    
+
     let my_table = <:table< ... >> (* see pa_descr documentation below *)
     let my_view = Sql.View.table my_table in
-   
+
      let foo = <:select< t | t in $my_view$ >>
      let bar = <:select< t | t in $table:my_table$ >>
      let insert foo = <:insert< $my_table$ := $foo$ >>
@@ -242,7 +242,7 @@ syntaxes into the Objective Caml language. General principles are as follows :
   denotes a caml-level value :
     let value v = <:value< $v$ >> (* the identity function on values *)
   antiquotations can also be named in specific context :
-    let int n = <:value< $int:n$ + 0 >> 
+    let int n = <:value< $int:n$ + 0 >>
     (* transforming a caml int into a Sql.t value *)
   named antiquotations are not hardcoded in the syntax definition :
     they rely on values of the Sql module, wich are in the appropriate
@@ -293,7 +293,7 @@ Notes :
     names or field names) is accepted
 
   - Tuples, comprehension and guard lists can be empty :
-  
+
       <:view< $row$ | >> is the view with only one line, wich is 'row'
       <:insert< $table$ := $row$ | >> inserts a single row
       <:delete< row in $table$ | >> delete a whole table
@@ -306,7 +306,7 @@ Notes :
     access : in that case, the name of the accessed field is used (in
     case of nested access, eg. 'foo.bar.baz', the rightmost name
     is used, here 'baz'); the example can thus be written
-    
+
       { foo.a; bar.foobar.b }
 
   - if the BY record of a group .. by expression is empty, the BY part
@@ -420,7 +420,7 @@ semantic :
 - Error: This expression has type Sql.grouped_row
          but an expression was expected of type
          < nul : Sql.non_nullable; t : 'a #Sql.row_t; .. > Sql.t
-  
+
   Cause : use of a bound row in the GROUP record outside an accumulator
 
 - Error: This expression has type < nul : 'a; t : 'b > Sql.group Sql.unsafe
@@ -464,12 +464,37 @@ a potentially richer description : foreign keys, etc.). If you change
 a table description, you will have to duplicate the changes in the
 caml description as well.
 
+
+#### Checking table descriptions
+
 To help you with the pa_descr/database synchronization, the check.ml
 file implements a coherence check. It will raise errors if the
 caml-side description is not faithful to the real table structure. It
 is possible to enforce an automatic runtime check of every
 pa_descr-defined table with the '-check_tables' command line option
-(camlp4 time).
+(camlp4 time), wich can be enabled by the "use_check" ocamlbuild flag
+(see the [OCamlbuild] section of this README).
+
+
+
+
+## OCamlbuild
+
+I have created a macaque-specific OCamlbuild plugin. It was originally
+intended to help during macaque development only, but is probably
+a valuable ressource if you want to use Macaque inside your
+project. Besides the classical ocamlfind integration, you'll find the
+Sql_syntax modules with support for the following tags :
+
+- use_comp : enable preprocessing by pa_comp
+- use_descr : .. pa_descr
+- use_bananas : .. pa_bananas
+- use_macaque : enable the three syntaxes together
+- use_check : enable the -check_tables flag
+  (see the [pa_descr > Checking table descriptions] subsection)
+
+You should generally use the 'macaque' tag, the three other
+preprocessing tags being there for finer-grained control.
 
 
 
@@ -624,7 +649,6 @@ value, when the fields name are known at development-time :
 depending on `row` values; this kind of thing can greatly improve code
 factorization among your SQL queries
 
-
 
 
 ### Remarks
@@ -649,7 +673,7 @@ From the "View expressions > Comprehension items" part of this README :
   .. in ..) ! This is a not so happy feature, as the comprehension
   syntax strongly suggest a sequential binding : there is an impedence
   mismatch between the comprehension syntax and the SQL behaviour.
-  
+
 
 The rationale behind this choice is purely pragmatic : SQL queries use
 simultaneous bindings, and reproducing that choice much facilitate the
@@ -694,7 +718,7 @@ as solid as possible :
   parsing process (the "." level of expressions : a.b, a#b..), with no
   precedence/associativity subtleties. It is a relatively trustable
   extension, and any spotted defects would be easy to fix.
-  
+
   Moreover, pa_bananas is only a convenience extension and it is easy
   not to use it (use Sql.get/Sql.getn instead of #!/#?). If a problem
   were to arise, it would be easy for a user to mechanically replace

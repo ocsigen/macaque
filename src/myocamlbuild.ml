@@ -81,6 +81,7 @@ module Sql_syntax = struct
     flag ["ocaml"; "pp"; "use_descr"] (A descr);
     flag ["ocaml"; "pp"; "use_bananas"] (A bana);
     flag ["ocaml"; "pp"; "use_macaque"] (S[A comp;A descr;A bana]);
+    flag ["ocaml"; "pp"; "use_check"] (A "-check_tables");
     dep ["ocaml"; "ocamldep"; "use_comp"] [comp];
     dep ["ocaml"; "ocamldep"; "use_descr"] [descr];
     dep ["ocaml"; "ocamldep"; "use_bananas"] [bana];

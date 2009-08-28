@@ -40,10 +40,11 @@ and 'a located = (Loc.t * 'a)
 (** Syntaxic form parsing *)
 module DescrGram = MakeGram(Lexer)
 let table_descr = DescrGram.Entry.mk "table_description"
+let seq_descr = DescrGram.Entry.mk "seq_description"
 
 let () =
   EXTEND DescrGram
-    GLOBAL: table_descr;
+    GLOBAL: table_descr seq_descr;
     table_descr: [[ name = table_name;
                     "("; fields = LIST0 field_descr SEP ","; ")" ->
                       (_loc, (name, fields)) ]];
@@ -54,6 +55,9 @@ let () =
                | -> true ]];
     table_name: [[ schema = LIDENT; ".";  name = LIDENT -> (Some schema, name)
                  | name = LIDENT -> (None, name) ]];
+
+    seq_descr: [[ op = [id = LIDENT -> id | -> "sequence"]; name = STRING ->
+                    (_loc, (op, name)) ]];
   END;;
 
 let camlp4_list _loc =
@@ -104,7 +108,17 @@ let table_of_descr (_loc, (name, field_types)) =
   if not !coherence_check then table
   else <:expr< let table = $table$ in do { Check.check_table table; table } >>
 
-      (** Quotations setup *)
-      let () =
-        Syntax.Quotation.add "table" Syntax.Quotation.DynAst.expr_tag
-          (fun loc _ quote -> table_of_descr (DescrGram.parse_string table_descr loc quote));
+let seq_of_descr (_loc, (op, name)) =
+  let seq = <:expr< Sql.Sequence.$lid:op$ $str:name$ >> in
+  if not !coherence_check then seq
+  else <:expr< let seq = $seq$ in do { Check.check_sequence seq; seq } >>
+
+(** Quotations setup *)
+let () =
+  Syntax.Quotation.add "table" Syntax.Quotation.DynAst.expr_tag
+    (fun loc _ quote ->
+       table_of_descr (DescrGram.parse_string table_descr loc quote));
+  Syntax.Quotation.add "sequence" Syntax.Quotation.DynAst.expr_tag
+    (fun loc _ quote ->
+       seq_of_descr (DescrGram.parse_string seq_descr loc quote));
+

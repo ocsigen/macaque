@@ -50,3 +50,10 @@ COPY liste (recette, ingredient) FROM stdin;
 2	1
 2	4
 \.
+
+CREATE TABLE sequence_test (
+       id bigint NOT NULL,
+       text text
+);
+
+CREATE SEQUENCE sequence_test_id_seq;

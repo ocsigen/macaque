@@ -452,8 +452,10 @@ macaque to protect from runtime errors.
 
 ### pa_descr syntax
 
-pa_descr syntax is used for making existing database tables accessible
-as macaque views. The syntax is a far relative of SQL CREATE TABLE
+pa_descr syntax is used to describe existing database tables, making
+them as macaque views (internally, it builds a runtime description of
+the data-base typing informations, to be used by further macaque
+processing). The syntax is a far relative of SQL CREATE TABLE
 statements, and can be discovered in the example base.ml
 file. Currently, no other information that name, type and nullability
 are accepted.
@@ -464,40 +466,35 @@ a potentially richer description : foreign keys, etc.). If you change
 a table description, you will have to duplicate the changes in the
 caml description as well.
 
-
-#### Checking table descriptions
-
-To help you with the pa_descr/database synchronization, the check.ml
-file implements a coherence check. It will raise errors if the
-caml-side description is not faithful to the real table structure. It
-is possible to enforce an automatic runtime check of every
-pa_descr-defined table with the '-check_tables' command line option
-(camlp4 time), wich can be enabled by the "use_check" ocamlbuild flag
-(see the [OCamlbuild] section of this README).
-
-
 #### Auto-incrementing columns
 
-Column default values are not supported (yet ?). In particular, you
+Column default values are not supported (yet). In particular, you
 can't declare a column as "SERIAL" and have automatic incrementation
 at row insertion. It is however possible to emulate this feature with
-explicite SEQUENCE manipulations
-
-It is not possible to create new sequences from Macaque (this is
-coherent with the choice that pa_descr tables are description, not
-declarations). To manipulate an existing SQL sequence, you have to
-build a `Sql.sequence' type from its name, using one of the
-following functions :
-
-  val serial : string -> int32_t sequence
-  val bigserial : string -> int64_t sequence
-  val sequence : string -> int64_t sequence
-
-It is then easy to increment a sequence at row insertion, as shown in
-the example of the [sequence functions] subsubsection of this README :
+explicit SEQUENCE manipulations, as shown in the example of the
+[sequence functions] subsubsection of this README :
 
   <:insert< $table$ := {id = nextval $table_id_seq$; .. } >>
 
+See the src/file/sequence.ml for example.
+
+#### sequence descriptions
+
+It is not possible to create new sequences from Macaque (this is
+coherent with the choice that pa_descr tables are description, not
+declarations), but pa_descr support sequence descriptions. Sequence
+creation operators are part of the Sql.Sequence module.
+
+#### Checking descriptions
+
+To help you with the pa_descr/database synchronization, the Check
+module provide coherence checks (check_table, check_sequence). It will
+raise errors if the caml-side description is not faithful to the real
+table structure. It is possible to enforce an automatic runtime check
+of every pa_descr-defined table or sequence with the '-check_tables'
+command line option (camlp4 time), wich can be enabled by the
+"use_check" ocamlbuild flag (see the [OCamlbuild] section of this
+README).
 
 
 
@@ -537,15 +534,6 @@ and precedences) :
   and aggregate functions] section of this README for more
   information.
 
-##### sequence functions
-
-  Sql.Op has some sequence functions. Currently supported are
-  `currval` and `nextval`. They can be used to have an
-  auto-incrementing identifier :
-
-    <:insert< $table$ := {id = nextval $table_id_seq$; .. } >>
-
-
 #### pa_comp value types antiquotations
 
 macaque supports some SQL data types, some of them having a litteral
@@ -564,6 +552,21 @@ Sql.Table_type module. We use a different set of type names, in order
 to mimic SQL type names and ease specification derivation from
 existing SQL tables. For example, "integer" is used instead of
 "int", and will expand to a Sql.Table_type.integer value.
+
+#### pa_descr sequence description
+
+Sequence creators used in pa_descr specifications are defined in the
+Sql.Sequence module.
+
+#### pa_comp sequence operators
+
+Sql.Op has some sequence functions. Currently supported are
+`currval` and `nextval`. They can be used to have an
+auto-incrementing identifier :
+
+  <:insert< $table$ := {id = nextval $table_id_seq$; .. } >>
+
+See the src/tests/sequence.ml for example.
 
 #### pa_comp view antiquotations
 

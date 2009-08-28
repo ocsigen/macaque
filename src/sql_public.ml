@@ -44,6 +44,13 @@ module Value = struct
   let interval i = Atom (Interval i), Non_nullable TInterval
 end
 
+type 'a sequence = string * atom_type
+module Sequence = struct
+  let serial seq_name = seq_name, TInt32
+  let bigserial seq_name = seq_name, TInt64
+  let sequence = bigserial
+end
+
 module Op = struct
   open Sql_builders
 

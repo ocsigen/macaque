@@ -5,3 +5,4 @@ true: pkg_pgocaml
 <error_tests/*>: camlp4o, use_macaque
 <test*.*>: camlp4o, use_macaque
 <pa_*> : pkg_camlp4, pp(camlp4orf)
+<tests/sequence.ml>: use_check

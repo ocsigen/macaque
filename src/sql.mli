@@ -130,12 +130,6 @@ val view : 'a result ->
   from -> where -> 'a view
 val simple_select : < t : 'a #row_t; .. > t -> 'a result
 
-(** sequences *)
-type 'a sequence
-val serial : string -> int32_t sequence
-val bigserial : string -> int64_t sequence
-val sequence : string -> int64_t sequence
-
 (** group by and accumulators *)
 type grouped_row
 val grouped_row : grouped_row
@@ -222,6 +216,16 @@ module Value : sig
   val timestamp : timestamp -> < t : timestamp_t; get : unit; nul : _ > t
   val timestamptz : timestamptz -> < t : timestamptz_t; get : unit; nul : _ > t
   val interval : interval -> < t : interval_t; get : unit; nul : _ > t
+end
+
+
+(** sequence creation operators
+    (usable from user code, in pa_descr sequence expressions) *)
+type 'a sequence
+module Sequence : sig
+  val serial : string -> int32_t sequence
+  val bigserial : string -> int64_t sequence
+  val sequence : string -> int64_t sequence
 end
 
 (** standard SQL operators

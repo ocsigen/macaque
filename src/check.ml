@@ -162,7 +162,7 @@ let check_sequence_description seq_name descr_type descr =
 
 let check_sequence (seq : 'a Sql.sequence) =
   (* see check_table Obj.magic comment *)
-  let (seq : 'a Sql_builders.sequence) = Obj.magic seq in
+  let (seq : 'a Sql_public.sequence) = Obj.magic seq in
   let (name, typ) = seq in
   let pgsql_sequences =
     <:table< information_schema.sequences

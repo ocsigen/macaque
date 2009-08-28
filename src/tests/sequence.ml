@@ -1,15 +1,20 @@
-let next seq = << {x = nextval $seq$} >>
-let curr seq = << {x = currval $seq$} >>
+(* Example of auto-incrementing emulation using SEQUENCE functions *)
+let table =
+  <:table< sequence_test
+    ( id bigint NOT NULL,
+      text text ) >>
 
-let seq = Base.test_seq
+let id_seq = <:sequence< bigserial "test_id_seq" >>
+
+let insert text =
+  <:insert< $table$ := {id = nextval $id_seq$; text = $string:text$ } >>
 
 open Printf
 
 let () =
   let dbh = PGOCaml.connect () in
-  let test x_view = (Query.Simple.view_one dbh x_view)#!x in
-  for i = 1 to 5 do
-    printf "next value : %Ld\n" (test (next seq))
-  done;
-  printf "current value : %Ld\n" (test (curr seq))
-
+  Query.Simple.query dbh ~log:stdout (insert "test 1");
+  Query.Simple.query dbh ~log:stdout (insert "test 2");
+  Query.Simple.query dbh ~log:stdout (insert "test 3");
+  Printf.printf "%Ld\n"
+    (Query.Simple.view_one dbh ~log:stdout << {x = currval $id_seq$} >>)#!x

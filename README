@@ -282,6 +282,8 @@ Loosely defined syntax
 
 Notes :
 
+ - ';'-separated lists allows an optional ending ';', to match OCaml syntax : {a;b;}
+
  - "table" denotes a place where an ('a table) type is required
 
  - antiquotations can be used in 'view', 'table' and 'value' places

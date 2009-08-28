@@ -110,17 +110,17 @@ let () =
    insert_eoi: [[ tab = table; ":="; sel = view; `EOI ->
                     (_loc, Insert (tab, sel)) ]];
    delete_eoi: [[ bind = row_binding;
-                  items = OPT ["|"; li = LIST0 value SEP ";" -> li]; `EOI ->
+                  items = OPT ["|"; li = comp_value_list -> li]; `EOI ->
                     (_loc, Delete (bind, (_loc, opt_list items))) ]];
    update_eoi: [[ bind = row_binding; ":="; res = value;
-                  items = OPT [ "|"; li = LIST0 value SEP ";" -> li ];
+                  items = OPT [ "|"; li = comp_value_list -> li ];
                   `EOI ->
                     (_loc, Update (bind, res, (_loc, opt_list items))) ]];
    view: [[ result = result;
             order_by = OPT order_by;
             limit = OPT limit;
             offset = OPT offset;
-            items = OPT ["|"; li = LIST0 comp_item SEP ";" -> li] ->
+            items = OPT ["|"; li = comp_item_list -> li] ->
               (_loc, { result = result;
                        order_by = order_by;
                        limit = limit;
@@ -175,18 +175,31 @@ let () =
          | "("; (_, e) = SELF; ")" -> (_loc, e)
          | "["; e = SELF; "]" -> (_loc, Accum e) ]];
 
+   comp_item_list: (* inspired from Camlp4OCamlRevisedParser label_expr_list *)
+     [[ i = comp_item; ";"; is = SELF -> i :: is
+      | i = comp_item; ";" -> [i]
+      | i = comp_item -> [i] ]];
+
+   comp_value_list: (* inspired from Camlp4OCamlRevisedParser label_expr_list *)
+     [[ v = value; ";"; vs = SELF -> v :: vs
+      | v = value; ";" -> [v]
+      | v = value -> [v] ]];
+
    field_path :
      [[ path = LIST1 [id = LIDENT -> (_loc, id)] SEP "." -> path ]];
 
    infixop6: [[ x = ["||"] -> <:expr< $lid:x$ >> ]];
    infixop5: [[ x = ["&&"] -> <:expr< $lid:x$ >> ]];
 
-   tuple: [[ "{"; (_, named_fields) = binding_list; "}" -> (_loc, named_fields) ]];
-   binding_list: [[ bindings = LIST0 binding SEP ";" -> (_loc, bindings) ]];
+   tuple: [[ "{"; named_fields = binding_list; "}" -> (_loc, named_fields) ]];
    binding: [[ id = LIDENT; "="; v = value -> (_loc, (id, v))
              | v = value LEVEL "simple"; "."; path = field_path ->
                  let (_, name) = List.hd (List.rev path) in
                  (_loc, (name, (_loc, Field(v, path)))) ]];
+   binding_list: (* inspired from Camlp4OCamlRevisedParser label_expr_list *)
+     [[ b = binding; ";"; bs = SELF -> b :: bs
+      | b = binding; ";" -> [b]
+      | b = binding -> [b] ]];
 
    atom: [[ `ANTIQUOT("", v) -> quote _loc v
           | `INT32(i, _) -> <:expr< Sql.Value.int32 $`int32:i$ >>

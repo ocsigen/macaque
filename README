@@ -212,12 +212,11 @@ the pa_bananas syntax extension : a#!b is equivalent to (Sql.get a#b),
 and a#?b is equivalent to (Sql.getn a#b). It is thus possible to write
 (row#!sub_row#!field) directly.
 
-Note that a#?b still returns an option, so you can have something like
-a#?b#?c (a#?b is not an object) : you still need to do pattern
+Note that a#?b still returns an option, so you can't have something
+like a#?b#?c (a#?b is not an object) : you still need to do pattern
 matching on the option value yourself. I could create an unsafe
 constructor wich would raise an exception in the None case, but that
-would defeat the point of macaque (as few runtime errors as
-possible).
+would defeat the point of macaque (as few runtime errors as possible).
 I also feels that such facilities would encourage nullability-laziness
 from the user : you have to work on your database design upfront to
 eradicate nullable types were possible; in the case were a NULL case

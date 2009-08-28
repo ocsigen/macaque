@@ -19,4 +19,7 @@ let liste = <:table< liste (
   ingredient integer
 ) >>
 
-let test_seq = Sql.sequence "test_seq"
+let test_seq =
+  let seq = Sql.sequence "test_seq" in
+  Check.check_sequence seq;
+  seq

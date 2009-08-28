@@ -118,3 +118,58 @@ let check_table (table : 'a Sql.table) =
            info.table_name = $string:table_name$ >> in
   perform_check (check_table_description long_name table.descr)
     (Query.Simple.view ?log:None) table_descr
+
+let check_sequence_description seq_name descr_type descr =
+  let correct = ref true in
+  begin
+    match descr with
+      | None ->
+          correct := false;
+          eprintf "SQL Check Error : Sequence %s is described \
+                  but does not exists in the PGSQL database.\n" seq_name
+      | Some descr ->
+          let real_type = match descr#!numeric_precision with
+            | 16l -> Some TInt16
+            | 32l -> Some TInt32
+            | 64l -> Some TInt64
+            | p ->
+                correct := false;
+                eprintf "SQL Check Error : unsupported \
+                        numeric precision : %ld.\n" p;
+                None in
+          match real_type with
+            | None -> ()
+            | Some real_type ->
+                if real_type <> descr_type then begin
+                  correct := false;
+                  eprintf "SQL Check Error : Sequence %s type \
+                          is described as %s but is %s.\n" seq_name
+                    (string_of_atom_type descr_type)
+                    (string_of_atom_type real_type)
+                end
+  end;
+  if not !correct then
+    failwith
+      (sprintf
+         "SQL Check : Coherence check of sequence %s \
+          against the PGSQL database failed."
+         seq_name)
+  else
+    eprintf "SQL Check : Sequence %s description \
+             is coherent with the PGSQL database.\n"
+      seq_name;
+  flush stderr
+
+let check_sequence (seq : 'a Sql.sequence) =
+  (* see check_table Obj.magic comment *)
+  let (seq : 'a Sql_builders.sequence) = Obj.magic seq in
+  let (name, typ) = seq in
+  let pgsql_sequences =
+    <:table< information_schema.sequences
+             ( sequence_name text NOT NULL,
+               numeric_precision integer NOT NULL ) >> in
+  let sequence_description =
+    << t | t in $table:pgsql_sequences$;
+           t.sequence_name = $string:name$ >> in
+  perform_check (check_sequence_description name typ)
+    (Query.Simple.view_opt ?log:None) sequence_description

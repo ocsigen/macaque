@@ -25,9 +25,18 @@ let warn_undetermined_update = ref true
 let () =
   Camlp4.Options.add "-sql-nowarn-undetermined-update"
     (Arg.Clear warn_undetermined_update)
-    "warning for compile-time undetermined update tuple type (see documentation)"
+    "warning for compile-time undetermined \
+     update tuple type (see documentation)"
 let warn_undetermined_update_message =
-  "Warning UPDATE SET : undetermined update tuple, exhaustive update assumed"
+  "Warning UPDATE SET : undetermined update tuple, \
+   exhaustive update assumed"
+
+let implicit_exhaustive_manipulation = ref false
+let () =
+  Camlp4.Options.add "-sql-implicit-exhaustive-manipulation"
+    (Arg.Set implicit_exhaustive_manipulation)
+    "makes the comprehension | optional in UPDATE or DELETE queries \
+     with an empty WHERE part"
 
 (** Comprehension (syntaxic form) structure *)
 type comp =
@@ -70,9 +79,12 @@ and ident = string
 
 (** Syntaxic form parsing *)
 module CompGram = MakeGram(Lexer)
-let value, view_eoi, select_eoi, insert_eoi, delete_eoi, update_eoi =
+
+let view_eoi, select_eoi, insert_eoi, delete_eoi, update_eoi,
+    value, guard_list =
   let mk = CompGram.Entry.mk in
-  mk "value", mk "view", mk "select", mk "insert", mk "delete", mk "update"
+  mk "view", mk "select", mk "insert", mk "delete", mk "update",
+  mk "value", mk "guard list"
 
 let () =
   Camlp4_config.antiquotations := true;
@@ -103,19 +115,19 @@ let () =
     | Some li -> li in
 
   EXTEND CompGram
-   GLOBAL: value view_eoi select_eoi insert_eoi delete_eoi update_eoi;
+   GLOBAL: view_eoi select_eoi insert_eoi delete_eoi update_eoi
+           value guard_list;
 
    select_eoi: [[ (_, s) = view; `EOI -> (_loc, Select s) ]];
    view_eoi: [[ (_, s) = view; `EOI -> (_loc, s) ]];
    insert_eoi: [[ tab = table; ":="; sel = view; `EOI ->
                     (_loc, Insert (tab, sel)) ]];
-   delete_eoi: [[ bind = row_binding;
-                  items = OPT ["|"; li = comp_value_list -> li]; `EOI ->
-                    (_loc, Delete (bind, (_loc, opt_list items))) ]];
+   delete_eoi: [[ bind = row_binding; guards = guard_list; `EOI ->
+                    (_loc, Delete (bind, (_loc, guards))) ]];
    update_eoi: [[ bind = row_binding; ":="; res = value;
-                  items = OPT [ "|"; li = comp_value_list -> li ];
-                  `EOI ->
-                    (_loc, Update (bind, res, (_loc, opt_list items))) ]];
+                  guards = guard_list; `EOI ->
+                    (_loc, Update (bind, res, (_loc, guards))) ]];
+   guard_list: [[ "|"; items = comp_value_list -> items ]];
    view: [[ result = result;
             order_by = OPT order_by;
             limit = OPT limit;
@@ -210,7 +222,23 @@ let () =
           | "false" -> <:expr< Sql.Value.bool False >>
           | `ANTIQUOT(id, v) ->
               <:expr< Sql.Value.$lid:id$ $quote _loc v$ >> ]];
- END;;
+ END;
+;;
+
+let activate_implicit =
+  (* this hack is intended to make sure the syntax is extended after
+     the command-line parameters have been parsed; the actual call to
+     activate_implicit is done in the antiquotation callback *)
+  let activated = ref false in
+  fun () ->
+    if not !activated then begin
+      activated := true;
+      if !implicit_exhaustive_manipulation then
+        (EXTEND CompGram
+           GLOBAL: guard_list;
+         guard_list: [[ -> [] ]];
+         END)
+    end
 
 (** Code emission from the syntaxic form *)
 let camlp4_list _loc =
@@ -460,6 +488,7 @@ let () =
     (fun (name, gram_rule) ->
        Syntax.Quotation.add name Syntax.Quotation.DynAst.expr_tag
          (fun loc _ quote ->
+            activate_implicit ();
             query_of_comp (CompGram.parse_string gram_rule loc quote)))
     [ "select", select_eoi;
       "insert", insert_eoi;

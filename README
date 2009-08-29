@@ -258,8 +258,8 @@ Loosely defined syntax
  - foo sep ... means list of foos separated by sep (';' or ',')) :
         select ::= view
         insert ::= table ':=' value ['|' comprehension-item ';' ...]
-        delete ::= row name 'in' table ['|' guard ';' ...]
-        update ::= row name 'in' table ':=' value ['|' guard ';' ...]
+        delete ::= row name 'in' table '|' [guard ';' ...]
+        update ::= row name 'in' table ':=' value '|' [guard ';' ...]
         view ::= view-result view-modifiers ['|' comprehension-item ';' ...]
         view-result ::= value
                       | 'group' tuple ['by' tuple]
@@ -299,7 +299,9 @@ Notes :
       <:delete< row in $table$ | >> delete a whole table
       <:update< row in $table$ := $value$ | >> updates a whole table
 
-    In those cases, the ending "|" is optional.
+      In the "view" and "insert" cases, the ending "|" is optional in
+      that situation. It is however not the case for insert and
+      delete : see the remark at the end of this section.
 
   - In order to simplify the common { a = foo.a; b = bar.foobar.b }
     use case, tuple field names are optional when the value is a field
@@ -312,6 +314,22 @@ Notes :
   - if the BY record of a group .. by expression is empty, the BY part
     ("by {}") is optinal. See the [GROUP BY expressions and aggregate
     functions] section.
+
+#### Remark : implicite exhaustive manipulation
+
+It was found that user sometimes forgot the guards in an UPDATE or
+DELETE query. The results of that mistake are usually rather
+displeasing (deleting or modifying the whole table). In order to make
+the mistake more visible and less likely to happen, the "|" before the
+guards of an UPDATE or DELETE query are not optional by default : it
+the user forget the guards altogether, he will also forget the "|" and
+will get an error.
+
+It is however possible for users looking for homogeneity in the syntax
+to make the "|" optional again, by adding
+the -sql-implicit-exhaustive-manipulation command line option to the
+camlp4 preprocessing pass. There is a corresponding (and equally long)
+ocamlbuild tag, see the [Ocamlbuild] section of this README.
 
 
 
@@ -512,6 +530,9 @@ Sql_syntax modules with support for the following tags :
 - use_macaque : enable the three syntaxes together
 - use_check : enable the -check_tables flag
   (see the [pa_descr > Checking table descriptions] subsection)
+- macaque_implicit_exhaustive_manipulation : make the ending "|" of
+  empty-guarded data manipulation queries optional (see the Remark in
+  the [pa_comp syntax] section)
 
 You should generally use the 'macaque' tag, the three other
 preprocessing tags being there for finer-grained control.

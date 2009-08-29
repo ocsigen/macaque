@@ -175,15 +175,15 @@ let () =
          | "("; (_, e) = SELF; ")" -> (_loc, e)
          | "["; e = SELF; "]" -> (_loc, Accum e) ]];
 
-   comp_item_list: (* inspired from Camlp4OCamlRevisedParser label_expr_list *)
+   comp_item_list:
      [[ i = comp_item; ";"; is = SELF -> i :: is
-      | i = comp_item; ";" -> [i]
-      | i = comp_item -> [i] ]];
+      | i = comp_item -> [i]
+      | -> [] ]];
 
-   comp_value_list: (* inspired from Camlp4OCamlRevisedParser label_expr_list *)
+   comp_value_list:
      [[ v = value; ";"; vs = SELF -> v :: vs
-      | v = value; ";" -> [v]
-      | v = value -> [v] ]];
+      | v = value -> [v]
+      | -> [] ]];
 
    field_path :
      [[ path = LIST1 [id = LIDENT -> (_loc, id)] SEP "." -> path ]];
@@ -196,10 +196,10 @@ let () =
              | v = value LEVEL "simple"; "."; path = field_path ->
                  let (_, name) = List.hd (List.rev path) in
                  (_loc, (name, (_loc, Field(v, path)))) ]];
-   binding_list: (* inspired from Camlp4OCamlRevisedParser label_expr_list *)
+   binding_list:
      [[ b = binding; ";"; bs = SELF -> b :: bs
-      | b = binding; ";" -> [b]
-      | b = binding -> [b] ]];
+      | b = binding -> [b]
+      | -> [] ]];
 
    atom: [[ `ANTIQUOT("", v) -> quote _loc v
           | `INT32(i, _) -> <:expr< Sql.Value.int32 $`int32:i$ >>

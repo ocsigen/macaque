@@ -290,7 +290,8 @@ let rec view_of_comp (_loc, (select : select) ) =
   let comp_item (from, where, env) (_loc, item) = match item with
     | Cond cond ->
         let where_item =
-          <:expr< Sql.untyped_t $value_of_comp env (_loc, cond)$ >> in
+          <:expr< ($value_of_comp env (_loc, cond)$
+                   :> Sql.t < t : Sql.bool_t >) >> in
         (from, where_item :: where, env)
     | Bind (name, table) ->
         let name_str, env = Env.new_row name env in

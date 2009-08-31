@@ -119,7 +119,7 @@ type +'a result
 constraint 'a = < .. >
 
 type from = untyped view tuple
-type where = untyped t list
+type where = < t : bool_t > t list
 
 type order = Asc | Desc
 

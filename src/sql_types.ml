@@ -80,6 +80,7 @@ let unsafe (x : 'a) = (x : 'a unsafe)
 let force_gettable (x : < .. > t) = (x : < get : unit; .. > t)
 
 type ('a, 'b) witness = 'b
+type 'n nul_witness = ('n, bool) witness
 
 let nullable_witness = true
 let non_nullable_witness = false

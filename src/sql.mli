@@ -25,9 +25,9 @@ type untyped
 type nullable
 type non_nullable
 
-type ('a, 'b) witness
-val non_nullable_witness : (non_nullable, bool) witness
-val nullable_witness : (nullable, bool) witness
+type 'n nul_witness
+val nullable_witness : nullable nul_witness
+val non_nullable_witness : non_nullable nul_witness
 
 class type ['t] type_info = object method typ : 't end
 class type numeric_t = object method numeric : unit end
@@ -156,29 +156,29 @@ val table :
 (** standard SQL field types
     (in pa_descr, ie. <:table< .. >>) *)
 module Table_type : sig
-  val boolean : ('nul, bool) witness ->
+  val boolean : 'nul nul_witness ->
     < get : unit; nul : 'nul; t : bool_t > sql_type
-  val smallint : ('nul, bool) witness ->
+  val smallint : 'nul nul_witness ->
     < get : unit; nul : 'nul; t : int16_t > sql_type
-  val integer : ('nul, bool) witness ->
+  val integer : 'nul nul_witness ->
     < get : unit; nul : 'nul; t : int32_t > sql_type
-  val bigint : ('nul, bool) witness ->
+  val bigint : 'nul nul_witness ->
     < get : unit; nul : 'nul; t : int64_t > sql_type
-  val double : ('nul, bool) witness ->
+  val double : 'nul nul_witness ->
     < get : unit; nul : 'nul; t : float_t > sql_type
-  val text : ('nul, bool) witness ->
+  val text : 'nul nul_witness ->
     < get : unit; nul : 'nul; t : string_t > sql_type
-  (* val bytea : ('nul, bool) witness -> *)
+  (* val bytea : 'nul nul_witness -> *)
   (*   < get : unit; nul : 'nul; t : bytea_t > sql_type *)
-  val time : ('nul, bool) witness ->
+  val time : 'nul nul_witness ->
     < get : unit; nul : 'nul; t : time_t > sql_type
-  val date : ('nul, bool) witness ->
+  val date : 'nul nul_witness ->
     < get : unit; nul : 'nul; t : date_t > sql_type
-  val timestamp : ('nul, bool) witness ->
+  val timestamp : 'nul nul_witness ->
     < get : unit; nul : 'nul; t : timestamp_t > sql_type
-  val timestamptz : ('nul, bool) witness ->
+  val timestamptz : 'nul nul_witness ->
     < get : unit; nul : 'nul; t : timestamptz_t > sql_type
-  val interval : ('nul, bool) witness ->
+  val interval : 'nul nul_witness ->
     < get : unit; nul : 'nul; t : interval_t > sql_type
 end
 

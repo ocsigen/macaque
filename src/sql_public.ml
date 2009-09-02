@@ -112,6 +112,9 @@ module Op = struct
     prefixop "nextval" (label seq_name), Non_nullable typ
   let currval (seq_name, typ) =
     prefixop "currval" (label seq_name), Non_nullable typ
+
+  let current_timestamp =
+    Op ([], "current_timestamp", []), Non_nullable TTimestamp
 end
 
 module Table_type = struct

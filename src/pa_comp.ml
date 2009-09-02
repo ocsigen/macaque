@@ -114,6 +114,8 @@ let () =
     | None -> []
     | Some li -> li in
 
+  let unary _loc op = (_loc, Op ((_loc, Ident op), [])) in
+
   EXTEND CompGram
    GLOBAL: view_eoi select_eoi insert_eoi delete_eoi update_eoi
            value guard_list;
@@ -182,7 +184,8 @@ let () =
      | "simple"
          [ v = atom -> (_loc, Atom v)
          | (_, tup) = tuple -> (_loc, Tuple tup)
-         | LIDENT "null" -> (_loc, Op ((_loc, Ident "null"), []))
+         | LIDENT "null" -> unary _loc "null"
+         | LIDENT "current_timestamp" -> unary _loc "current_timestamp"
          | id = LIDENT -> (_loc, Ident id)
          | "("; (_, e) = SELF; ")" -> (_loc, e)
          | "["; e = SELF; "]" -> (_loc, Accum e) ]];

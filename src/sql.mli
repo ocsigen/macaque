@@ -287,6 +287,9 @@ module Op : sig
   (** sequence functions *)
   val nextval : 'a sequence -> < t : 'a; nul : non_nullable > t
   val currval : 'a sequence -> < t : 'a; nul : non_nullable > t
+
+  (** timestamp *)
+  val current_timestamp : < t : timestamp_t; nul : _ > t
 end
 
 (** standard view operators

@@ -20,4 +20,6 @@ let () =
   test' "max[ingredient.id]" Int32.to_string << {x = t.max} | t in $accums$ >>;
   test "null IS NULL" string_of_bool <:value< is_null null >>;
   test "null IS NOT NULL" string_of_bool <:value< is_not_null null >>;
-  test "null IS NOT DISTINCT FROM null" string_of_bool <:value< is_not_distinct_from null null >>
+  test "null IS NOT DISTINCT FROM null" string_of_bool <:value< is_not_distinct_from null null >>;
+  test "current_timestamp" PGOCaml.string_of_timestamp <:value< current_timestamp >>;
+  ()

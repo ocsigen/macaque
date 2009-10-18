@@ -81,15 +81,14 @@ end
 module Make (Thread : THREAD) =
   Make_with_Db(Thread)(PGOCaml_generic.Make(Thread))
 
-(* TODO : try to push into PGOCaml's mainstream *)
+(* This module declaration was pushed into PGOCaml's upstream; It is
+   kept here as it was not yet published in a stable PG'OCaml version,
+   but should eventually go away. *)
 module Simple_thread = struct
   type 'a t = 'a
   let return x = x
   let (>>=) v f =  f v
   let fail = raise
-  let catch f catcher =
-    try f ()
-    with exn -> catcher exn
 
   type in_channel = Pervasives.in_channel
   type out_channel = Pervasives.out_channel
@@ -104,5 +103,12 @@ module Simple_thread = struct
   let close_in = close_in
 end
 
+(* enrich PG'OCaml simple module with exception catching abilities *)
+module Simple_thread_catch = struct
+  include Simple_thread
+  let catch f catcher =
+    try f ()
+    with exn -> catcher exn
+end
 
-module Simple = Make_with_Db(Simple_thread)(PGOCaml)
+module Simple = Make_with_Db(Simple_thread_catch)(PGOCaml)

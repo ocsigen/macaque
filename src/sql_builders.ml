@@ -95,11 +95,15 @@ let group group_part result_part =
 
 
 (** queries *)
+let get_table writable_view = match writable_view.data with
+  | Selection _ -> assert false
+  | Table name -> { writable_view with data = name }
+
 let select view = Select view
-let insert table inserted_view =
-  Insert (table, inserted_view)
-let delete table row where =
-  Delete (table, row, where)
-let update table row set subtype_witness where =
+let insert view inserted_view =
+  Insert (get_table view, inserted_view)
+let delete view row where =
+  Delete (get_table view, row, where)
+let update view row set subtype_witness where =
   ignore subtype_witness;
-  Update (table, row, set, where)
+  Update (get_table view, row, set, where)

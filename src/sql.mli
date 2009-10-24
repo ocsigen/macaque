@@ -22,8 +22,12 @@ open Sql_base
 
 type untyped
 
+type 'a writable
+type non_writable
+
 type nullable
 type non_nullable
+
 
 type 'n nul_witness
 val nullable_witness : nullable nul_witness
@@ -86,8 +90,8 @@ val getn : < get : _; nul : nullable; t : 't #type_info > t -> 't option
 val parse : 'a sql_type -> 'a t result_parser
 
 (** views *)
-type +'a view
-val untyped_view : 'a view -> untyped view
+type (+'a, 'w) view
+val untyped_view : (_, 'w) view -> (untyped, untyped) view
 
 val field :
   < t : 'a #row_t; nul : non_nullable; .. > t ->
@@ -96,7 +100,7 @@ val field :
   <t : 't; nul : 'n> t
 
 val row :
-  string unsafe -> 'a view -> < t : < typ : 'a >; nul : non_nullable > t
+  string unsafe -> ('a, _) view -> < t : < typ : 'a >; nul : non_nullable > t
 (* < typ : 'a > instead of 'a row_t to lighten error reporting *)
 
 val tuple :
@@ -117,17 +121,17 @@ val match_null :
 type +'a result
 constraint 'a = < .. >
 
-type from = untyped view tuple
-type where = < t : bool_t > t list
+val simple_select : < t : 'a #row_t; .. > t -> 'a result
 
+type from = (untyped, untyped) view tuple
+type where = < t : bool_t > t list
 type order = Asc | Desc
 
 val view : 'a result ->
   ?order_by: (untyped t * order) list ->
   ?limit: < t : #numeric_t; .. > t ->
   ?offset: < t : #numeric_t; .. > t ->
-  from -> where -> 'a view
-val simple_select : < t : 'a #row_t; .. > t -> 'a result
+  from -> where -> ('a, non_writable)  view
 
 (** group by and accumulators *)
 type grouped_row
@@ -184,18 +188,18 @@ end
 (** final query building *)
 type +'a query
 
-val select : 'a view -> 'a list query
-val insert : 'a table -> 'a view -> unit query
+val select : ('a, _) view -> 'a list query
+val insert : ('a, _ writable) view -> ('a, _) view -> unit query
 val delete :
-  'a table -> string unsafe -> < t : #bool_t; .. > t list -> unit query
+  ('a, _ writable) view -> string unsafe -> < t : #bool_t; .. > t list -> unit query
 val update :
-  'a table -> string unsafe ->
+  ('a, _ writable) view -> string unsafe ->
   'b t -> bool unsafe ->
   < t : #bool_t; .. > t list -> unit query
 
 (** query printing *)
-val sql_of_query : 'a query -> string
-val sql_of_view : 'a view -> string
+val sql_of_query : _ query -> string
+val sql_of_view : (_, _) view -> string
 
 (** handle result from PGOCaml call *)
 val handle_query_results : 'a query -> string array list unsafe -> 'a
@@ -294,10 +298,9 @@ end
 (** standard view operators
    (in pa_comp, view antiquotations) *)
 module View : sig
-  val table : 'a table -> 'a view
-
-  val one : < t : 'a #row_t; nul : non_nullable; .. > t -> 'a view
+  val table : 'a table -> ('a, unit writable) view
+  val one : < t : 'a #row_t; nul : non_nullable; .. > t -> ('a, non_writable) view
 end
 
-val break : 'a t -> Sql_internals.value
-val break_view : 'a view -> Sql_internals.view
+val break : _ t -> Sql_internals.value
+val break_view : (_, _) view -> Sql_internals.view

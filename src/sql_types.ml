@@ -21,6 +21,9 @@
 open Sql_base
 module SQLI = Sql_internals
 
+type 'a writable
+type non_writable
+
 type nullable
 type non_nullable
 
@@ -56,7 +59,7 @@ constraint 'phant =
 
 type 'a record_parser = 'a SQLI.record_parser
 
-type +'a view = SQLI.view
+type (+'a, 'w) view = SQLI.view
 let untyped_view view = view
 
 type +'a query = SQLI.query

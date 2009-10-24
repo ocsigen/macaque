@@ -1,17 +1,17 @@
 let simple_order =
-  << t order by t.id desc | t in $table:Base.recette$ >>
+  << t order by t.id desc | t in $Base.recette$ >>
 
 let order_limit_offset =
   << t order by t.id desc
      limit 2 offset $int32:3l$ |
-       t in $table:Base.ingredient$ >>
+       t in $Base.ingredient$ >>
 
 let complex_order =
   << {ingredient = i.nom; recette = r.nom}
     order by l desc, r.id asc |
-      i in $table:Base.ingredient$;
-      r in $table:Base.recette$;
-      l in $table:Base.liste$;
+      i in $Base.ingredient$;
+      r in $Base.recette$;
+      l in $Base.liste$;
       l.ingredient = nullable i.id;
       l.recette = nullable r.id >>
 

@@ -93,11 +93,16 @@ let check_table_description table_name descr pgsql_descr =
       table_name;
   flush stderr
 
-let check_table (table : 'a Sql.table) =
+(* we constrain on ('a, _ writable) Sql.view, because non_writable
+   views may not be actual tables in the SQL base, whereas _ writable
+   views always are *)
+let check_table (table : ('a, _ writable) Sql.view) =
   (* we are forced to break the abstraction, as the user will send in
-     Sql values, and we need an Inner_sql value to introspect it *)
-  let (table : 'a Sql_types.table) = Obj.magic table in
-  let (schema, table_name) as name = table.data in
+     Sql values, and we need an Inner_sql value to introspect *)
+  let (table : Sql_internals.view) = Obj.magic table in
+  let (schema, table_name) as name = match table.data with
+    | Table t -> t
+    | Selection _ -> invalid_arg "check_table" in
   let long_name = string_of_table_name name in
   let schema = match schema with
     | None -> "public"
@@ -113,7 +118,7 @@ let check_table (table : 'a Sql.table) =
     << { info.column_name;
          info.data_type;
          is_nullable = (info.is_nullable = "YES") } |
-           info in $table:pgsql_columns$;
+           info in $pgsql_columns$;
            info.table_schema = $string:schema$;
            info.table_name = $string:table_name$ >> in
   perform_check (check_table_description long_name table.descr)
@@ -169,7 +174,7 @@ let check_sequence (seq : 'a Sql.sequence) =
              ( sequence_name text NOT NULL,
                numeric_precision integer NOT NULL ) >> in
   let sequence_description =
-    << t | t in $table:pgsql_sequences$;
+    << t | t in $pgsql_sequences$;
            t.sequence_name = $string:name$ >> in
   perform_check (check_sequence_description name typ)
     (Query.Simple.view_opt ?log:None) sequence_description

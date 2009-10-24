@@ -137,8 +137,5 @@ end
 
 module View = struct
   open Sql_builders
-
-  let table table = { table with data = Table table.data }
-
   let one t = view (simple_select t) [] []
 end

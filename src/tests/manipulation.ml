@@ -1,8 +1,8 @@
 let insert = <:insert< $Base.ingredient$ := {id = 42; nom = nullable "reponse"} | >>
 
-let count = <:select< group {count = count[t]} by {} | t in $table:Base.ingredient$ >>
+let count = <:select< group {count = count[t]} by {} | t in $Base.ingredient$ >>
 
-let select = <:select< t | t in $table:Base.ingredient$ >>
+let select = <:select< t | t in $Base.ingredient$ >>
 
 let update = <:update< t in $Base.ingredient$
                        := {nom = nullable "question"}

@@ -68,7 +68,7 @@ let table descr producer record_parser name =
   { descr = descr;
     producer = unsafe_producer producer;
     record_parser = Sql_parsers.unsafe_record_parser record_parser;
-    data = name }
+    data = Table name }
 
 (** views *)
 let view (select, select_type) ?order_by ?limit ?offset from where =

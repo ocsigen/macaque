@@ -14,7 +14,7 @@ let () =
   test "1 = 2 - 1 && 1 = 2" string_of_bool <:value< 1 = 2 - 1 && 1 = 2 >>;
   let accums =
     << group {count = count[t]; sum = sum[t.id]; max = max[t.id]} by {} |
-        t in $table:Base.ingredient$ >> in
+        t in $Base.ingredient$ >> in
   test' "count[ingredient]" Int64.to_string << {x = t.count} | t in $accums$ >>;
   test' "sum[ingredient.id]" Int32.to_string << {x = t.sum} | t in $accums$ >>;
   test' "max[ingredient.id]" Int32.to_string << {x = t.max} | t in $accums$ >>;

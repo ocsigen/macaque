@@ -147,14 +147,13 @@ val group :
 
 
 (** tables *)
-type +'a table
-
 val table :
   untyped sql_type tuple ->
   ('row -> untyped t tuple) unsafe ->
   ('row record_parser) ->
   (string option * string) ->
-  'row table
+  ('row, < > writable) view
+
 
 (** standard SQL field types
     (in pa_descr, ie. <:table< .. >>) *)
@@ -298,7 +297,6 @@ end
 (** standard view operators
    (in pa_comp, view antiquotations) *)
 module View : sig
-  val table : 'a table -> ('a, unit writable) view
   val one : < t : 'a #row_t; nul : non_nullable; .. > t -> ('a, non_writable) view
 end
 

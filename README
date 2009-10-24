@@ -41,9 +41,9 @@ macaque builds SQL queries/views/values at three different levels :
 
   Examples :
     <:view< {user = u.name; category = cat.name} |
-            u in $table:users$;
+            u in $users$;
             u.id > 32 + 10;
-            cat in $table:categories$;
+            cat in $categories$;
             cat.id = u.cat >>
   User name and category of the user with id superior to '42'
 
@@ -61,7 +61,13 @@ macaque builds SQL queries/views/values at three different levels :
   'name' column in the 'name' field and the whole column in the 't'
   field.
 
-  Type : 'a Sql.view, where 'a is the type of a row (considered as a value).
+  Type : ('a, 'b) Sql.view, where 'a is the type of a row (considered
+  as a value). 'b is either (non_writable) or ('c writable) : only
+  writable views correspond to real tables in the SQL database, and
+  thus insert/update/delete won't accept non_writable views. The 'c
+  type parameter in ('c writable) is useless for now, it will
+  eventually be used to transport information about default values for
+  table fields.
 
   Note : views and select queries are distinct objects (view =
   reusable set of rows, select = final query), but views are very
@@ -97,40 +103,6 @@ macaque builds SQL queries/views/values at three different levels :
   will : let strange_pack foo = <:value< { a = 1; b = { c = 2; d =
   $foo$ } } >>
 
-
-There is actually a fourth important level, /table/ :
-
-  Table represent concrete tables present at the SQL server level,
-  wich are strongly similar to general views, except that general
-  views can not be mutated (insert, delete, update). Currently, the
-  only way to produce a table is to use the pa_descr extension. The
-  Sql.View.table operator is provided to convert a table into a view,
-  but a "table:" antiquotation can be used instead.
-
-  Examples :
-
-    let my_table = <:table< ... >> (* see pa_descr documentation below *)
-    let my_view = Sql.View.table my_table in
-
-     let foo = <:select< t | t in $my_view$ >>
-     let bar = <:select< t | t in $table:my_table$ >>
-     let insert foo = <:insert< $my_table$ := $foo$ >>
-
-  Type : 'a Sql.table
-
-  Note : table and view are used in syntaxically similar context, and
-  the requirement to use a view or a table in a specific place may
-  seem arbitrary. It is recommended to mark tables specifically, in
-  order not to accidentally mix them with views. A good usage pattern
-  for pa_descr might for example be a base.ml file with all the tables
-  relative to the current application, accompanied by the
-  corresponding view bindings :
-
-     let foo_table = <:table< foo ( ... ) >>
-     let foo = Sql.View.table foo_table
-
-     let bar_table = <:table< bar ( ... ) >>
-     let bar = Sql.View.table bar_table
 
 
 
@@ -594,14 +566,6 @@ See the src/tests/sequence.ml for example.
 
 In view positions, pa_comp supports antiquotations through the
 Sql.View module : ($foo:bar$) will expand to (Sql.View.foo bar).
-
-In particular, an ('a Sql.table) value (eg 'my_table') can be used in
-('a Sql.view) position using the 'table' antiquotation :
-$table:my_table$.
-It is however advised not to rely on this facility and explicitely
-declare an corresponding view for each table instead. See the
-corresponding note in the [important macaque types and structures]
-section of this README.
 
 
 

@@ -136,7 +136,5 @@ let handle_query_results : 'a query -> string array list -> 'a =
           !? (List.map (Sql_parsers.parser_of_comp comp) result)
       | _ -> !? ()
 
-type +'a table = SQLI.table
-
 let break x = x
 let break_view x = x

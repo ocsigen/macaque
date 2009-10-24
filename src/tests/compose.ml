@@ -13,7 +13,7 @@ let result =
     (Query.Simple.view (PGOCaml.connect ())
        (exists (select
                   (Int32.of_int (read_int ()))
-                  (Sql.View.table Base.recette))))
+                  Base.recette)))
   
 (*
   sh infer.sh tests/compose.ml

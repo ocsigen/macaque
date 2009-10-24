@@ -70,7 +70,9 @@ type +'a sql_type
 val untyped_type : 'a sql_type -> untyped sql_type
 val recover_type : 'a sql_type -> untyped sql_type unsafe -> 'a sql_type
 
-val get_type : 'a t -> 'a sql_type
+val get_type :
+  < t : 't; nul : 'nul; .. > t ->
+  < t : 't; nul : 'nul; get : unit > sql_type
 
 (** parsers *)
 type 'a result_parser = string array * int ref -> 'a
@@ -87,9 +89,6 @@ val parse : 'a sql_type -> 'a t result_parser
 type +'a view
 val untyped_view : 'a view -> untyped view
 
-val force_gettable :
-  < t : 't; nul : 'nul; .. > t unsafe -> < t : 't; nul : 'nul; get : unit > t
-
 val field :
   < t : 'a #row_t; nul : non_nullable; .. > t ->
   string list unsafe ->
@@ -101,7 +100,7 @@ val row :
 (* < typ : 'a > instead of 'a row_t to lighten error reporting *)
 
 val tuple :
-  'tup ->
+  untyped t tuple unsafe ->
   ('tup -> untyped t tuple) unsafe ->
   'tup record_parser unsafe ->
   < t : < typ : 'tup >; nul : non_nullable > t

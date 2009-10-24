@@ -35,8 +35,7 @@ let row name view =
   ( Row (name, view),
     Non_nullable (TRecord {view with data = ()}) )
 
-let tuple obj producer record_parser =
-  let fields = producer obj in
+let tuple fields producer record_parser =
   let record_t =
     let field_typ (name, field) = (name, get_type field) in
     { data = ();

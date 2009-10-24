@@ -408,34 +408,36 @@ and value_of_comp env (_loc, r) =
       <:expr< Sql.match_null $!!matched$ $!!null_case$
                 (fun $lid:id$ -> $!!other_case$) >>
   | Tuple tup ->
-      let fields =
-        let field_decl (_loc, (name, ref)) =
-          <:binding< $lid:name$ = Sql.force_gettable (Sql.unsafe $!!ref$) >> in
-        Ast.biAnd_of_list (List.map field_decl tup) in
+      let field_names, field_values =
+        let split (_loc, (name, value)) = (_loc, name), value in
+        List.split (List.map split tup) in
+      let fields_binding action =
+        let custom_binding (_loc, (id, value)) =
+          <:binding< $lid:id$ = $action _loc id value$ >> in
+        Ast.biAnd_of_list (List.map custom_binding tup) in
       let obj =
-        let meth (_loc, (id, ref)) =
+        let meth (_loc, id) =
           <:class_str_item< method $lid:id$ = $lid:id$ >> in
-        <:expr< object $Ast.crSem_of_list (List.map meth tup)$ end >> in
+        <:expr< object $Ast.crSem_of_list (List.map meth field_names)$ end >> in
       let producer =
-        let field_producer (_loc, (name, _)) =
-          <:expr< ($str:name$, Sql.untyped_t obj#$lid:name$) >> in
-        camlp4_list _loc (List.map field_producer tup) in
+        let body =
+          let field_prod (_loc, name) =
+            <:expr< ($str:name$, Sql.untyped_t obj#$lid:name$) >> in
+          camlp4_list _loc (List.map field_prod field_names) in
+        <:expr< fun obj -> $body$ >> in
       let result_parser =
-        let t_decl (_loc, (id, _)) =
-          <:binding< $lid:id$ =
-            Sql.parse (Sql.recover_type (Sql.get_type $lid:id$)
-                         (Sql.unsafe (List.assoc $str:id$ descr))) >> in
-        let decl (_loc, (id, _)) =
-          <:binding< $lid:id$ = $lid:id$ input >> in
-        <:expr<
-          fun descr ->
-            let $Ast.biAnd_of_list (List.map t_decl tup)$ in
-            fun input ->
-              let $Ast.biAnd_of_list (List.map decl tup)$ in $obj$ >> in
+        let parser_action _loc id _ =
+            <:expr< Sql.parse (Sql.recover_type (Sql.get_type $lid:id$)
+                                 (Sql.unsafe (List.assoc $str:id$ descr))) >> in
+        let parsed_action _loc id _ = <:expr< $lid:id$ input >> in
+        <:expr< fun descr -> let $fields_binding parser_action$ in
+                  fun input -> let $fields_binding parsed_action$ in $obj$ >> in
       <:expr<
-        let $fields$ in
-        Sql.tuple $obj$
-          (Sql.unsafe (fun obj -> $producer$))
+        let $fields_binding (fun _ _ v -> !!v)$ in
+        let producer = $producer$ in
+        Sql.tuple
+          (Sql.unsafe (producer $obj$))
+          (Sql.unsafe producer)
           (Sql.unsafe $result_parser$) >>
 
 let rec query_of_comp (_loc, query) = match query with

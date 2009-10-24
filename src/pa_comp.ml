@@ -427,16 +427,18 @@ and value_of_comp env (_loc, r) =
         <:expr< fun obj -> $body$ >> in
       let result_parser =
         let parser_action _loc id _ =
-            <:expr< Sql.parse (Sql.recover_type (Sql.get_type $lid:id$)
+            <:expr< Sql.parse (Sql.recover_type (Sql.get_type fields_obj#$lid:id$)
                                  (Sql.unsafe (List.assoc $str:id$ descr))) >> in
         let parsed_action _loc id _ = <:expr< $lid:id$ input >> in
         <:expr< fun descr -> let $fields_binding parser_action$ in
                   fun input -> let $fields_binding parsed_action$ in $obj$ >> in
       <:expr<
-        let $fields_binding (fun _ _ v -> !!v)$ in
-        let producer = $producer$ in
+        let fields_obj =
+          let $fields_binding (fun _ _ v -> !!v)$ in
+          $obj$
+        and producer = $producer$ in
         Sql.tuple
-          (Sql.unsafe (producer $obj$))
+          (Sql.unsafe (producer fields_obj))
           (Sql.unsafe producer)
           (Sql.unsafe $result_parser$) >>
 

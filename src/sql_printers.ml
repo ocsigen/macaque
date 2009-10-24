@@ -137,7 +137,7 @@ and string_of_atom =
     | Int16 i -> PGOCaml.string_of_int16 i
     | Int32 i -> PGOCaml.string_of_int32 i
     | Int64 i -> PGOCaml.string_of_int64 i
-    | Float x -> PGOCaml.string_of_float x
+    | Float x -> macaque_string_of_float x
     | String s -> quote String.escaped s
     (* | Bytea i -> macaque_string_of_bytea *)
     | Time i -> quote PGOCaml.string_of_time i
@@ -151,7 +151,12 @@ and string_of_atom =
         assert false
 and macaque_string_of_bool b =
   if b then "TRUE" else "FALSE"
-
+and macaque_string_of_float x =
+  let litteral str = sprintf "CAST('%s' as %s)" str (string_of_atom_type TFloat) in
+  match classify_float x with
+  | FP_normal | FP_subnormal | FP_zero -> string_of_float x
+  | FP_nan -> litteral "NaN"
+  | FP_infinite -> litteral (if x = infinity then "Infinity" else "-Infinity")
 
 let rec string_of_query = function
   | Select view -> string_of_view view

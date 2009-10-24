@@ -17,3 +17,6 @@ install:
 
 uninstall:
 	ocamlfind remove macaque
+
+clean:
+	ocamlbuild -clean

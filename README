@@ -10,7 +10,8 @@ macaque is still a work in progress, please send feedback to
 `bluestorm dot dylc (gmail)`. I'm interested in bug reports and
 reasonable feature requests.
 
-Usual makefile provided (in src/) : make, make install, bleh, make uninstall
+Usual makefile provided (in src/) :
+  make, make install, bleh, make uninstall
 Depends on PG'Ocaml
 
 
@@ -499,7 +500,7 @@ See the src/file/sequence.ml for example.
 #### sequence descriptions
 
 It is not possible to create new sequences from Macaque (this is
-coherent with the choice that pa_descr tables are description, not
+coherent with the choice that pa_descr tables are descriptions, not
 declarations), but pa_descr support sequence descriptions. Sequence
 creation operators are part of the Sql.Sequence module.
 

@@ -1,1 +1,2 @@
-let _ = <:value< $(Sql.Data.int 1 : < nul : Sql.non_nullable; ..> Sql.t)$ = null >>
+let _ =
+	<:value< $(<:value< 1 >> : < nul : Sql.non_nullable; ..> Sql.t)$ = null >>

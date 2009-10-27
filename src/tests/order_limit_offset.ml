@@ -19,7 +19,7 @@ let complex_order =
 let () =
   let dbh = PGOCaml.connect () in
   let get = function None -> "NULL" | Some thing -> thing in
-  let query x = Query.Simple.view dbh ~log:stdout x in
+  let query x = Query.view dbh ~log:stdout x in
   print_endline "simple order :";
   let res = query simple_order in
   List.iter (fun r -> Printf.printf "\t%ld : %s\n" r#!id (get r#?nom)) res;

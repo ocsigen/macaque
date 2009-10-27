@@ -13,8 +13,8 @@ open Printf
 
 let () =
   let dbh = PGOCaml.connect () in
-  Query.Simple.query dbh ~log:stdout (insert "test 1");
-  Query.Simple.query dbh ~log:stdout (insert "test 2");
-  Query.Simple.query dbh ~log:stdout (insert "test 3");
+  Query.query dbh ~log:stdout (insert "test 1");
+  Query.query dbh ~log:stdout (insert "test 2");
+  Query.query dbh ~log:stdout (insert "test 3");
   Printf.printf "%Ld\n"
-    (Query.Simple.view_one dbh ~log:stdout << {x = currval $id_seq$} >>)#!x
+    (Query.view_one dbh ~log:stdout << {x = currval $id_seq$} >>)#!x

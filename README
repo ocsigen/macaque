@@ -119,8 +119,8 @@ only part of macaque with a hard dependence on PGOCaml). It thus
 reproduces the functorized design of PGOCaml, wich is intended to
 support flexible threading/concurrence models. See PGOCaml
 documentation for more information. The casual user can use the
-Query.Simple module, wich is a directly-usable implementation of the
-QUERY interface, with no threading integration.
+non-functorized values, wich are a directly-usable implementation of
+the QUERY interface, with no threading integrated.
 
 The Query interface is quite simple :
 
@@ -129,7 +129,7 @@ The Query interface is quite simple :
   val view_one : _ Db.t -> ?log:out_channel -> 'a Sql.view -> 'a Db.monad
   val view_opt : _ Db.t -> ?log:out_channel -> 'a Sql.view -> 'a option Db.monad
 
-(in the Query.Simple case, (_ Db.t) is (_ PGOCaml.t), and ('a Db.monad) is just ('a))
+(in the simple case, (_ Db.t) is (_ PGOCaml.t), and ('a Db.monad) is just ('a))
 
 The main function is 'query', wich accepts a database handler (the one
 produced by PGOCaml.connect), the query, and returns the typed
@@ -145,7 +145,7 @@ result; if they get more results, they will raise a Failure exception.
 Note :
 
   The query module is very loosely integrated with the rest of
-  Macaque. In particular, all the typed result processing is done my
+  Macaque. In particular, all the typed result processing is done by
   the Sql modules, through the Sql.handle_query_results function. It
   makes the Query module inessential : an user willing to experiment
   other interfaces to the SQL server could easily get the SQL string

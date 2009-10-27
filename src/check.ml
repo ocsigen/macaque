@@ -122,7 +122,7 @@ let check_table (table : ('a, _ writable) Sql.view) =
            info.table_schema = $string:schema$;
            info.table_name = $string:table_name$ >> in
   perform_check (check_table_description long_name table.descr)
-    (Query.Simple.view ?log:None) table_descr
+    (Query.view ?log:None) table_descr
 
 let check_sequence_description seq_name descr_type descr =
   let correct = ref true in
@@ -177,4 +177,4 @@ let check_sequence (seq : 'a Sql.sequence) =
     << t | t in $pgsql_sequences$;
            t.sequence_name = $string:name$ >> in
   perform_check (check_sequence_description name typ)
-    (Query.Simple.view_opt ?log:None) sequence_description
+    (Query.view_opt ?log:None) sequence_description

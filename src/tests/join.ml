@@ -17,4 +17,4 @@ let () =
          | None -> "NULL"
          | Some thing -> thing in
        Printf.printf "(%s, %s)\n" (get r#?ingredient) (get r#?recette))
-    (Query.Simple.query dbh foo)
+    (Query.query dbh foo)

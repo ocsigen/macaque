@@ -3,7 +3,7 @@ let () =
   let test' message conv view =
     Printf.printf "Test [%s] : %s\n"
       message
-      (conv (List.hd (Query.Simple.view dbh ~log:stdout view))#!x) in
+      (conv (List.hd (Query.view dbh ~log:stdout view))#!x) in
   let test message conv x = test' message conv << {x = $x$} >> in
   test "1 + 2" Int32.to_string <:value< 1 + 2 >>;
   test "1 - 2" Int32.to_string <:value< 1 - 2 >>;

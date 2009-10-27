@@ -18,15 +18,15 @@ let () =
        | Some row ->
            Printf.printf "a:%ld\tb:%ld\tc:%ld\td:%ld\n%!"
              x#!a x#!b row#!c row#!d)
-  (Query.Simple.query dbh (pack << {c = 3; d = 4} >>));
+  (Query.query dbh (pack << {c = 3; d = 4} >>));
   List.iter
     (fun x ->
        Printf.printf "a:%ld\tb:%ld\tc:%ld\td:%ld\te:%ld\n%!"
          x#!a x#!b x#!row#!c x#!row#!row#!d x#!row#!row#!e)
-    (Query.Simple.query dbh pack2);
+    (Query.query dbh pack2);
   List.iter
     (fun x ->
        Printf.printf "a:%ld\tb:%ld\tc:%ld\td:%ld\te:%ld\tf:%ld\n%!"
          x#!a x#!a_row#!b x#!a_row#!b_row#!c
          x#!a_row#!b_row#!c_row#!d x#!a_row#!b_row#!c_row2#!e x#!f)
-    (Query.Simple.query ~log:stdout dbh pack3)
+    (Query.query ~log:stdout dbh pack3)

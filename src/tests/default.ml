@@ -7,7 +7,6 @@ let table = <:table< test (
     DEFAULT($ <:value< "aucune categorie specifiee" >> $)
 ) >>
 
-
 let insert name =
   <:insert< $table$ :=
     { recette = "foo";
@@ -24,9 +23,9 @@ let () =
   let name = Printf.sprintf "bar_%d" (Random.bits ()) in
   let dbh = PGOCaml.connect () in
   let log = stderr in
-  Printf.printf "count before insert : %Ld\n%!" (Query.Simple.view_one ~log dbh count)#!count;
-  Query.Simple.query ~log dbh (insert name);
-  Printf.printf "count after insert : %Ld\n%!" (Query.Simple.view_one dbh count)#!count;
-  Query.Simple.query ~log dbh <:delete< t in $table$ | t.nom = $string:name$ >> ;
-  Printf.printf "count after delete : %Ld\n%!" (Query.Simple.view_one dbh count)#!count;
+  Printf.printf "count before insert : %Ld\n%!" (Query.view_one ~log dbh count)#!count;
+  Query.query ~log dbh (insert name);
+  Printf.printf "count after insert : %Ld\n%!" (Query.view_one dbh count)#!count;
+  Query.query ~log dbh <:delete< t in $table$ | t.nom = $string:name$ >> ;
+  Printf.printf "count after delete : %Ld\n%!" (Query.view_one dbh count)#!count;
   PGOCaml.close dbh

@@ -40,3 +40,5 @@ module Make_with_Db (Thread : THREAD)
     QUERY with module Db = Db
 
 module Simple : QUERY with module Db = PGOCaml
+
+include QUERY with module Db = PGOCaml

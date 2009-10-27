@@ -1,6 +1,6 @@
 let cycle dbh value maker compare =
   let view = << {x = $maker value$} >> in
-  let res = Query.Simple.view_one dbh ~log:stdout view in
+  let res = Query.view_one dbh ~log:stdout view in
   let value' = res#!x in
   assert (compare value value' = 0)
 

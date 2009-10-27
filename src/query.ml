@@ -112,3 +112,5 @@ module Simple_thread_catch = struct
 end
 
 module Simple = Make_with_Db(Simple_thread_catch)(PGOCaml)
+
+include Simple

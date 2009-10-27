@@ -10,7 +10,7 @@ let exists table =
 
 let result =
   List.iter (fun t -> if t#!exists = 1l then Printf.printf "exists !\n")
-    (Query.Simple.view (PGOCaml.connect ())
+    (Query.view (PGOCaml.connect ())
        (exists (select
                   (Int32.of_int (read_int ()))
                   Base.recette)))

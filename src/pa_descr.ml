@@ -43,16 +43,22 @@ let table_descr = DescrGram.Entry.mk "table_description"
 let seq_descr = DescrGram.Entry.mk "seq_description"
 
 let () =
+  Camlp4_config.antiquotations := true;
+  let quote _loc str =
+    Syntax.Gram.parse_string Syntax.expr_eoi _loc str in
   EXTEND DescrGram
     GLOBAL: table_descr seq_descr;
     table_descr: [[ name = table_name;
                     "("; fields = LIST0 field_descr SEP ","; ")" ->
                       (_loc, (name, fields)) ]];
-    field_descr: [[ name = LIDENT; typ = LIDENT; is_null = nullable ->
-                      (_loc, (name, typ, is_null)) ]];
+    field_descr: [[ name = LIDENT; typ = LIDENT;
+                    is_null = nullable; def = OPT default ->
+                      (_loc, (name, typ, is_null, def)) ]];
     nullable: [[ "NOT"; "NULL" -> false
                | "NULL" -> true
                | -> true ]];
+    value: [[ `ANTIQUOT("", t) -> (_loc, quote _loc t) ]];
+    default: [[ "DEFAULT"; "("; v = value; ")" -> v ]];
     table_name: [[ schema = LIDENT; ".";  name = LIDENT -> (Some schema, name)
                  | name = LIDENT -> (None, name) ]];
 
@@ -69,12 +75,12 @@ let camlp4_list _loc =
 (** Code emission from the syntaxic form *)
 let table_of_descr (_loc, (name, field_types)) =
   let type_bindings =
-    let bind (_loc, (name, sql_type, nullability)) =
+    let bind (_loc, (name, sql_type, nullability, default)) =
       let witness =
         (if nullability then "nullable" else "non_nullable") ^ "_witness" in
       <:binding< $lid:name$ = Sql.Table_type.$lid:sql_type$ Sql.$lid:witness$ >> in
     Ast.biAnd_of_list (List.map bind field_types) in
-  let fields = List.map (fun (_loc, (name, _, _)) -> (_loc, name)) field_types in
+  let fields = List.map (fun (_loc, (name, _, _, _)) -> (_loc, name)) field_types in
   let descr =
     let field_descr (_loc, name) =
       <:expr< ($str:name$, Sql.untyped_type $lid:name$) >> in
@@ -101,10 +107,24 @@ let table_of_descr (_loc, (name, field_types)) =
   let name_expr = match name with
     | (None, table) -> <:expr< (None, $str:table$) >>
     | (Some schema, table) -> <:expr< (Some $str:schema$, $str:table$) >> in
+  let defaults =
+    let default_values =
+      let value = function
+        | (_, (name, _, _, Some (_loc, e))) -> [(_loc, name, e)]
+        | _ -> [] in
+      List.concat (List.map value field_types) in
+    let bind (_loc, name, e) = <:binding< $lid:name$ = $e$ >> in
+    let meth (_loc, name, _) =
+      <:class_str_item< method $lid:name$ = $lid:name$ >> in
+    let assoc (_loc, name, _) = <:expr< ($str:name$, Sql.untyped_t $lid:name$) >> in
+    <:expr<
+      let $Ast.biAnd_of_list (List.map bind default_values)$ in
+      ( object $Ast.crSem_of_list (List.map meth default_values)$ end,
+        $camlp4_list _loc (List.map assoc default_values)$ ) >> in
   let table =
     <:expr<
       let $type_bindings$ in
-      Sql.table $descr$ $producer$ $result_parser$ $name_expr$ >> in
+      Sql.table $descr$ $producer$ $result_parser$ $name_expr$ $defaults$ >> in
   if not !coherence_check then table
   else <:expr< let table = $table$ in do { Check.check_table table; table } >>
 

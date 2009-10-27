@@ -101,7 +101,7 @@ let check_table (table : ('a, _ writable) Sql.view) =
      Sql values, and we need an Inner_sql value to introspect *)
   let (table : Sql_internals.view) = Obj.magic table in
   let (schema, table_name) as name = match table.data with
-    | Table t -> t
+    | Table t -> t.name
     | Selection _ -> invalid_arg "check_table" in
   let long_name = string_of_table_name name in
   let schema = match schema with

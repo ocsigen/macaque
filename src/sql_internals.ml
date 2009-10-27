@@ -26,9 +26,12 @@ type 'a generic_view =
     record_parser : untyped record_parser;
     data : 'a }
 and view = concrete_view generic_view
-and table = table_name generic_view
+and table = table_data generic_view
+and table_data =
+  { name : table_name;
+    defaults : value tuple }
 and concrete_view =
-  | Table of table_name
+  | Table of table_data
   | Selection of select
 and select =
   { select : select_result;

@@ -99,6 +99,12 @@ val field :
   ('a -> < t : 't; nul : 'n; ..> t) unsafe ->
   <t : 't; nul : 'n> t
 
+val default :
+  (_, 'def writable) view ->
+  string unsafe ->
+  ('def -> < t : 't; nul : 'n; .. > t) unsafe ->
+  < t : 't; nul : 'n > t
+
 val row :
   string unsafe -> ('a, _) view -> < t : < typ : 'a >; nul : non_nullable > t
 (* < typ : 'a > instead of 'a row_t to lighten error reporting *)
@@ -152,8 +158,7 @@ val table :
   ('row -> untyped t tuple) unsafe ->
   ('row record_parser) ->
   (string option * string) ->
-  ('row, < > writable) view
-
+  'def * untyped t tuple -> ('row, 'def writable) view
 
 (** standard SQL field types
     (in pa_descr, ie. <:table< .. >>) *)

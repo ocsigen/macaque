@@ -31,6 +31,12 @@ let field row path checker =
   (Field (row, path),
    get_sql_type (get_type row) path)
 
+let default table field checker =
+  ignore checker;
+  match table.data with
+    | Selection _ -> invalid_arg "default"
+    | Table table -> List.assoc field table.defaults
+
 let row name view =
   ( Row (name, view),
     Non_nullable (TRecord {view with data = ()}) )
@@ -64,11 +70,12 @@ let match_null matched null_case other_case_fun =
         Case ([(is_null, null_case)], other_case), t
 
 (** tables *)
-let table descr producer record_parser name =
+let table descr producer record_parser name (obj_witness, defaults) =
+  ignore obj_witness;
   { descr = descr;
     producer = unsafe_producer producer;
     record_parser = Sql_parsers.unsafe_record_parser record_parser;
-    data = Table name }
+    data = Table { name = name; defaults = defaults } }
 
 (** views *)
 let view (select, select_type) ?order_by ?limit ?offset from where =
@@ -97,7 +104,7 @@ let group group_part result_part =
 (** queries *)
 let get_table writable_view = match writable_view.data with
   | Selection _ -> assert false
-  | Table name -> { writable_view with data = name }
+  | Table data -> { writable_view with data = data }
 
 let select view = Select view
 let insert view inserted_view =

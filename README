@@ -243,11 +243,12 @@ Loosely defined syntax
         row-binding ::= row-name 'in' view
         guard ::= boolean value
         value ::= litteral constants
-                | 0-ary operator : 'null'
+                | 0-ary operator : 'null', 'current_timestamp'
                 | 1-ary operator : 'nullable' value
                 | infix binary operator : value '+' value
                 | tuple : tuple
-                | field access : field-access
+                | row '.' field : field-access
+                | row '?' field : default value for a field
         tuple ::= '{' tuple-field ';' ... '}'
         tuple-field ::= field-name '=' value
                       | field-access
@@ -448,8 +449,17 @@ them as macaque views (internally, it builds a runtime description of
 the data-base typing informations, to be used by further macaque
 processing). The syntax is a far relative of SQL CREATE TABLE
 statements, and can be discovered in the example base.ml
-file. Currently, no other information that name, type and nullability
-are accepted.
+file. Currently, no other information that name, type, nullability and
+default value are accepted.
+
+<:table< recipes (
+  recipe bigint NOT NULL,
+  name text,
+  amount bigint NOT NULL
+    DEFAULT($ <:value< 0L >> $),
+  category text NOT NULL
+    DEFAULT($ <:value< "unknown category" >> $)
+) >>
 
 pa_descr is not a table creation/specification tool : it does not free
 you from the need of creating your tables in the database (with
@@ -459,15 +469,11 @@ caml description as well.
 
 #### Auto-incrementing columns
 
-Column default values are not supported (yet). In particular, you
-can't declare a column as "SERIAL" and have automatic incrementation
-at row insertion. It is however possible to emulate this feature with
-explicit SEQUENCE manipulations, as shown in the example of the
-[sequence functions] subsubsection of this README :
+"SERIAL" columns are not supported (yet). It is however possible to
+emulate this feature with explicit SEQUENCE manipulations ([sequence
+functions] section) :
 
-  <:insert< $table$ := {id = nextval $table_id_seq$; .. } >>
-
-See the src/file/sequence.ml for example.
+  DEFAULT($ <:value< nextval $table_id_seq$ >> $),
 
 #### sequence descriptions
 

@@ -71,6 +71,7 @@ and value =
   | Ident of ident
   | Tuple of tuple
   | Accum of value located
+  | Default of value located * ident
 and tuple = value binding located list
 and field = value located * ident located list
 and 'a binding = (ident * 'a located)
@@ -180,7 +181,8 @@ let () =
      | "~-" NONA  [ op = prefixop; e = SELF -> operation _loc op [e] ]
      | "." LEFTA
          [ row = SELF; "."; path = field_path ->
-             (_loc, Field (row, path)) ]
+             (_loc, Field (row, path))
+         | row = SELF; "?"; field = LIDENT -> (_loc, Default (row, field)) ]
      | "simple"
          [ v = atom -> (_loc, Atom v)
          | (_, tup) = tuple -> (_loc, Tuple tup)
@@ -217,8 +219,9 @@ let () =
       | -> [] ]];
 
    atom: [[ `ANTIQUOT("", v) -> quote _loc v
-          | `INT32(i, _) -> <:expr< Sql.Value.int32 $`int32:i$ >>
           | `INT(i, _) -> <:expr< Sql.Value.int32 (Int32.of_int $`int:i$) >>
+          | `INT32(i, _) -> <:expr< Sql.Value.int32 $`int32:i$ >>
+          | `INT64(i, _) -> <:expr< Sql.Value.int64 $`int64:i$ >>
           | `STRING(_, s) -> <:expr< Sql.Value.string $`str:s$ >>
           | `FLOAT(f, _) -> <:expr< Sql.Value.float $`flo:f$ >>
           | "true" -> <:expr< Sql.Value.bool True >>
@@ -300,7 +303,7 @@ let rec view_of_comp (_loc, (select : select) ) =
         let name_str, env = Env.new_row name env in
         let from_table =
           <:expr< ($str:name_str$, Sql.untyped_view $table_of_comp table$) >> in
-        let from_row = 
+        let from_row =
           let name_arg = <:expr< Sql.unsafe $str:name_str$ >> in
           <:binding< $lid:name$ = Sql.row $name_arg$ $table_of_comp table$ >> in
         ((from_row, from_table) :: from, where, env) in
@@ -359,6 +362,7 @@ and result_of_comp env (_loc, r) = match r with
         and map_binding (k, v) = (k, !!map_ref v)
         and map_ref = function
           | Field (row, path) -> Field (!!map_ref row, path)
+          | Default (row, field) -> Default (!!map_ref row, field)
           | Op (op, operands) -> Op (op, List.map !!map_ref operands)
           | Tuple tup -> Tuple (map_tuple tup)
           | Accum expr -> accum expr
@@ -403,6 +407,9 @@ and value_of_comp env (_loc, r) =
       <:expr< Sql.field $!!row$
                 (Sql.unsafe $camlp4_path _loc path$)
                 (Sql.unsafe (fun t -> $List.fold_left call <:expr< t >> path$)) >>
+  | Default (row, field) ->
+      <:expr< Sql.default $!!row$ (Sql.unsafe $str:field$)
+                (Sql.unsafe (fun row -> row#$lid:field$)) >>
   | If (p, a, b) -> <:expr< Sql.if_then_else $!!p$ $!!a$ $!!b$ >>
   | Match (matched, null_case, id, other_case) ->
       <:expr< Sql.match_null $!!matched$ $!!null_case$
@@ -457,7 +464,7 @@ let rec query_of_comp (_loc, query) = match query with
       let where = query_where where in
       let set = query_value set_ast in
       let subtyping_witness =
-        let row = <:expr< Sql.row (Sql.unsafe "update row") (Sql.View.table table) >> in
+        let row = <:expr< Sql.row (Sql.unsafe "update row") table >> in
         match set_ast with
           | (_loc, Tuple tup) ->
               let set_type =
@@ -482,7 +489,7 @@ and query_binding (_loc, (name, (_, table))) =
   (* TODO factorize comp_items binding *)
   let name_str = <:expr< Sql.unsafe $str:name$ >> in
   table, name_str,
-  <:binding< $lid:name$ = Sql.row $name_str$ (Sql.View.table $table$) >>
+  <:binding< $lid:name$ = Sql.row $name_str$ $table$ >>
 
 (** Quotations setup *)
 let () =

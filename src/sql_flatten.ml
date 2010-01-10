@@ -196,6 +196,8 @@ and flatten_value value =
 let flatten_query = function
   | Select view -> Select (flatten_view view)
   | Insert (table, view) -> Insert (table, flatten_view view)
-  | Delete (table, row, where) -> Delete (table, row, flatten_where where)
-  | Update (table, row, set, where) ->
-      Update (table, row, flatten_value set, flatten_where where)
+  | Delete (table, row, from, where) ->
+      Delete (table, row, flatten_from from, flatten_where where)
+  | Update (table, row, set, from, where) ->
+      Update (table, row, flatten_value set,
+              flatten_from from, flatten_where where)

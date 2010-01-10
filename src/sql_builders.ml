@@ -109,8 +109,8 @@ let get_table writable_view = match writable_view.data with
 let select view = Select view
 let insert view inserted_view =
   Insert (get_table view, inserted_view)
-let delete view row where =
-  Delete (get_table view, row, where)
-let update view row set subtype_witness where =
+let delete view row from where =
+  Delete (get_table view, row, from, where)
+let update view row set subtype_witness from where =
   ignore subtype_witness;
-  Update (get_table view, row, set, where)
+  Update (get_table view, row, set, from, where)

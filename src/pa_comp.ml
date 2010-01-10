@@ -31,13 +31,6 @@ let warn_undetermined_update_message =
   "Warning UPDATE SET : undetermined update tuple, \
    exhaustive update assumed"
 
-let implicit_exhaustive_manipulation = ref false
-let () =
-  Camlp4.Options.add "-sql-implicit-exhaustive-manipulation"
-    (Arg.Set implicit_exhaustive_manipulation)
-    "makes the comprehension | optional in UPDATE or DELETE queries \
-     with an empty WHERE part"
-
 (** Comprehension (syntaxic form) structure *)
 type comp =
   | Select of select
@@ -45,12 +38,13 @@ type comp =
   | Delete of delete
   | Update of update
 and insert = table located * select located
-and delete = table binding located * where located
-and update = table binding located * value located * where located
+and delete = table binding located * refinement located
+and update = table binding located * value located * refinement located
+and refinement = comp_item located list
 and where = value located list
 and select =
   { result : select_result located;
-    items : comp_item located list;
+    items : refinement located;
     order_by : (value located * order) located list option;
     limit : value located option;
     offset : value located option }
@@ -81,11 +75,9 @@ and ident = string
 (** Syntaxic form parsing *)
 module CompGram = MakeGram(Lexer)
 
-let view_eoi, select_eoi, insert_eoi, delete_eoi, update_eoi,
-    value, guard_list =
+let view_eoi, select_eoi, insert_eoi, delete_eoi, update_eoi, value =
   let mk = CompGram.Entry.mk in
-  mk "view", mk "select", mk "insert", mk "delete", mk "update",
-  mk "value", mk "guard list"
+  mk "view", mk "select", mk "insert", mk "delete", mk "update", mk "value"
 
 let () =
   Camlp4_config.antiquotations := true;
@@ -111,36 +103,37 @@ let () =
       | _ -> assert false in
     (_loc, Op (op_id, operands)) in
 
-  let opt_list = function
-    | None -> []
-    | Some li -> li in
-
   let unary _loc op = (_loc, Op ((_loc, Ident op), [])) in
 
+  let opt_list _loc = function
+    | None -> (_loc, [])
+    | Some thing -> thing in
+
   EXTEND CompGram
-   GLOBAL: view_eoi select_eoi insert_eoi delete_eoi update_eoi
-           value guard_list;
+   GLOBAL: view_eoi select_eoi insert_eoi delete_eoi update_eoi value;
 
    select_eoi: [[ (_, s) = view; `EOI -> (_loc, Select s) ]];
    view_eoi: [[ (_, s) = view; `EOI -> (_loc, s) ]];
    insert_eoi: [[ tab = table; ":="; sel = view; `EOI ->
                     (_loc, Insert (tab, sel)) ]];
-   delete_eoi: [[ bind = row_binding; guards = guard_list; `EOI ->
-                    (_loc, Delete (bind, (_loc, guards))) ]];
+   delete_eoi: [[ bind = row_binding; comp_items = refinement; `EOI ->
+                    (_loc, Delete (bind, comp_items)) ]];
    update_eoi: [[ bind = row_binding; ":="; res = value;
-                  guards = guard_list; `EOI ->
-                    (_loc, Update (bind, res, (_loc, guards))) ]];
-   guard_list: [[ "|"; items = comp_value_list -> items ]];
+                  comp_items = refinement; `EOI ->
+                    (_loc, Update (bind, res, comp_items)) ]];
+
+   refinement: [[ "|"; items = comp_item_list -> (_loc, items) ]];
+
    view: [[ result = result;
             order_by = OPT order_by;
             limit = OPT limit;
             offset = OPT offset;
-            items = OPT ["|"; li = comp_item_list -> li] ->
+            items = OPT refinement ->
               (_loc, { result = result;
                        order_by = order_by;
                        limit = limit;
                        offset = offset;
-                       items = opt_list items }) ]];
+                       items = opt_list _loc items }) ]];
    result: [[ (_, v) = value -> (_loc, Simple_select v)
             | "group"; group = tuple; by = OPT ["by"; by = tuple -> by] ->
               let by = match by with
@@ -197,11 +190,6 @@ let () =
       | i = comp_item -> [i]
       | -> [] ]];
 
-   comp_value_list:
-     [[ v = value; ";"; vs = SELF -> v :: vs
-      | v = value -> [v]
-      | -> [] ]];
-
    field_path :
      [[ path = LIST1 [id = LIDENT -> (_loc, id)] SEP "." -> path ]];
 
@@ -230,21 +218,6 @@ let () =
               <:expr< Sql.Value.$lid:id$ $quote _loc v$ >> ]];
  END;
 ;;
-
-let activate_implicit =
-  (* this hack is intended to make sure the syntax is extended after
-     the command-line parameters have been parsed; the actual call to
-     activate_implicit is done in the antiquotation callback *)
-  let activated = ref false in
-  fun () ->
-    if not !activated then begin
-      activated := true;
-      if !implicit_exhaustive_manipulation then
-        (EXTEND CompGram
-           GLOBAL: guard_list;
-         guard_list: [[ -> [] ]];
-         END)
-    end
 
 (** Code emission from the syntaxic form *)
 let camlp4_list _loc =
@@ -293,22 +266,7 @@ let option_of_comp f = function
   | Some x -> Some (f x)
 
 let rec view_of_comp (_loc, (select : select) ) =
-  let comp_item (from, where, env) (_loc, item) = match item with
-    | Cond cond ->
-        let where_item =
-          <:expr< ($value_of_comp env (_loc, cond)$
-                   :> Sql.t < t : Sql.bool_t >) >> in
-        (from, where_item :: where, env)
-    | Bind (name, table) ->
-        let name_str, env = Env.new_row name env in
-        let from_table =
-          <:expr< ($str:name_str$, Sql.untyped_view $table_of_comp table$) >> in
-        let from_row =
-          let name_arg = <:expr< Sql.unsafe $str:name_str$ >> in
-          <:binding< $lid:name$ = Sql.row $name_arg$ $table_of_comp table$ >> in
-        ((from_row, from_table) :: from, where, env) in
-  let (from, where, env) =
-    List.fold_left comp_item ([], [], Env.empty) select.items in
+  let (from, where, env) = from_where_env_of_compitems select.items in
   let limit = option_of_comp (value_of_comp Env.empty) select.limit in
   let offset = option_of_comp (value_of_comp Env.empty) select.offset in
   let order_by = option_of_comp (order_by_of_comp env _loc) select.order_by in
@@ -316,10 +274,10 @@ let rec view_of_comp (_loc, (select : select) ) =
   <:expr<
     let (result, from, _where, order_by) =
       (* restricted scope zone *)
-      let $Ast.biAnd_of_list (List.rev from_rows)$ in
+      let $Ast.biAnd_of_list from_rows$ in
       ( $result_of_comp env select.result$,
-        $camlp4_list _loc (List.rev from_tables)$,
-        $camlp4_list _loc (List.rev where)$,
+        $camlp4_list _loc from_tables$,
+        $camlp4_list _loc where$,
         $camlp4_option _loc order_by$ )
     and limit = $camlp4_option _loc limit$
     and offset = $camlp4_option _loc offset$ in
@@ -336,6 +294,26 @@ and order_by_of_comp env _loc order_by =
       | Desc -> <:expr< Sql.Desc >> in
     <:expr< (Sql.untyped_t $value$, $order$) >> in
   camlp4_list _loc (List.map order_of_comp order_by)
+and from_where_env_of_compitems (_loc, items) =
+  (* We fold_left then List.rev instead of fold_right because it may
+     be important to preserve the binding left-to-right order *)
+  let comp_item (from, where, env) (_loc, item) = match item with
+    | Cond cond ->
+        let where_item =
+          <:expr< ($value_of_comp env (_loc, cond)$
+                   :> Sql.t < t : Sql.bool_t >) >> in
+        (from, where_item :: where, env)
+    | Bind (name, table) ->
+        let name_str, env = Env.new_row name env in
+        let from_table =
+          <:expr< ($str:name_str$, Sql.untyped_view $table_of_comp table$) >> in
+        let from_row =
+          let name_arg = <:expr< Sql.unsafe $str:name_str$ >> in
+          <:binding< $lid:name$ = Sql.row $name_arg$ $table_of_comp table$ >> in
+        ((from_row, from_table) :: from, where, env) in
+  let fold, where, env = 
+    List.fold_left comp_item ([], [], Env.empty) items in
+  List.rev fold, List.rev where, env
 and result_of_comp env (_loc, r) = match r with
   | Simple_select row -> <:expr< Sql.simple_select $value_of_comp env (_loc, row)$ >>
   | Group_by (group, by) ->
@@ -383,86 +361,89 @@ and result_of_comp env (_loc, r) = match r with
       let result_tuple = (_loc, Tuple (rebound_by @ rebound_group)) in
       let with_bindings bindings cont =
         <:expr< let $bindings_of_comp bindings$ in
-                let $use_bindings bindings$ in
-                $cont$ >> in
+        let $use_bindings bindings$ in
+        $cont$ >> in
       List.fold_right with_bindings
         [by_bindings; accum_bindings; env_bindings]
-        <:expr< Sql.group
-                  $value_of_comp env by_tuple$
-                  $value_of_comp env result_tuple$ >>
+      <:expr< Sql.group
+        $value_of_comp env by_tuple$
+        $value_of_comp env result_tuple$ >>
 and value_of_comp env (_loc, r) =
   let (!!) = value_of_comp env in
   match r with
-  | Atom v -> v
-  | Ident row -> <:expr< $lid:row$ >>
-  | Accum expr -> <:expr< Sql.group_of_accum $!!expr$ >>
-  | Op (op, operands) ->
-      let operation expr e = <:expr< $expr$ $!!e$ >> in
-      let operator = match op with
-        | (_loc, Ident id) -> <:expr< Sql.Op.$lid:id$ >>
-        | expr -> !!expr in
-      List.fold_left operation operator operands
-  | Field (row, path) ->
-      let call obj (_loc, meth_id) = <:expr< $obj$ # $lid:meth_id$ >> in
-      <:expr< Sql.field $!!row$
-                (Sql.unsafe $camlp4_path _loc path$)
-                (Sql.unsafe (fun t -> $List.fold_left call <:expr< t >> path$)) >>
-  | Default (row, field) ->
-      <:expr< Sql.default $!!row$ (Sql.unsafe $str:field$)
-                (Sql.unsafe (fun row -> row#$lid:field$)) >>
-  | If (p, a, b) -> <:expr< Sql.if_then_else $!!p$ $!!a$ $!!b$ >>
-  | Match (matched, null_case, id, other_case) ->
-      <:expr< Sql.match_null $!!matched$ $!!null_case$
-                (fun $lid:id$ -> $!!other_case$) >>
-  | Tuple tup ->
-      let field_names, field_values =
-        let split (_loc, (name, value)) = (_loc, name), value in
-        List.split (List.map split tup) in
-      let fields_binding action =
-        let custom_binding (_loc, (id, value)) =
-          <:binding< $lid:id$ = $action _loc id value$ >> in
-        Ast.biAnd_of_list (List.map custom_binding tup) in
-      let obj =
-        let meth (_loc, id) =
-          <:class_str_item< method $lid:id$ = $lid:id$ >> in
-        <:expr< object $Ast.crSem_of_list (List.map meth field_names)$ end >> in
-      let producer =
-        let body =
-          let field_prod (_loc, name) =
-            <:expr< ($str:name$, Sql.untyped_t obj#$lid:name$) >> in
-          camlp4_list _loc (List.map field_prod field_names) in
-        <:expr< fun obj -> $body$ >> in
-      let result_parser =
-        let parser_action _loc id _ =
+    | Atom v -> v
+    | Ident row -> <:expr< $lid:row$ >>
+    | Accum expr -> <:expr< Sql.group_of_accum $!!expr$ >>
+    | Op (op, operands) ->
+        let operation expr e = <:expr< $expr$ $!!e$ >> in
+        let operator = match op with
+          | (_loc, Ident id) -> <:expr< Sql.Op.$lid:id$ >>
+          | expr -> !!expr in
+        List.fold_left operation operator operands
+    | Field (row, path) ->
+        let call obj (_loc, meth_id) = <:expr< $obj$ # $lid:meth_id$ >> in
+        <:expr< Sql.field $!!row$
+          (Sql.unsafe $camlp4_path _loc path$)
+          (Sql.unsafe (fun t -> $List.fold_left call <:expr< t >> path$)) >>
+    | Default (row, field) ->
+        <:expr< Sql.default $!!row$ (Sql.unsafe $str:field$)
+          (Sql.unsafe (fun row -> row#$lid:field$)) >>
+    | If (p, a, b) -> <:expr< Sql.if_then_else $!!p$ $!!a$ $!!b$ >>
+    | Match (matched, null_case, id, other_case) ->
+        <:expr< Sql.match_null $!!matched$ $!!null_case$
+          (fun $lid:id$ -> $!!other_case$) >>
+    | Tuple tup ->
+        let field_names, field_values =
+          let split (_loc, (name, value)) = (_loc, name), value in
+          List.split (List.map split tup) in
+        let fields_binding action =
+          let custom_binding (_loc, (id, value)) =
+            <:binding< $lid:id$ = $action _loc id value$ >> in
+          Ast.biAnd_of_list (List.map custom_binding tup) in
+        let obj =
+          let meth (_loc, id) =
+            <:class_str_item< method $lid:id$ = $lid:id$ >> in
+          <:expr< object $Ast.crSem_of_list (List.map meth field_names)$ end >> in
+        let producer =
+          let body =
+            let field_prod (_loc, name) =
+              <:expr< ($str:name$, Sql.untyped_t obj#$lid:name$) >> in
+            camlp4_list _loc (List.map field_prod field_names) in
+          <:expr< fun obj -> $body$ >> in
+        let result_parser =
+          let parser_action _loc id _ =
             <:expr< Sql.parse (Sql.recover_type (Sql.get_type fields_obj#$lid:id$)
                                  (Sql.unsafe (List.assoc $str:id$ descr))) >> in
-        let parsed_action _loc id _ = <:expr< $lid:id$ input >> in
-        <:expr< fun descr -> let $fields_binding parser_action$ in
-                  fun input -> let $fields_binding parsed_action$ in $obj$ >> in
-      <:expr<
-        let fields_obj =
-          let $fields_binding (fun _ _ v -> !!v)$ in
-          $obj$
-        and producer = $producer$ in
-        Sql.tuple
-          (Sql.unsafe (producer fields_obj))
-          (Sql.unsafe producer)
-          (Sql.unsafe $result_parser$) >>
+          let parsed_action _loc id _ = <:expr< $lid:id$ input >> in
+          <:expr< fun descr -> let $fields_binding parser_action$ in
+          fun input -> let $fields_binding parsed_action$ in $obj$ >> in
+        <:expr<
+          let fields_obj =
+            let $fields_binding (fun _ _ v -> !!v)$ in
+            $obj$
+          and producer = $producer$ in
+          Sql.tuple
+            (Sql.unsafe (producer fields_obj))
+            (Sql.unsafe producer)
+            (Sql.unsafe $result_parser$) >>
+;;
 
 let rec query_of_comp (_loc, query) = match query with
   | Select select ->
       <:expr< Sql.select $view_of_comp (_loc, select)$ >>
   | Insert (table, select) ->
       <:expr< Sql.insert $snd table$ $view_of_comp select$ >>
-  | Delete (binding, where) ->
-        let table, row_name, binding = query_binding binding in
-        let where = query_where where in
-        <:expr< let $binding$ in
-                Sql.delete $table$ $row_name$ $where$ >>
-  | Update (binding, set_ast, where) ->
+  | Delete (binding, items) ->
       let table, row_name, binding = query_binding binding in
-      let where = query_where where in
-      let set = query_value set_ast in
+      let from, where, env = from_where_env_of_compitems items in
+      let from_rows, from_tables = List.split from in
+      <:expr< let $binding$ and $Ast.biAnd_of_list from_rows$ in
+              let _where = $camlp4_list _loc where$
+              and from = $camlp4_list _loc from_tables$
+              and table = $table$ and row_name = $row_name$ in
+              Sql.delete table row_name from _where >>
+  | Update (binding, set_ast, items) ->
+      let table, row_name, binding = query_binding binding in
       let subtyping_witness =
         let row = <:expr< Sql.row (Sql.unsafe "update row") table >> in
         match set_ast with
@@ -471,27 +452,28 @@ let rec query_of_comp (_loc, query) = match query with
                 let bind (_loc, (name, _)) = <:ctyp< $lid:name$ : '$lid:name$ >> in
                 Ast.tySem_of_list (List.map bind tup) in
               <:expr< (set :> Sql.t (Sql.type_info_only < $set_type$ >)) =
-                    ($row$ :> Sql.t (Sql.type_info_only < $set_type$ >)) >>
+                      ($row$ :> Sql.t (Sql.type_info_only < $set_type$ >)) >>
           | (_loc, _) ->
               if !warn_undetermined_update then
                 Syntax.print_warning _loc warn_undetermined_update_message;
               <:expr< set = $row$ >> in
-      <:expr< let $binding$ in
-              let set = $set$ and _where = $where$
+      let from, where, env = from_where_env_of_compitems items in
+      let from_rows, from_tables = List.split from in
+      <:expr< let $binding$ and $Ast.biAnd_of_list from_rows$ in
+              let set = $value_of_comp env set_ast$ 
+              and _where = $camlp4_list _loc where$
+              and from = $camlp4_list _loc from_tables$
               and table = $table$ and row_name = $row_name$ in
+              let subtyping_witness = $subtyping_witness$ in
               Sql.update table row_name set
-                (Sql.unsafe $subtyping_witness$) _where >>
-and query_where (_loc, conds) =
-  camlp4_list _loc (List.map query_value conds)
-and query_value (_loc, ref) =
-  value_of_comp Env.empty (_loc, ref)
+                (Sql.unsafe subtyping_witness) from _where >>
 and query_binding (_loc, (name, (_, table))) =
   (* TODO factorize comp_items binding *)
   let name_str = <:expr< Sql.unsafe $str:name$ >> in
-  table, name_str,
-  <:binding< $lid:name$ = Sql.row $name_str$ $table$ >>
+  table, name_str, <:binding< $lid:name$ = Sql.row $name_str$ $table$ >>
+;;
 
-(** Quotations setup *)
+                  (** Quotations setup *)
 let () =
   Syntax.Quotation.add "value" Syntax.Quotation.DynAst.expr_tag
     (fun loc _ quote ->
@@ -503,7 +485,6 @@ let () =
     (fun (name, gram_rule) ->
        Syntax.Quotation.add name Syntax.Quotation.DynAst.expr_tag
          (fun loc _ quote ->
-            activate_implicit ();
             query_of_comp (CompGram.parse_string gram_rule loc quote)))
     [ "select", select_eoi;
       "insert", insert_eoi;

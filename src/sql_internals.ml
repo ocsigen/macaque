@@ -140,8 +140,8 @@ let string_of_atom_type = function
 type query =
   | Select of view
   | Insert of (table * view)
-  | Delete of (table * row_name * where)
-  | Update of (table * row_name * value * where)
+  | Delete of (table * row_name * from * where)
+  | Update of (table * row_name * value * from * where)
 
 type result = select_result * sql_type
 

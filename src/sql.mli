@@ -195,11 +195,11 @@ type +'a query
 val select : ('a, _) view -> 'a list query
 val insert : ('a, _ writable) view -> ('a, _) view -> unit query
 val delete :
-  ('a, _ writable) view -> string unsafe -> < t : #bool_t; .. > t list -> unit query
+  ('a, _ writable) view -> string unsafe -> from -> where -> unit query
 val update :
   ('a, _ writable) view -> string unsafe ->
   'b t -> bool unsafe ->
-  < t : #bool_t; .. > t list -> unit query
+  from -> where -> unit query
 
 (** query printing *)
 val sql_of_query : _ query -> string

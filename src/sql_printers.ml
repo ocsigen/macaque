@@ -49,6 +49,9 @@ and string_of_selection q =
 and string_of_from = function
   | [] -> ""
   | from -> " FROM " ^ string_of_list string_of_from_item ", " from
+and string_of_using = function
+  | [] -> ""
+  | using -> " USING " ^ string_of_list string_of_from_item ", " using
 and string_of_where = function
   | [] -> ""
   | where -> " WHERE " ^ string_of_list string_of_value " AND " where
@@ -164,13 +167,15 @@ let rec string_of_query = function
       sprintf "INSERT INTO %s (%s)"
         (string_of_table table)
         (string_of_view view)
-  | Delete (table, row, where) ->
-      sprintf "DELETE FROM %s AS %s%s"
+  | Delete (table, row, from, where) ->
+      sprintf "DELETE FROM %s AS %s%s%s"
         (string_of_table table) row
+        (string_of_using from)
         (string_of_where where)
-  | Update (table, row, set, where) ->
-      sprintf "UPDATE %s AS %s SET %s%s"
+  | Update (table, row, set, from, where) ->
+      sprintf "UPDATE %s AS %s SET %s%s%s"
         (string_of_table table) row
         (string_of_assoc set)
+        (string_of_from from)
         (string_of_where where)
 

@@ -39,6 +39,4 @@ module Make_with_Db (Thread : THREAD)
    with type 'a monad = 'a Thread.t) :
     QUERY with module Db = Db
 
-module Simple : QUERY with module Db = PGOCaml
-
 include QUERY with module Db = PGOCaml

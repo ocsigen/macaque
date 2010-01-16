@@ -111,6 +111,4 @@ module Simple_thread_catch = struct
     with exn -> catcher exn
 end
 
-module Simple = Make_with_Db(Simple_thread_catch)(PGOCaml)
-
-include Simple
+include Make_with_Db(Simple_thread_catch)(PGOCaml)

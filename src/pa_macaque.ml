@@ -266,6 +266,9 @@ let () =
 (** Code emission from the syntaxic form *)
 
 (* general definitions *)
+let map_located f li =
+  List.map (fun (_loc, elem) -> (_loc, f _loc elem)) li
+
 let camlp4_list _loc =
   let rec to_list = function
     | [] -> <:expr< [] >>
@@ -282,6 +285,29 @@ let camlp4_option _loc = function
       let _loc = Ast.loc_of_expr expr in
       <:expr< Some $expr$ >>
 
+
+(* common definitions *)
+let producer _loc fields =
+  let field_producer (_loc, name) =
+    <:expr< ($str:name$, Sql.untyped_t obj#$lid:name$) >> in
+  let descr = camlp4_list _loc (List.map field_producer fields) in
+  <:expr< fun obj -> $descr$ >>
+
+let result_parser _loc fields =
+  let parser_binding (_loc, (name, typ_expr)) =
+    <:binding< $lid:name$ =
+                 Sql.parse (Sql.recover_type $typ_expr$
+                              (Sql.unsafe (List.assoc $str:name$ descr))) >> in
+  let value_binding (_loc, (name, _)) =
+    <:binding< $lid:name$ = $lid:name$ input >> in
+  let meth (_loc, (name, _)) =
+    <:class_str_item< method $lid:name$ = $lid:name$ >> in
+  <:expr<
+    fun descr ->
+      let $Ast.biAnd_of_list (List.map parser_binding fields)$ in
+      fun input ->
+        let $Ast.biAnd_of_list (List.map value_binding fields)$ in
+        object $Ast.crSem_of_list (List.map meth fields)$ end >>
 
 (* Comprehensions *)
 module Env : sig
@@ -452,24 +478,14 @@ and value_of_comp env (_loc, r) =
           let meth (_loc, id) =
             <:class_str_item< method $lid:id$ = $lid:id$ >> in
           <:expr< object $Ast.crSem_of_list (List.map meth field_names)$ end >> in
-        let producer =
-          let body =
-            let field_prod (_loc, name) =
-              <:expr< ($str:name$, Sql.untyped_t obj#$lid:name$) >> in
-            camlp4_list _loc (List.map field_prod field_names) in
-          <:expr< fun obj -> $body$ >> in
         let result_parser =
-          let parser_action _loc id _ =
-            <:expr< Sql.parse (Sql.recover_type (Sql.get_type fields_obj#$lid:id$)
-                                 (Sql.unsafe (List.assoc $str:id$ descr))) >> in
-          let parsed_action _loc id _ = <:expr< $lid:id$ input >> in
-          <:expr< fun descr -> let $fields_binding parser_action$ in
-          fun input -> let $fields_binding parsed_action$ in $obj$ >> in
+          let field_info _loc name = (name, <:expr< Sql.get_type fields_obj#$lid:name$ >>) in
+          result_parser _loc (map_located field_info field_names) in
         <:expr<
           let fields_obj =
             let $fields_binding (fun _ _ v -> !!v)$ in
             $obj$
-          and producer = $producer$ in
+          and producer = $producer _loc field_names$ in
           Sql.tuple
             (Sql.unsafe (producer fields_obj))
             (Sql.unsafe producer)
@@ -523,42 +539,23 @@ and query_binding (_loc, (name, (_, table))) =
 
 
 (* Table descriptions *)
-let table_of_descr (_loc, {table_name = name; field_descrs = field_types}) =
+let table_of_descr (_loc, table) =
   let type_bindings =
-    let bind (_loc,
-              {field_name = name;
-               sql_type = sql_type;
-               nullable = nullability;
-               default = default}) =
+    let bind (_loc, f) =
       let witness =
-        (if nullability then "nullable" else "non_nullable") ^ "_witness" in
-      <:binding< $lid:name$ = Sql.Table_type.$lid:sql_type$ Sql.$lid:witness$ >> in
-    Ast.biAnd_of_list (List.map bind field_types) in
-  let fields = List.map (fun (_loc, descr) -> (_loc, descr.field_name)) field_types in
+        (if f.nullable then "nullable" else "non_nullable") ^ "_witness" in
+      <:binding< $lid:f.field_name$ = Sql.Table_type.$lid:f.sql_type$ Sql.$lid:witness$ >> in
+    Ast.biAnd_of_list (List.map bind table.field_descrs) in
+  let fields = map_located (fun _ descr -> descr.field_name) table.field_descrs in
   let descr =
     let field_descr (_loc, name) =
       <:expr< ($str:name$, Sql.untyped_type $lid:name$) >> in
     camlp4_list _loc (List.map field_descr fields) in
-  let producer =
-    let field_producer (_loc, name) =
-      <:expr< ($str:name$, Sql.untyped_t obj#$lid:name$) >> in
-    let descr = camlp4_list _loc (List.map field_producer fields) in
-    <:expr< Sql.unsafe (fun obj -> $descr$) >> in
+  let producer = <:expr< Sql.unsafe $producer _loc fields$ >> in
   let result_parser =
-    let parser_binding (_loc, name) =
-      <:binding< $lid:name$ =
-            Sql.parse (Sql.recover_type $lid:name$
-                         (Sql.unsafe (List.assoc $str:name$ descr))) >> in
-    let value_binding (_loc, name) =
-      <:binding< $lid:name$ = $lid:name$ input >> in
-    let meth (_loc, name) = <:class_str_item< method $lid:name$ = $lid:name$ >> in
-    <:expr<
-      fun descr ->
-        let $Ast.biAnd_of_list (List.map parser_binding fields)$ in
-        fun input ->
-          let $Ast.biAnd_of_list (List.map value_binding fields)$ in
-          object $Ast.crSem_of_list (List.map meth fields)$ end >> in
-  let name_expr = match name with
+    let field_info _loc name = name, <:expr< $lid:name$ >> in
+    result_parser _loc (map_located field_info fields) in
+  let name_expr = match table.table_name with
     | (_loc, (None, table)) -> <:expr< (None, $str:table$) >>
     | (_loc, (Some schema, table)) -> <:expr< (Some $str:schema$, $str:table$) >> in
   let defaults =
@@ -566,7 +563,7 @@ let table_of_descr (_loc, {table_name = name; field_descrs = field_types}) =
       let value = function
         | (_, {field_name = name; default = Some (_loc, e)}) -> [(_loc, name, e)]
         | _ -> [] in
-      List.concat (List.map value field_types) in
+      List.concat (List.map value table.field_descrs) in
     let bind (_loc, name, default_val) =
       let expr = value_of_comp Env.empty (_loc, default_val) in
       <:binding< $lid:name$ = $expr$ >> in

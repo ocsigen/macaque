@@ -198,7 +198,7 @@ anyway.
 
 
 
-### pa_comp syntax
+### General syntax : values, comprehensions, queries
 
 macaque use the Camlp4 quotations system to integrate Domain-specific
 syntaxes into the Objective Caml language. General principles are as follows :
@@ -437,9 +437,9 @@ macaque to protect from runtime errors.
 
 
 
-### pa_descr syntax
+### Description syntax
 
-pa_descr syntax is used to describe existing database tables, making
+Description syntax is used to describe existing database tables, making
 them as macaque views (internally, it builds a runtime description of
 the data-base typing informations, to be used by further macaque
 processing). The syntax is a far relative of SQL CREATE TABLE
@@ -456,8 +456,8 @@ default value are accepted.
     DEFAULT($ <:value< "unknown category" >> $)
 ) >>
 
-pa_descr is not a table creation/specification tool : it does not free
-you from the need of creating your tables in the database (with
+This is not a table creation/specification tool : it does not free you
+from the need of creating your tables in the database (with
 a potentially richer description : foreign keys, etc.). If you change
 a table description, you will have to duplicate the changes in the
 caml description as well.
@@ -468,22 +468,22 @@ caml description as well.
 emulate this feature with explicit SEQUENCE manipulations ([sequence
 functions] section) :
 
-  DEFAULT($ <:value< nextval $table_id_seq$ >> $),
+  DEFAULT(nextval $table_id_seq$),
 
 #### sequence descriptions
 
 It is not possible to create new sequences from Macaque (this is
-coherent with the choice that pa_descr tables are descriptions, not
-declarations), but pa_descr support sequence descriptions. Sequence
+coherent with the choice that macaques allows descriptions, not
+declarations), but macaque support sequence descriptions. Sequence
 creation operators are part of the Sql.Sequence module.
 
 #### Checking descriptions
 
-To help you with the pa_descr/database synchronization, the Check
+To help you with the macaque/database synchronization, the Check
 module provide coherence checks (check_table, check_sequence). It will
 raise errors if the caml-side description is not faithful to the real
 table structure. It is possible to enforce an automatic runtime check
-of every pa_descr-defined table or sequence with the '-check_tables'
+of every macaque-described table or sequence with the '-check_tables'
 command line option (camlp4 time), wich can be enabled by the
 "use_check" ocamlbuild flag (see the [OCamlbuild] section of this
 README).
@@ -498,12 +498,9 @@ a valuable ressource if you want to use Macaque inside your
 project. Besides the classical ocamlfind integration, you'll find the
 Sql_syntax modules with support for the following tags :
 
-- use_comp : enable preprocessing by pa_comp
-- use_descr : .. pa_descr
-- use_bananas : .. pa_bananas
-- use_macaque : enable the three syntaxes together
+- use_macaque : enable the macaque syntax extensions
 - use_check : enable the -check_tables flag
-  (see the [pa_descr > Checking table descriptions] subsection)
+  (see the [Decription syntax > Checking table descriptions] subsection)
 
 You should generally use the 'macaque' tag, the three other
 preprocessing tags being there for finer-grained control.
@@ -512,7 +509,7 @@ preprocessing tags being there for finer-grained control.
 
 ### sql functions, operators and data types
 
-#### pa_comp sql value operators
+#### Sql value operators
 
 macaque can use all function and operators defined in the Sql.Op
 module, using the standard ocaml syntax (and operator associativities
@@ -526,7 +523,7 @@ and precedences) :
   and aggregate functions] section of this README for more
   information.
 
-#### pa_comp value types antiquotations
+#### Value types antiquotations
 
 macaque supports some SQL data types, some of them having a litteral
 syntax (ints and string : <:value< 2 >>, <:value< "foo" >>). They can
@@ -537,20 +534,19 @@ all be constructed by using named antiquotations :
 More generally, the type constructors are the values in Sql.Data :
      <:value< $foo:bar$ >> is equivalent to `Sql.Data.foo bar`
 
-#### pa_descr column types
+#### Column types
 
-Data types used in pa_descr specifications are defined in the
+Data types used in table descriptions are defined in the
 Sql.Table_type module. We use a different set of type names, in order
 to mimic SQL type names and ease specification derivation from
-existing SQL tables. For example, "integer" is used instead of
-"int", and will expand to a Sql.Table_type.integer value.
+existing SQL tables. For example, "integer" is used instead of "int",
+and will expand to a Sql.Table_type.integer value.
 
-#### pa_descr sequence description
+#### Sequence description
 
-Sequence creators used in pa_descr specifications are defined in the
-Sql.Sequence module.
+Sequence creators are defined in the Sql.Sequence module.
 
-#### pa_comp sequence operators
+#### Sequence operators
 
 Sql.Op has some sequence functions. Currently supported are
 `currval` and `nextval`. They can be used to have an
@@ -560,9 +556,9 @@ auto-incrementing identifier :
 
 See the src/tests/sequence.ml for example.
 
-#### pa_comp view antiquotations
+#### View antiquotations
 
-In view positions, pa_comp supports antiquotations through the
+In view positions, macaque supports antiquotations through the
 Sql.View module : ($foo:bar$) will expand to (Sql.View.foo bar).
 
 
@@ -614,8 +610,8 @@ aware of.
 
 #### Sql interface safety
 
-pa_comp and pa_descr extensions transform user code into complicated
-caml code. But the produced codes still lies outside macaque module
+Macaque syntax extensions transform user code into complicated caml
+code. But the produced codes still lies outside macaque module
 boundaries, and has access to the same information that the user
 has. Concretely, as most of the operations needed by those extensions
 are not typable inside the OCaml type system (for example dynamic
@@ -628,8 +624,7 @@ considered forbidden. All the other functions should be type-safe,
 otherwise it's a bug.
 
 [1] and there is some Obj magic behind the scene; but it's protected
-by typing and you won't get a segfault, I hope I hope I hope
-
+by typing and you won't get a segfault, I hope.
 
 #### Update subtyping problem
 
@@ -660,10 +655,10 @@ are unified : the set tuple has to have exactly the same columns as
 the table, no less.
 
 This loss of generality could surprise the innocent user. In order to
-prevent hair scratching, a warning is emitted by pa_comp at
-camlp4-time when an antiquoted caml value is used for the update
-tuple. This warning can be disabled using
-the -sql-nowarn-undetermined-update command line option.
+prevent hair scratching, a warning is emitted at camlp4-time when an
+antiquoted caml value is used for the update tuple. This warning can
+be disabled using the -sql-nowarn-undetermined-update command line
+option.
 
 Of course, it is always possible to manually expand an antiquotated
 value, when the fields name are known at development-time :
@@ -728,15 +723,15 @@ difficult to spot for the non-camlp4-aware user.
 Specific care has been taken in Macaque to make the camlp4 processing
 as solid as possible :
 
-- camlp4 processing is split in three independent extensions (pa_comp,
-  pa_descr, pa_bananas) so that the user can make fine-grained
+- camlp4 processing is split in two independent extensions
+  (pa_macaque, pa_bananas) so that the user can make fine-grained
   decisions as to what extension to activate for a specific
   compilation
 
-- pa_comp and pa_descr rely on the "quotation" mechanism of the
-  existing ocaml camlp4 grammar : they DO NOT modify the ocaml grammar
-  but instead reuse the <:..< .. >> mechanism wich is widely used
-  inside camlp4 itself, and thus can be reasonably trusted
+- pa_macaque rely on the "quotation" mechanism of the existing ocaml
+  camlp4 grammar : they DO NOT modify the ocaml grammar but instead
+  reuse the <:..< .. >> mechanism wich is widely used inside camlp4
+  itself, and thus can be reasonably trusted
 
 - pa_bananas is the only extension modifying the OCaml grammar itself;
   it is a simple extension wich affects a localized part of the
@@ -748,7 +743,7 @@ as solid as possible :
   not to use it (use Sql.get/Sql.getn instead of #!/#?). If a problem
   were to arise, it would be easy for a user to mechanically replace
   all pa_bananas syntax uses by camlp4-free equivalent expressions,
-  and drop pa_banans from his compilation chain entirely.
+  and drop pa_bananas from his compilation chain entirely.
 
 
 #### Macaque and PG'OCaml

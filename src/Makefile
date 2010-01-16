@@ -1,10 +1,10 @@
-all: macaque.cma pa_comp.cmo pa_descr.cmo pa_bananas.cmo
+all: macaque.cma pa_macaque.cmo pa_bananas.cmo
 
 %.cmo:
-	ocamlbuild $<
+	ocamlbuild -tag annot $@
 
 macaque.cma:
-	ocamlbuild macaque.cma 
+	ocamlbuild -tag annot macaque.cma
 
 install:
 	ocamlfind install macaque META \
@@ -13,7 +13,7 @@ install:
 	_build/inner_sql.cmi \
 	_build/sql.cmi _build/check.cmi _build/query.cmi \
 	_build/macaque.cma \
-	_build/pa_comp.cmo _build/pa_descr.cmo _build/pa_bananas.cmo
+	_build/pa_macaque.cmo _build/pa_bananas.cmo
 
 uninstall:
 	ocamlfind remove macaque

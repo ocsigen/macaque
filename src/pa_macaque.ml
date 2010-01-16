@@ -21,8 +21,12 @@
 open Camlp4.PreCast
 
 (** Command-line options *)
+let coherence_check = ref false
 let warn_undetermined_update = ref true
+
 let () =
+  Camlp4.Options.add "-check_tables" (Arg.Set coherence_check)
+    "insert coherence checks with the table descriptions";
   Camlp4.Options.add "-sql-nowarn-undetermined-update"
     (Arg.Clear warn_undetermined_update)
     "warning for compile-time undetermined \
@@ -72,12 +76,26 @@ and 'a binding = (ident * 'a located)
 and 'a located = (Loc.t * 'a)
 and ident = string
 
+(** Description (syntaxic form) structure *)
+type descr =
+  { table_name : (ident option * ident) located;
+    field_descrs : field_descr located list }
+and field_descr =
+  { field_name : ident;
+    sql_type : ident;
+    nullable : bool;
+    default : value located option }
+
 (** Syntaxic form parsing *)
 module CompGram = MakeGram(Lexer)
 
 let view_eoi, select_eoi, insert_eoi, delete_eoi, update_eoi, value =
   let mk = CompGram.Entry.mk in
   mk "view", mk "select", mk "insert", mk "delete", mk "update", mk "value"
+
+let table_descr, seq_descr =
+  let mk = CompGram.Entry.mk in
+  mk "table_description", mk "seq_description"
 
 let () =
   Camlp4_config.antiquotations := true;
@@ -109,6 +127,7 @@ let () =
     | None -> (_loc, [])
     | Some thing -> thing in
 
+  (* Comprehensions *)
   EXTEND CompGram
    GLOBAL: view_eoi select_eoi insert_eoi delete_eoi update_eoi value;
 
@@ -217,9 +236,36 @@ let () =
           | `ANTIQUOT(id, v) ->
               <:expr< Sql.Value.$lid:id$ $quote _loc v$ >> ]];
  END;
+
+ (* Table descriptions *)
+  EXTEND CompGram
+    GLOBAL: table_descr seq_descr;
+    table_descr: [[ name = table_name;
+                    "("; fields = LIST0 field_descr SEP ","; ")" ->
+                      (_loc, {table_name = name;
+                              field_descrs = fields}) ]];
+    field_descr: [[ name = LIDENT; typ = LIDENT;
+                    is_null = nullable_descr; def = OPT default_descr ->
+                      (_loc,
+                       { field_name = name;
+                         sql_type = typ;
+                         nullable = is_null;
+                         default = def }) ]];
+    nullable_descr: [[ "NOT"; "NULL" -> false
+                     | "NULL" -> true
+                     | -> true ]];
+    default_descr: [[ "DEFAULT"; "("; v = value; ")" -> v ]];
+    table_name: [[ schema = LIDENT; ".";  name = LIDENT -> (_loc, (Some schema, name))
+                 | name = LIDENT -> (_loc, (None, name)) ]];
+
+    seq_descr: [[ op = [id = LIDENT -> id | -> "sequence"]; name = STRING ->
+                    (_loc, (op, name)) ]];
+  END
 ;;
 
 (** Code emission from the syntaxic form *)
+
+(* general definitions *)
 let camlp4_list _loc =
   let rec to_list = function
     | [] -> <:expr< [] >>
@@ -236,6 +282,8 @@ let camlp4_option _loc = function
       let _loc = Ast.loc_of_expr expr in
       <:expr< Some $expr$ >>
 
+
+(* Comprehensions *)
 module Env : sig
   type env
   val empty : env
@@ -311,7 +359,7 @@ and from_where_env_of_compitems (_loc, items) =
           let name_arg = <:expr< Sql.unsafe $str:name_str$ >> in
           <:binding< $lid:name$ = Sql.row $name_arg$ $table_of_comp table$ >> in
         ((from_row, from_table) :: from, where, env) in
-  let fold, where, env = 
+  let fold, where, env =
     List.fold_left comp_item ([], [], Env.empty) items in
   List.rev fold, List.rev where, env
 and result_of_comp env (_loc, r) = match r with
@@ -460,7 +508,7 @@ let rec query_of_comp (_loc, query) = match query with
       let from, where, env = from_where_env_of_compitems items in
       let from_rows, from_tables = List.split from in
       <:expr< let $binding$ and $Ast.biAnd_of_list from_rows$ in
-              let set = $value_of_comp env set_ast$ 
+              let set = $value_of_comp env set_ast$
               and _where = $camlp4_list _loc where$
               and from = $camlp4_list _loc from_tables$
               and table = $table$ and row_name = $row_name$ in
@@ -473,8 +521,78 @@ and query_binding (_loc, (name, (_, table))) =
   table, name_str, <:binding< $lid:name$ = Sql.row $name_str$ $table$ >>
 ;;
 
-                  (** Quotations setup *)
+
+(* Table descriptions *)
+let table_of_descr (_loc, {table_name = name; field_descrs = field_types}) =
+  let type_bindings =
+    let bind (_loc,
+              {field_name = name;
+               sql_type = sql_type;
+               nullable = nullability;
+               default = default}) =
+      let witness =
+        (if nullability then "nullable" else "non_nullable") ^ "_witness" in
+      <:binding< $lid:name$ = Sql.Table_type.$lid:sql_type$ Sql.$lid:witness$ >> in
+    Ast.biAnd_of_list (List.map bind field_types) in
+  let fields = List.map (fun (_loc, descr) -> (_loc, descr.field_name)) field_types in
+  let descr =
+    let field_descr (_loc, name) =
+      <:expr< ($str:name$, Sql.untyped_type $lid:name$) >> in
+    camlp4_list _loc (List.map field_descr fields) in
+  let producer =
+    let field_producer (_loc, name) =
+      <:expr< ($str:name$, Sql.untyped_t obj#$lid:name$) >> in
+    let descr = camlp4_list _loc (List.map field_producer fields) in
+    <:expr< Sql.unsafe (fun obj -> $descr$) >> in
+  let result_parser =
+    let parser_binding (_loc, name) =
+      <:binding< $lid:name$ =
+            Sql.parse (Sql.recover_type $lid:name$
+                         (Sql.unsafe (List.assoc $str:name$ descr))) >> in
+    let value_binding (_loc, name) =
+      <:binding< $lid:name$ = $lid:name$ input >> in
+    let meth (_loc, name) = <:class_str_item< method $lid:name$ = $lid:name$ >> in
+    <:expr<
+      fun descr ->
+        let $Ast.biAnd_of_list (List.map parser_binding fields)$ in
+        fun input ->
+          let $Ast.biAnd_of_list (List.map value_binding fields)$ in
+          object $Ast.crSem_of_list (List.map meth fields)$ end >> in
+  let name_expr = match name with
+    | (_loc, (None, table)) -> <:expr< (None, $str:table$) >>
+    | (_loc, (Some schema, table)) -> <:expr< (Some $str:schema$, $str:table$) >> in
+  let defaults =
+    let default_values =
+      let value = function
+        | (_, {field_name = name; default = Some (_loc, e)}) -> [(_loc, name, e)]
+        | _ -> [] in
+      List.concat (List.map value field_types) in
+    let bind (_loc, name, default_val) =
+      let expr = value_of_comp Env.empty (_loc, default_val) in
+      <:binding< $lid:name$ = $expr$ >> in
+    let meth (_loc, name, _) =
+      <:class_str_item< method $lid:name$ = $lid:name$ >> in
+    let assoc (_loc, name, _) = <:expr< ($str:name$, Sql.untyped_t $lid:name$) >> in
+    <:expr<
+      let $Ast.biAnd_of_list (List.map bind default_values)$ in
+      ( object $Ast.crSem_of_list (List.map meth default_values)$ end,
+        $camlp4_list _loc (List.map assoc default_values)$ ) >> in
+  let table =
+    <:expr<
+      let $type_bindings$ in
+      Sql.table $descr$ $producer$ $result_parser$ $name_expr$ $defaults$ >> in
+  if not !coherence_check then table
+  else <:expr< let table = $table$ in do { Check.check_table table; table } >>
+
+let seq_of_descr (_loc, (op, name)) =
+  let seq = <:expr< Sql.Sequence.$lid:op$ $str:name$ >> in
+  if not !coherence_check then seq
+  else <:expr< let seq = $seq$ in do { Check.check_sequence seq; seq } >>
+
+
+(** Quotations setup *)
 let () =
+  (* Comprehensions *)
   Syntax.Quotation.add "value" Syntax.Quotation.DynAst.expr_tag
     (fun loc _ quote ->
        value_of_comp Env.empty (CompGram.parse_string value loc quote));
@@ -490,4 +608,14 @@ let () =
       "insert", insert_eoi;
       "delete", delete_eoi;
       "update", update_eoi ];
+
+  (* Table descriptions *)
+  Syntax.Quotation.add "table" Syntax.Quotation.DynAst.expr_tag
+    (fun loc _ quote ->
+       table_of_descr (CompGram.parse_string table_descr loc quote));
+  Syntax.Quotation.add "sequence" Syntax.Quotation.DynAst.expr_tag
+    (fun loc _ quote ->
+       seq_of_descr (CompGram.parse_string seq_descr loc quote));
+
+  (* Default quotation *)
   Syntax.Quotation.default := "view"

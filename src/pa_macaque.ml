@@ -97,29 +97,100 @@ let table_descr, seq_descr =
   let mk = CompGram.Entry.mk in
   mk "table_description", mk "seq_description"
 
+
+(* The code of this whole phrase has been adapted from the
+   camlp4/Camlp4Parsers/Camlp4OCamlRevisedParser.ml file of the OCaml
+   distribution, copyright Daniel de Rauglaurde and Nicolas Pouillard.
+
+   The goal is to reuse the exact rules of the OCaml grammar regarding
+   infix operators associativies and priorities.
+
+   I would have much preferred to dynamically reuse the parsers from
+   the Ocaml grammar, but this is not possible since Ocaml 3.12 where
+   the token_info abstract type prevent some reuse between distinct
+   grammars. Hence the little bit of code duplication.
+*)
+let prefixop,
+  infixop0, infixop1, infixop2, infixop3, infixop4, infixop5, infixop6 =
+  let setup_op_parser name p =
+    CompGram.Entry.of_parser name
+      (parser
+        [< '((KEYWORD x | SYMBOL x), _) when p x >] ->
+          Ident x)
+  in
+
+  let symbolchar =
+    let list =
+      ['$'; '!'; '%'; '&'; '*'; '+'; '-'; '.'; '/'; ':'; '<'; '='; '>'; '?';
+       '@'; '^'; '|'; '~'; '\\']
+    in
+    let rec loop s i =
+      i = String.length s
+      || (List.mem s.[i] list && loop s (i + 1)) in
+    loop in
+
+
+  let prefixop =
+    let list = ['!'; '?'; '~'] in
+    let excl = ["!="; "??"] in
+    setup_op_parser "prefixop"
+      (fun x -> not (List.mem x excl) && String.length x >= 2 &&
+        List.mem x.[0] list && symbolchar x 1)
+  in
+
+  let infixop0 =
+    let list_ok = ["<"; ">"; "<="; ">="; "="; "<>"; "=="; "!="; "$"] in
+    let list_first_char_ok = ['='; '<'; '>'; '|'; '&'; '$'; '!'] in
+    let excl = ["<-"; "||"; "&&"] in
+    setup_op_parser "infixop0"
+      (fun x -> (List.mem x list_ok) ||
+        (not (List.mem x excl) && String.length x >= 2 &&
+           List.mem x.[0] list_first_char_ok && symbolchar x 1))
+  in
+
+  let infixop1 =
+    let list = ['@'; '^'] in
+    setup_op_parser "infixop1"
+      (fun x -> String.length x >= 1 && List.mem x.[0] list &&
+        symbolchar x 1)
+  in
+
+  let infixop2 =
+    let list = ['+'; '-'] in
+    setup_op_parser "infixop2"
+      (fun x -> x <> "->" && String.length x >= 1 && List.mem x.[0] list &&
+        symbolchar x 1)
+  in
+
+  let infixop3 =
+    let list = ['*'; '/'; '%'; '\\'] in
+    setup_op_parser "infixop3"
+      (fun x -> String.length x >= 1 && List.mem x.[0] list &&
+        (x.[0] <> '*' || String.length x < 2 || x.[1] <> '*') &&
+        symbolchar x 1)
+  in
+
+  let infixop4 =
+    setup_op_parser "infixop4"
+      (fun x -> String.length x >= 2 && x.[0] == '*' && x.[1] == '*' &&
+        symbolchar x 2)
+  in
+
+  let infixop5 = setup_op_parser "infixop5"
+    (fun s -> s = "&&") in
+
+  let infixop6 = setup_op_parser "infixop6"
+    (fun s -> s = "||") in
+
+  prefixop, infixop0, infixop1, infixop2, infixop3, infixop4, infixop5, infixop6
+
+
 let () =
   Camlp4_config.antiquotations := true;
   let quote _loc str =
     Syntax.Gram.parse_string Syntax.expr_eoi _loc str in
 
-  let compentry entry = CompGram.Entry.of_parser
-    (Syntax.Gram.Entry.name entry)
-    (fun input ->
-       try Syntax.Gram.parse_tokens_after_filter entry input
-       with _ -> raise Stream.Failure) in
-
-  let infixop4 = compentry Syntax.infixop4 in
-  let infixop3 = compentry Syntax.infixop3 in
-  let infixop2 = compentry Syntax.infixop2 in
-  let infixop1 = compentry Syntax.infixop1 in
-  let infixop0 = compentry Syntax.infixop0 in
-  let prefixop = compentry Syntax.prefixop in
-
-  let operation _loc op operands =
-    let op_id = match op with
-      | <:expr< $lid:id$ >> -> (_loc, Ident id)
-      | _ -> assert false in
-    (_loc, Op (op_id, operands)) in
+  let operation _loc op operands = (_loc, Op ((_loc, op), operands)) in
 
   let unary _loc op = (_loc, Op ((_loc, Ident op), [])) in
 
@@ -211,9 +282,6 @@ let () =
 
    field_path :
      [[ path = LIST1 [id = LIDENT -> (_loc, id)] SEP "." -> path ]];
-
-   infixop6: [[ x = ["||"] -> <:expr< $lid:x$ >> ]];
-   infixop5: [[ x = ["&&"] -> <:expr< $lid:x$ >> ]];
 
    tuple: [[ "{"; named_fields = binding_list; "}" -> (_loc, named_fields) ]];
    binding: [[ id = LIDENT; "="; v = value -> (_loc, (id, v))

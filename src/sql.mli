@@ -96,13 +96,19 @@ val untyped_view : (_, 'w) view -> (untyped, untyped) view
 val field :
   < t : 'a #row_t; nul : non_nullable; .. > t ->
   string list unsafe ->
-  ('a -> < t : 't; nul : 'n; ..> t) unsafe ->
+  (row:'a -> < t : 't; nul : 'n; ..> t) unsafe ->
   <t : 't; nul : 'n> t
+(* The 'row' label is there to clarify error reporting: it
+   makes the purpose of this argument clear. Note that this is only
+   useful betcause there is an unification between two parts of the
+   parameters type -- shared by the variable 'def -- so there may be
+   a type conflict detected here.
+*)
 
 val default :
   (_, 'def writable) view ->
   string unsafe ->
-  ('def -> < t : 't; nul : 'n; .. > t) unsafe ->
+  (default_fields:'def -> < t : 't; nul : 'n; .. > t) unsafe ->
   < t : 't; nul : 'n > t
 
 val row :
@@ -111,7 +117,7 @@ val row :
 
 val tuple :
   untyped t tuple unsafe ->
-  ('tup -> untyped t tuple) unsafe ->
+  (tuple:'tup -> untyped t tuple) unsafe ->
   'tup record_parser unsafe ->
   < t : < typ : 'tup >; nul : non_nullable > t
 (* < typ : 'a > instead of 'a row_t to lighten error reporting *)
@@ -155,7 +161,7 @@ val group :
 (** tables *)
 val table :
   untyped sql_type tuple ->
-  ('row -> untyped t tuple) unsafe ->
+  (row:'row -> untyped t tuple) unsafe ->
   ('row record_parser) ->
   (string option * string) ->
   'def * untyped t tuple -> ('row, 'def writable) view

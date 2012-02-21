@@ -526,10 +526,10 @@ and value_of_comp env (_loc, r) =
         let call obj (_loc, meth_id) = <:expr< $obj$ # $lid:meth_id$ >> in
         <:expr< Sql.field $!!row$
           (Sql.unsafe $camlp4_path _loc path$)
-          (Sql.unsafe (fun t -> $List.fold_left call <:expr< t >> path$)) >>
+          (Sql.unsafe (fun ~row -> $List.fold_left call <:expr< row >> path$)) >>
     | Default (row, field) ->
         <:expr< Sql.default $!!row$ (Sql.unsafe $str:field$)
-          (Sql.unsafe (fun row -> row#$lid:field$)) >>
+          (Sql.unsafe (fun ~default_fields -> default_fields#$lid:field$)) >>
     | If (p, a, b) -> <:expr< Sql.if_then_else $!!p$ $!!a$ $!!b$ >>
     | Match (matched, null_case, id, other_case) ->
         <:expr< Sql.match_null $!!matched$ $!!null_case$
@@ -556,7 +556,7 @@ and value_of_comp env (_loc, r) =
           and producer = $producer _loc field_names$ in
           Sql.tuple
             (Sql.unsafe (producer fields_obj))
-            (Sql.unsafe producer)
+            (Sql.unsafe (fun ~tuple -> producer tuple))
             (Sql.unsafe $result_parser$) >>
 ;;
 
@@ -619,7 +619,8 @@ let table_of_descr (_loc, table) =
     let field_descr (_loc, name) =
       <:expr< ($str:name$, Sql.untyped_type $lid:name$) >> in
     camlp4_list _loc (List.map field_descr fields) in
-  let producer = <:expr< Sql.unsafe $producer _loc fields$ >> in
+  let producer =
+    <:expr< Sql.unsafe (fun ~row -> $producer _loc fields$ row) >> in
   let result_parser =
     let field_info _loc name = name, <:expr< $lid:name$ >> in
     result_parser _loc (map_located field_info fields) in

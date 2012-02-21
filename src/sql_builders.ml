@@ -45,7 +45,7 @@ let tuple fields producer record_parser =
   let record_t =
     let field_typ (name, field) = (name, get_type field) in
     { data = ();
-      producer = unsafe_producer producer;
+      producer = unsafe_producer (fun tuple -> producer ~tuple);
       record_parser = Sql_parsers.unsafe_record_parser record_parser;
       descr = List.map field_typ fields } in
   Tuple fields, Non_nullable (TRecord record_t)
@@ -73,7 +73,7 @@ let match_null matched null_case other_case_fun =
 let table descr producer record_parser name (obj_witness, defaults) =
   ignore obj_witness;
   { descr = descr;
-    producer = unsafe_producer producer;
+    producer = unsafe_producer (fun row -> producer ~row);
     record_parser = Sql_parsers.unsafe_record_parser record_parser;
     data = Table { name = name; defaults = defaults } }
 

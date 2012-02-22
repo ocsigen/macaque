@@ -61,7 +61,6 @@ and comp_item =
   | Cond of value
 and table = Ast.expr
 and value =
-  | Field of field
   | Atom of Ast.expr
   | Op of value located * value located list
   | If of value located * value located * value located
@@ -69,9 +68,11 @@ and value =
   | Ident of ident
   | Tuple of tuple
   | Accum of value located
-  | Default of value located * ident
+  | Access of value located * accessor located
+and accessor =
+  | Field of ident located list located
+  | Default of ident located
 and tuple = value binding located list
-and field = value located * ident located list
 and 'a binding = (ident * 'a located)
 and 'a located = (Loc.t * 'a)
 and ident = string
@@ -262,10 +263,7 @@ let () =
      | "apply" LEFTA
          [ id = SELF; e = SELF -> (_loc, Op (id, [e])) ]
      | "~-" NONA  [ op = prefixop; e = SELF -> operation _loc op [e] ]
-     | "." LEFTA
-         [ row = SELF; "."; path = field_path ->
-             (_loc, Field (row, path))
-         | row = SELF; "?"; field = LIDENT -> (_loc, Default (row, field)) ]
+     | "." LEFTA [ row = SELF; ac = accessor -> (_loc, Access(row, ac)) ]
      | "simple"
          [ v = atom -> (_loc, Atom v)
          | (_, tup) = tuple -> (_loc, Tuple tup)
@@ -280,14 +278,20 @@ let () =
       | i = comp_item -> [i]
       | -> [] ]];
 
+   accessor:
+     [[ "."; path = field_path -> (_loc, Field path)
+      | "?"; path = [id = LIDENT -> (_loc, id)] -> (_loc, Default path) ]];
+
    field_path :
-     [[ path = LIST1 [id = LIDENT -> (_loc, id)] SEP "." -> path ]];
+     [[ path = LIST1 [id = LIDENT -> (_loc, id)] SEP "." -> (_loc, path) ]];
 
    tuple: [[ "{"; named_fields = binding_list; "}" -> (_loc, named_fields) ]];
    binding: [[ id = LIDENT; "="; v = value -> (_loc, (id, v))
-             | v = value LEVEL "simple"; "."; path = field_path ->
-                 let (_, name) = List.hd (List.rev path) in
-                 (_loc, (name, (_loc, Field(v, path)))) ]];
+             | v = value LEVEL "simple"; ac = accessor ->
+                 let (_, default_name) = match ac with
+                   | (_, Field (_, path)) -> List.hd (List.rev path)
+                   | (_, Default field) -> field in
+                 (_loc, (default_name, (_loc, Access(v, ac)))) ]];
    binding_list:
      [[ b = binding; ";"; bs = SELF -> b :: bs
       | b = binding -> [b]
@@ -481,8 +485,7 @@ and result_of_comp env (_loc, r) = match r with
         let rec map_tuple tup = List.map !!map_binding tup
         and map_binding (k, v) = (k, !!map_ref v)
         and map_ref = function
-          | Field (row, path) -> Field (!!map_ref row, path)
-          | Default (row, field) -> Default (!!map_ref row, field)
+          | Access (row, accessor) -> Access (!!map_ref row, accessor)
           | Op (op, operands) -> Op (op, List.map !!map_ref operands)
           | Tuple tup -> Tuple (map_tuple tup)
           | Accum expr -> accum expr
@@ -522,14 +525,34 @@ and value_of_comp env (_loc, r) =
           | (_loc, Ident id) -> <:expr< Sql.Op.$lid:id$ >>
           | expr -> !!expr in
         List.fold_left operation operator operands
-    | Field (row, path) ->
-        let call obj (_loc, meth_id) = <:expr< $obj$ # $lid:meth_id$ >> in
-        <:expr< Sql.field $!!row$
-          (Sql.unsafe $camlp4_path _loc path$)
-          (Sql.unsafe (fun ~row -> $List.fold_left call <:expr< row >> path$)) >>
-    | Default (row, field) ->
-        <:expr< Sql.default $!!row$ (Sql.unsafe $str:field$)
-          (Sql.unsafe (fun ~default_fields -> default_fields#$lid:field$)) >>
+    | Access (row, accessor) ->
+        let row = !!row in
+        let constructor, path, witness =
+          (* jumping through hoops to get good error locations:
+             from the concrete syntax "foo.bar", the generated code looks like:
+               Sql.field (Sql.unsafe ["bar"]) (Sql.unsafe (fun ~row -> row#bar))
+             I want (Sql.unsafe ["bar"]) to get the location corresponding
+             to "bar", and (Sql.unsafe (fun ~row -> row#bar)) to ".bar".
+          *)
+          match accessor with
+            | (_loc, Field path) ->
+              let call obj (_loc, meth_id) = <:expr< $obj$ # $lid:meth_id$ >> in
+              let pathval, pathexpr =
+                let (_loc, path) = path in
+                <:expr< Sql.unsafe $camlp4_path _loc path$ >>,
+                (fun row -> List.fold_left call row path) in
+              <:expr< Sql.field >>, pathval,
+              <:expr< Sql.unsafe (fun ~row -> $pathexpr <:expr< row >>$) >>
+            | (_loc, Default field) ->
+              let pathval, pathexpr =
+                let (_loc, field) = field in
+                <:expr< Sql.unsafe $str:field$ >>,
+                (fun row -> <:expr< $row$#$lid:field$ >>) in
+              <:expr< Sql.default >>, pathval,
+              <:expr< Sql.unsafe
+                (fun ~default_fields -> $pathexpr <:expr< default_fields >>$) >>
+        in
+        <:expr< $constructor$ $row$ $path$ $witness$ >>
     | If (p, a, b) -> <:expr< Sql.if_then_else $!!p$ $!!a$ $!!b$ >>
     | Match (matched, null_case, id, other_case) ->
         <:expr< Sql.match_null $!!matched$ $!!null_case$

@@ -43,12 +43,11 @@ Summary of this document :
   - [Sql interface safety](#interface_safety)
   - [Update subtyping problem](#update_subtyping)
 - [Remarks](#general_remarks)
-% README:733:#### Side effects
-% README:744:#### Semantic of row bindings](#row_binding_semantics)
-% README:770:#### Camlp4 use
-% README:807:#### Macaque and PG'OCaml
-% README:832:#### NULL and semantic issues
-
+  - [Side effects](#side_effects)
+  - [Semantic of row bindings](#row_binding_semantics)
+  - [Camlp4 use](#camlp4_use)
+  - [Macaque and PG'OCaml](#pgocaml_compat)
+  - [NULL and semantic issues](#null_inference)
 
 
 
@@ -776,7 +775,7 @@ should be rewritten into
 
 ### Remarks                                                   [.general_remarks]
 
-#### Side effects
+#### Side effects                                                [.side_effects]
 
 It is probably an obvious thing to say, but users should not put
 expressions wich have side-effect when evaluated inside macaque
@@ -813,7 +812,7 @@ readability anyway, so you should not use it even if it wasn't for
 compatibility reasons.
 
 
-#### Camlp4 use
+#### Camlp4 use                                                   [.campl4_use]
 
 I am under the impression that some "serious" ocaml users try to avoid
 to include camlp4 in their compilation chain if possible, and to
@@ -850,7 +849,7 @@ as solid as possible :
   and drop `pa_bananas` from her compilation chain entirely.
 
 
-#### Macaque and PG'OCaml
+#### Macaque and PG'OCaml                                      [.pgocaml_compat]
 
 Macaque relies on PG'OCaml low-level interface. It is fully compatible
 with PG'OCaml : you can use a database handler for Macaque queries and
@@ -875,7 +874,7 @@ composability. If you're interested in investigating Macaque
 performances, let me know.
 
 
-#### NULL and semantic issues
+#### NULL and semantic issues                                  [.null_inference]
 
 I have tried to reproduce SQL behaviour as closely as possible. In
 particular, all operators are really SQL operators, so they will have

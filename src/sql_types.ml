@@ -134,7 +134,26 @@ let handle_query_results : 'a query -> string array list -> 'a =
     match query with
       | SQLI.Select comp ->
           !? (List.map (Sql_parsers.parser_of_comp comp) result)
-      | _ -> !? ()
+      | SQLI.Value value ->
+        begin match result with
+          (* the failure cases below correspond to a case where the
+             query for a single SQL value would return multiple
+             results or not. The typed interface of the Sql module
+             should guarantee that this can't happen -- that would
+             correspond to an ill-defined value constructor. But it's
+             possible that a bug there or a bogus SQL server reach
+             them, and it would be nice to have some better failure
+             reporting here.
+
+             The null case is especially a good candidate for queries
+             gone wrong; for example, a bad SQL server could report no
+             error but still return nothing.  *)
+          | [] -> assert false (* TODO *)
+          | _ :: _ :: _ -> assert false (* TODO *)
+          | [line] ->
+            !? (Sql_parsers.parser_of_type (get_type value) (line, ref 0))
+        end
+      | SQLI.Insert _ | SQLI.Update _ | SQLI.Delete _ -> !? ()
 
 let break x = x
 let break_view x = x

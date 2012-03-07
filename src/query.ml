@@ -29,6 +29,11 @@ module type QUERY = sig
   val view : _ Db.t -> ?log:out_channel -> ('a, _) Sql.view -> 'a list Db.monad
   val view_one : _ Db.t -> ?log:out_channel -> ('a, _) Sql.view -> 'a Db.monad
   val view_opt : _ Db.t -> ?log:out_channel -> ('a, _) Sql.view -> 'a option Db.monad
+
+  val value : _ Db.t -> ?log:out_channel ->
+    < t : 'a #Sql.type_info; nul : Sql.non_nullable; .. > Sql.t -> 'a Db.monad
+  val value_opt : _ Db.t -> ?log:out_channel ->
+    < t : 'a #Sql.type_info; nul : Sql.nullable; .. > Sql.t -> 'a option Db.monad
 end
 
 module Make_with_Db
@@ -76,6 +81,14 @@ struct
       | li ->
           let error = Printf.sprintf "view_one : %d results" (List.length li) in
           Thread.fail (Failure error)
+
+  let value dbh ?log v =
+    query dbh ?log (Sql.value v) >>= fun res ->
+    Thread.return (Sql.get res)
+
+  let value_opt dbh ?log v =
+    query dbh ?log (Sql.value v) >>= fun res ->
+    Thread.return (Sql.getn res)
 end
 
 module Make (Thread : THREAD) =

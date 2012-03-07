@@ -1,10 +1,18 @@
 let () =
   let dbh = PGOCaml.connect () in
-  let test' message conv view =
-    Printf.printf "Test [%s] : %s\n"
-      message
-      (conv (List.hd (Query.view dbh ~log:stdout view))#!x) in
-  let test message conv x = test' message conv << {x = $x$} >> in
+  let print_test message result =
+    Printf.printf "Test [%s] : %s\n" message result in
+  (* let print_list li = "[" ^ String.concat ";" li ^ "]" in *)
+  let print_opt conv = function
+    | None -> "None"
+    | Some v -> "Some("^ conv v ^")" in
+  let log = stdout in
+  let test_view message conv view =
+    print_test message (conv (List.hd (Query.view dbh ~log view))#!x) in
+  let test message conv v =
+    print_test message (conv (Query.value dbh ~log v)) in
+  let test_opt message conv v =
+    print_test message (print_opt conv (Query.value_opt dbh ~log v)) in
   test "1 + 2" Int32.to_string <:value< 1 + 2 >>;
   test "1 - 2" Int32.to_string <:value< 1 - 2 >>;
   test "5 / 2" Int32.to_string <:value< 5 / 2 >>;
@@ -15,11 +23,17 @@ let () =
   let accums =
     << group {count = count[t]; sum = sum[t.id]; max = max[t.id]} by {} |
         t in $Base.ingredient$ >> in
-  test' "count[ingredient]" Int64.to_string << {x = t.count} | t in $accums$ >>;
-  test' "sum[ingredient.id]" Int32.to_string << {x = t.sum} | t in $accums$ >>;
-  test' "max[ingredient.id]" Int32.to_string << {x = t.max} | t in $accums$ >>;
+  test_view "count[ingredient]" Int64.to_string
+    << {x = t.count} | t in $accums$ >>;
+  test_view "sum[ingredient.id]" Int32.to_string
+    << {x = t.sum} | t in $accums$ >>;
+  test_view "max[ingredient.id]" Int32.to_string
+    << {x = t.max} | t in $accums$ >>;
   test "null IS NULL" string_of_bool <:value< is_null null >>;
   test "null IS NOT NULL" string_of_bool <:value< is_not_null null >>;
-  test "null IS NOT DISTINCT FROM null" string_of_bool <:value< is_not_distinct_from null null >>;
-  test "current_timestamp" PGOCaml.string_of_timestamp <:value< current_timestamp >>;
+  test "null IS NOT DISTINCT FROM null"
+    string_of_bool <:value< is_not_distinct_from null null >>;
+  test "current_timestamp"
+    PGOCaml.string_of_timestamp <:value< current_timestamp >>;
+  test_opt "NULL" string_of_bool <:value< null >>;
   ()

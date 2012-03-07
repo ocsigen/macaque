@@ -74,6 +74,10 @@ type +'a sql_type
 val untyped_type : 'a sql_type -> untyped sql_type
 val recover_type : 'a sql_type -> untyped sql_type unsafe -> 'a sql_type
 
+(* It is this [get_type] function that is used in the parser for SQL
+   rows, that, from a typing point of view, gives the `get` predicate
+   back to the row values even if they didn't have one initially --
+   see the type below. *)
 val get_type :
   < t : 't; nul : 'nul; .. > t ->
   < t : 't; nul : 'nul; get : unit > sql_type
@@ -206,6 +210,11 @@ val update :
   ('a, _ writable) view -> string unsafe ->
   'b t -> bool unsafe ->
   from -> where -> unit query
+
+(* notice how the type for [value] below reinstates the [get] property,
+   just as [get_type] does for parsed row types. *)
+val value : < t : 't; nul : 'nul; .. > t ->
+            < t : 't; nul : 'nul; get : unit > t query
 
 (** query printing *)
 val sql_of_query : _ query -> string

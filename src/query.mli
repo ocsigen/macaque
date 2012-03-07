@@ -29,6 +29,21 @@ module type QUERY = sig
   val view : _ Db.t -> ?log:out_channel -> ('a, _) Sql.view -> 'a list Db.monad
   val view_one : _ Db.t -> ?log:out_channel -> ('a, _) Sql.view -> 'a Db.monad
   val view_opt : _ Db.t -> ?log:out_channel -> ('a, _) Sql.view -> 'a option Db.monad
+
+  (* The types of the convenience functions below are a bit convoluted
+     because they reproduce the typing logic from Sql.get and
+     Sql.getn.
+
+     Indeed, 'value' for example is implemented exactly as
+       fun dbh ?log v ->
+         query dbh ?log (Sql.value v) >>= fun res -> return (Sql.get res)
+  *)
+  val value : _ Db.t -> ?log:out_channel ->
+    < t : 'a #Sql.type_info; nul : Sql.non_nullable; .. > Sql.t
+      -> 'a Db.monad
+  val value_opt : _ Db.t -> ?log:out_channel ->
+    < t : 'a #Sql.type_info; nul : Sql.nullable; .. > Sql.t
+      -> 'a option Db.monad
 end
 
 module Make : functor (Thread : THREAD) ->

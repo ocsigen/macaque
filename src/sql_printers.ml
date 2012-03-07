@@ -163,6 +163,8 @@ and macaque_string_of_float x =
 
 let rec string_of_query = function
   | Select view -> string_of_view view
+  | Value value ->
+      sprintf "SELECT (%s)" (string_of_value value)
   | Insert (table, view) ->
       sprintf "INSERT INTO %s (%s)"
         (string_of_table table)

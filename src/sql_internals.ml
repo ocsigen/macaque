@@ -142,6 +142,15 @@ type query =
   | Insert of (table * view)
   | Delete of (table * row_name * from * where)
   | Update of (table * row_name * value * from * where)
+  | Value of value
+  (* the 'Value' case is for selection of only one value, no FROM part;
+     this special case can get typed more finely as
+     - the user won't have to get a list of result, only a single
+       result, in a type-safe way (rather than Query.view_one which
+       does a dynamic check)
+     - we won't request the value to be a record type (useful in
+       particular to get the value of a counter), unlike View.one
+  *)
 
 type result = select_result * sql_type
 

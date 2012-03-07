@@ -18,6 +18,7 @@ Summary of this document :
 - [Important macaque types and structures](#macaque_types)
 - [Sending queries to the SQL server](#sending_queries)
 - [Processing query results](#processing_results)
+  - [Single value queries](#single_value_query)
 - [General syntax : values, comprehensions, queries](#syntax_description)
 - [View expressions](#view)
   - [View results](#view_results)
@@ -74,7 +75,6 @@ Examples:
 Type : macaques queries have type `'a Sql.query`, where `'a` is the
 return type of the query : a row list for `SELECT` queries, unit
 otherwise.
-
 
 ##### view
 
@@ -187,7 +187,7 @@ documentation for more information. The casual user can use the
 non-functorized values, wich are a directly-usable implementation of
 the `QUERY` interface, with no threading integrated.
 
-The `Query` interface is quite simple :
+The core `Query` interface is quite simple :
 
   val query : _ Db.t -> ?log:out_channel -> 'a Sql.query -> 'a Db.monad
   val view : _ Db.t -> ?log:out_channel -> 'a Sql.view -> 'a list Db.monad
@@ -205,7 +205,6 @@ output the query string in the given output channel, if any.
 `view`, `view_one` and `view_opt` are given for convenience.
 `view_one` expect exactly one result, and `view_opt` at most one
 result; if they get more results, they will raise a `Failure` exception.
-
 
 :Note:
 
@@ -260,6 +259,39 @@ nullability-laziness from the user : you have to work on your database
 design upfront to eradicate nullable types were possible; in the case
 were a `NULL` case is a semantic necessity, you will want the explicit
 option matching anyway.
+
+
+
+#### Single value queries                                  [.single_value_query]
+
+It is sometimes useful to query single values from the database,
+instead of the usual list-of-rows SELECT query -- for example to
+request the current time, or the value of a specific counter.
+
+For this purpose, Macaque was extended with:
+
+- A `Sql.value` function building a query from a `Sql.t` value; This
+  query, once run through `Query.query`, agains return a `Sql.t`
+  value, on which `Sql.get` or `Sql.getn` can be used depending on its
+  nullability.
+
+- Convenience functions in Query to get the extracted value directly
+  without using Sql.get(n): `Query.value` for non-nullable value,
+  and `Query.value_opt` for nullable ones.
+
+As an example, the following three definitions of `get_time` are equivalent:
+
+  let time = <:value< current_timestamp >>
+
+  let get_time dbh =
+    Sql.get (Query.view_one dbh <:view< {x = $time$} >>)#x
+
+  let get_time dbh =
+    Sql.get (Query.query dbh (Sql.value time))
+
+  let get_time dbh =
+    Query.value dbh time
+
 
 
 

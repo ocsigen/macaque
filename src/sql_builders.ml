@@ -106,6 +106,8 @@ let get_table writable_view = match writable_view.data with
   | Selection _ -> assert false
   | Table data -> { writable_view with data = data }
 
+let value value = Value value
+
 let select view = Select view
 let insert view inserted_view =
   Insert (get_table view, inserted_view)

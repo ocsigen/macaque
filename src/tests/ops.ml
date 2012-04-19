@@ -1,7 +1,8 @@
 let () =
   let dbh = PGOCaml.connect () in
   let print_test message result =
-    Printf.printf "Test [%s] : %s\n" message result in
+    Printf.printf "Test [%s] : %s\n"
+      (String.escaped message) (String.escaped result) in
   (* let print_list li = "[" ^ String.concat ";" li ^ "]" in *)
   let print_opt conv = function
     | None -> "None"
@@ -20,6 +21,10 @@ let () =
   test "1.2 + 2.5" string_of_float <:value< 1.2 + 2.5 >>;
   test "1 = 2 - 1" string_of_bool <:value< 1 = 2 - 1 >>;
   test "1 = 2 - 1 && 1 = 2" string_of_bool <:value< 1 = 2 - 1 && 1 = 2 >>;
+  test "foo\"bar" (fun s -> s) <:value< "foo\"bar" >>;
+  test "foo\nbar" (fun s -> s) <:value< "foo\nbar" >>;
+  test "foo'bar" (fun s -> s) <:value< "foo'bar" >>;
+  test "foo''bar" (fun s -> s) <:value< "foo''bar" >>;
   let accums =
     << group {count = count[t]; sum = sum[t.id]; max = max[t.id]} by {} |
         t in $Base.ingredient$ >> in

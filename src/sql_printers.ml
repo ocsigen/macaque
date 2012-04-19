@@ -25,6 +25,19 @@ open Printf
 
 let string_of_list printer sep li = String.concat sep (List.map printer li)
 
+(* for now we roll our own string escaping function (String.escaped
+   does not work as it escapes double-quotes). It would be better to
+   use PostgreSQL string escaping routines directly, but as far as
+   I know PG'OCaml do not export them. *)
+let escape_string s =
+  let b = Buffer.create (String.length s) in
+  String.iter (function
+    | '\'' ->
+      Buffer.add_char b '\''; Buffer.add_char b '\''
+    | c -> Buffer.add_char b c)
+    s;
+  Buffer.contents b
+
 let rec string_of_view view = string_of_concrete view.data
 and string_of_concrete = function
   | Selection q -> sprintf "(%s)" (string_of_selection q)
@@ -141,7 +154,7 @@ and string_of_atom =
     | Int32 i -> PGOCaml.string_of_int32 i
     | Int64 i -> PGOCaml.string_of_int64 i
     | Float x -> macaque_string_of_float x
-    | String s -> quote String.escaped s
+    | String s -> quote escape_string s
     (* | Bytea i -> macaque_string_of_bytea *)
     | Time i -> quote PGOCaml.string_of_time i
     | Date i -> quote PGOCaml.string_of_date i

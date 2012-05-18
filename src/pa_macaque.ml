@@ -472,7 +472,10 @@ let () =
    insert_eoi: [[ tab = table; ":="; sel = view; `EOI ->
                     (_loc, Insert (tab, sel)) ]];
    delete_eoi: [[ bind = row_binding; comp_items = refinement; `EOI ->
-                    (_loc, Delete (bind, comp_items)) ]];
+                    (_loc, Delete (bind, comp_items)) ]
+               |[ tab = table; EOI ->
+                   (_loc, Delete ((_loc, ("_", tab)), (_loc, []))) ]
+               ];
    update_eoi: [[ bind = row_binding; ":="; res = value;
                   comp_items = refinement; `EOI ->
                     (_loc, Update (bind, res, comp_items)) ]];

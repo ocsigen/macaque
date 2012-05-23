@@ -38,6 +38,9 @@ let escape_string s =
     s;
   Buffer.contents b
 
+let string_of_fields tuple =
+  string_of_list fst "," tuple
+
 let rec string_of_view view = string_of_concrete view.data
 and string_of_concrete = function
   | Selection q -> sprintf "(%s)" (string_of_selection q)
@@ -179,8 +182,9 @@ let rec string_of_query = function
   | Value value ->
       sprintf "SELECT (%s)" (string_of_value value)
   | Insert (table, view) ->
-      sprintf "INSERT INTO %s (%s)"
+      sprintf "INSERT INTO %s (%s) (%s)"
         (string_of_table table)
+        (string_of_fields view.descr)
         (string_of_view view)
   | Delete (table, row, from, where) ->
       sprintf "DELETE FROM %s AS %s%s%s"

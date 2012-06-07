@@ -224,7 +224,7 @@ val sql_of_view : (_, _) view -> string
 val handle_query_results : 'a query -> string array list unsafe -> 'a
 
 (** standard SQL value types
-    (usable from user code, in pa_comp value antiquotations) *)
+    (usable from user code, in pa_macaque value antiquotations) *)
 module Value : sig
   val bool : bool -> < t : bool_t; get : unit; nul : _ > t
   val int16 : int16 -> < t : int16_t; get : unit; nul : _ > t

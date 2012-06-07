@@ -587,7 +587,15 @@ caml description as well.
 emulate this feature with explicit `SEQUENCE` manipulations ([sequence
 operators](#sequence_ops) section) :
 
-  DEFAULT(nextval $table_id_seq$),
+  let my_table = <:table< my_sql_table (
+    id bigint NOT NULL DEFAULT(nextval $table_id_seq$),
+    ...
+  ) >>
+
+At insertion site, one can then use the default access syntax to get
+the next identifier:
+
+  <:insert< my_table := { id = my_table?id; ... } >>
 
 #### sequence descriptions                              [.sequence_descriptions]
 
@@ -595,6 +603,8 @@ It is not possible to create new sequences from Macaque (this is
 coherent with the choice that macaques allows descriptions, not
 declarations), but macaque support sequence descriptions. Sequence
 creation operators are part of the `Sql.Sequence` module.
+
+  let table_id_seq = <:sequence< serial "the_sql_sequence_name" >>
 
 #### Checking descriptions                                 [.check_descriptions]
 
@@ -652,8 +662,8 @@ all be constructed by using named antiquotations :
   <:value< $bool:true$ >>
   <:value< $float:cos 1.2$ >>
 
-More generally, the type constructors are the values in Sql.Data :
-`<:value< $foo:bar$ >>` is equivalent to `Sql.Data.foo bar`
+More generally, the type constructors are the values in Sql.Value :
+`<:value< $foo:bar$ >>` is equivalent to `Sql.Value.foo bar`
 
 #### Column types                                                [.column_types]
 
@@ -713,7 +723,7 @@ Value information fields :
 - 'get' : just-built sql values (<:value< 1 >>, etc.) or values
   retrieved from a SQL query are gettable : you can ask for their
   corresponding caml value values using the two accessors Sql.get and
-  Sql.getn (get nullable)  :
+  Sql.getn (get nullable) :
 
        val get : < t : < typ : 'a; ..>; nul : non_nullable; get : _; .. > Sql.t -> 'a
        val getn : < t : <typ : 'a; ..>; nul : nullable; get : _; .. > Sql.t -> 'a option

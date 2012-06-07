@@ -226,18 +226,18 @@ val handle_query_results : 'a query -> string array list unsafe -> 'a
 (** standard SQL value types
     (usable from user code, in pa_macaque value antiquotations) *)
 module Value : sig
-  val bool : bool -> < t : bool_t; get : unit; nul : _ > t
-  val int16 : int16 -> < t : int16_t; get : unit; nul : _ > t
-  val int32 : int32 -> < t : int32_t; get : unit; nul : _ > t
-  val int64 : int64 -> < t : int64_t; get : unit; nul : _ > t
-  val float : float -> < t : float_t; get : unit; nul : _ > t
-  val string : string -> < t : string_t; get : unit; nul : _ > t
-  (* val bytea : bytea -> < t : bytea_t; get : unit; nul : _ > t *)
-  val time : time -> < t : time_t; get : unit; nul : _ > t
-  val date : date -> < t : date_t; get : unit; nul : _ > t
-  val timestamp : timestamp -> < t : timestamp_t; get : unit; nul : _ > t
-  val timestamptz : timestamptz -> < t : timestamptz_t; get : unit; nul : _ > t
-  val interval : interval -> < t : interval_t; get : unit; nul : _ > t
+  val bool : bool -> < t : bool_t; nul : _ > t
+  val int16 : int16 -> < t : int16_t; nul : _ > t
+  val int32 : int32 -> < t : int32_t; nul : _ > t
+  val int64 : int64 -> < t : int64_t; nul : _ > t
+  val float : float -> < t : float_t; nul : _ > t
+  val string : string -> < t : string_t; nul : _ > t
+  (* val bytea : bytea -> < t : bytea_t; nul : _ > t *)
+  val time : time -> < t : time_t; nul : _ > t
+  val date : date -> < t : date_t; nul : _ > t
+  val timestamp : timestamp -> < t : timestamp_t; nul : _ > t
+  val timestamptz : timestamptz -> < t : timestamptz_t; nul : _ > t
+  val interval : interval -> < t : interval_t; nul : _ > t
 end
 
 

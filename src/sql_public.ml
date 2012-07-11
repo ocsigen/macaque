@@ -64,6 +64,10 @@ module Op = struct
   let is_null value = postfixop value "IS NULL", Non_nullable TBool
   let is_not_null value = postfixop value "IS NOT NULL", Non_nullable TBool
 
+  let of_option = function
+    | None -> null
+    | Some v -> nullable v
+
   let same_op op_str = op (fun t -> t) op_str
   let mono_op t op_str = op (unify (Non_nullable t)) op_str
   let poly_op return_t op_str =

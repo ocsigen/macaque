@@ -262,6 +262,8 @@ module Op : sig
   val is_not_null :
     < nul : nullable; .. > t -> < t : bool_t; nul : non_nullable > t
 
+  val of_option : < t : 't; nul : non_nullable; .. > t option -> < t : 't; nul : nullable > t
+
   type 'phant arith_op = 'phant binary_op
   constraint 'phant = < in_t : #numeric_t as 't; out_t : 't; .. >
 

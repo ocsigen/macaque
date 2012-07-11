@@ -1,22 +1,22 @@
-all: macaque.cma pa_macaque.cmo pa_bananas.cmo
+INTERFACES= sql_base.cmi sql_types.cmi sql_parsers.cmi \
+		sql_printers.cmi sql_builders.cmi sql_public.cmi \
+		inner_sql.cmi \
+		sql.cmi check.cmi query.cmi \
 
-%.cmo:
+TARGETS=pa_macaque.cmo pa_bananas.cmo macaque.cma macaque.cmxa macaque.cmxs
+
+$(TARGETS):
 	ocamlbuild -tag annot $@
 
-macaque.cma:
-	ocamlbuild -tag annot macaque.cma
+all: $(TARGETS)
 
-install:
-	ocamlfind install macaque META \
-	_build/sql_base.cmi _build/sql_types.cmi _build/sql_parsers.cmi \
-	_build/sql_printers.cmi _build/sql_builders.cmi _build/sql_public.cmi \
-	_build/inner_sql.cmi \
-	_build/sql.cmi _build/check.cmi _build/query.cmi \
-	_build/macaque.cma \
-	_build/pa_macaque.cmo _build/pa_bananas.cmo
+install: all
+	ocamlfind install macaque META $(addprefix "_build/",$(INTERFACES) $(TARGETS))
 
 uninstall:
 	ocamlfind remove macaque
+
+reinstall: uninstall install
 
 clean:
 	ocamlbuild -clean

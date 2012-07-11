@@ -3,6 +3,8 @@ version="BETA"
 description="MaCaQue, Macros for Caml Queries : a typed SQL DSL for Caml"
 requires="pgocaml"
 archive(byte)="macaque.cma"
+archive(native)="macaque.cmxa"
+archive(plugin,native)="macaque.cmxs"
 
 package "syntax" (
   requires = "macaque,camlp4"

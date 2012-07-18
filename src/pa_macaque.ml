@@ -644,14 +644,15 @@ let producer _loc fields =
   <:expr< fun obj -> $descr$ >>
 
 let result_parser _loc fields =
+  let var name = "field_" ^ name in
   let parser_binding (_loc, (name, typ_expr)) =
-    <:binding< $lid:name$ =
+    <:binding< $lid:var name$ =
                  Sql.parse (Sql.recover_type $typ_expr$
                               (Sql.unsafe (List.assoc $str:name$ descr))) >> in
   let value_binding (_loc, (name, _)) =
-    <:binding< $lid:name$ = $lid:name$ input >> in
+    <:binding< $lid:var name$ = $lid:var name$ input >> in
   let meth (_loc, (name, _)) =
-    <:class_str_item< method $lid:name$ = $lid:name$ >> in
+    <:class_str_item< method $lid:name$ = $lid:var name$ >> in
   <:expr<
     fun descr ->
       let $Ast.biAnd_of_list (List.map parser_binding fields)$ in
@@ -909,21 +910,23 @@ and query_binding (_loc, (name, (_, table))) =
 
 (* Table descriptions *)
 let table_of_descr (_loc, table) =
+  let field_name name = "table_field_"^name in
   let type_bindings =
     let bind (_loc, f) =
       let witness =
         (if f.nullable then "nullable" else "non_nullable") ^ "_witness" in
-      <:binding< $lid:f.field_name$ = Sql.Table_type.$lid:f.sql_type$ Sql.$lid:witness$ >> in
+      <:binding< $lid:field_name f.field_name$
+                   = Sql.Table_type.$lid:f.sql_type$ Sql.$lid:witness$ >> in
     Ast.biAnd_of_list (List.map bind table.field_descrs) in
   let fields = map_located (fun _ descr -> descr.field_name) table.field_descrs in
   let descr =
     let field_descr (_loc, name) =
-      <:expr< ($str:name$, Sql.untyped_type $lid:name$) >> in
+      <:expr< ($str:name$, Sql.untyped_type $lid:field_name name$) >> in
     camlp4_list _loc (List.map field_descr fields) in
   let producer =
     <:expr< Sql.unsafe (fun ~row -> $producer _loc fields$ row) >> in
   let result_parser =
-    let field_info _loc name = name, <:expr< $lid:name$ >> in
+    let field_info _loc name = name, <:expr< $lid:field_name name$ >> in
     result_parser _loc (map_located field_info fields) in
   let name_expr = match table.table_name with
     | (_loc, (None, table)) -> <:expr< (None, $str:table$) >>

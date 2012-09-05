@@ -5,7 +5,13 @@ INTERFACES= sql_base.cmi sql_types.cmi sql_parsers.cmi \
 
 TARGETS=pa_macaque.cmo pa_bananas.cmo macaque.cma macaque.cmxa macaque.cmxs
 
-$(TARGETS):
+%.cmo:
+	ocamlbuild -tag annot $@
+%.cma:
+	ocamlbuild -tag annot $@
+%.cmxa:
+	ocamlbuild -tag annot $@
+%.cmxs:
 	ocamlbuild -tag annot $@
 
 all: $(TARGETS)

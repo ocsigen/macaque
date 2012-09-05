@@ -257,7 +257,7 @@ let () =
                     (_loc, Insert (tab, sel)) ]];
    delete_eoi: [[ bind = row_binding; comp_items = refinement; `EOI ->
                     (_loc, Delete (bind, comp_items))
-               | tab = table; EOI ->
+               | tab = table; `EOI ->
                    let id = dummy_identifier "deleted_table" in
                    (_loc, Delete ((_loc, (id, tab)), (_loc, []))) ]];
    update_eoi: [[ bind = row_binding; ":="; res = value;

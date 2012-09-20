@@ -32,9 +32,9 @@ let () =
   test_view "count[ingredient]" Int64.to_string
     << {x = t.count} | t in $accums$ >>;
   test_view "sum[ingredient.id]" Int32.to_string
-    << {x = t.sum} | t in $accums$ >>;
+    << {x = match t.sum with null -> 0 | n -> n} | t in $accums$ >>;
   test_view "max[ingredient.id]" Int32.to_string
-    << {x = t.max} | t in $accums$ >>;
+    << {x = match t.max with null -> 0 | n -> n} | t in $accums$ >>;
   test "null IS NULL" string_of_bool <:value< is_null null >>;
   test "null IS NOT NULL" string_of_bool <:value< is_not_null null >>;
   test "null IS NOT DISTINCT FROM null"

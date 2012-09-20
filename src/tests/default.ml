@@ -11,8 +11,8 @@ let insert name =
   <:insert< $table$ :=
     { recette = "foo";
       nom = $string:name$;
-      poids = table?poids;
-      categorie = table?categorie } >>
+      poids = $table$?poids;
+      categorie = $table$?categorie } >>
 
 let count =
   << group {count = count[t]} |

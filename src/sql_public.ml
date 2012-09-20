@@ -107,9 +107,9 @@ module Op = struct
   let not (value, typ) = prefixop "NOT" (value, typ), typ
 
   let count x = prefixop "count" x, Non_nullable TInt64
-  let min (v, t) = prefixop "min" (v, t), t
-  let max (v, t) = prefixop "max" (v, t), t
-  let sum (v, t) = prefixop "sum" (v, t), t
+  let min (v, t) = nullable (prefixop "min" (v, t), t)
+  let max (v, t) = nullable (prefixop "max" (v, t), t)
+  let sum (v, t) = nullable (prefixop "sum" (v, t), t)
 
   let label seq_name = Atom (String seq_name), Non_nullable TString
   let nextval (seq_name, typ) =

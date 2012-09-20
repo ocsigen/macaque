@@ -21,6 +21,8 @@
 open Sql_base
 open Sql_internals
 
+let keyword_safe = Sql_keywords.keyword_safe
+
 open Printf
 
 let string_of_list printer sep li = String.concat sep (List.map printer li)
@@ -39,7 +41,7 @@ let escape_string s =
   Buffer.contents b
 
 let string_of_fields tuple =
-  string_of_list fst "," tuple
+  string_of_list (fun (field, _) -> keyword_safe field) "," tuple
 
 let rec string_of_view view = string_of_concrete view.data
 and string_of_concrete = function
@@ -110,11 +112,12 @@ and string_of_value (value, _) =
     | Field ((Null, _), _) ->
         (* NULL.foo is considered equivalent to NULL *)
         "NULL"
-    | Row (row_name, _) -> row_name
+    | Row (row_name, _) -> keyword_safe row_name
     | Cast (v, t) ->
         sprintf "CAST(%s AS %s)" (string_of_value v) (string_of_atom_type t)
     | Field ((Row (row_name, _), _), fields) ->
-        sprintf "%s.%s" row_name (String.concat path_separator fields)
+        sprintf "%s.%s" (keyword_safe row_name)
+          (String.concat path_separator (List.map keyword_safe fields))
     | Field (v, _) ->
         failwith (Printf.sprintf "string_of_value : invalid field access (%s)"
                     (string_of_value v))
@@ -140,15 +143,12 @@ and string_of_value (value, _) =
         sprintf "(CASE %s ELSE %s END)"
           (string_of_list string_of_case " " cases)
           (string_of_value default)
-and string_of_field (row, name) = match name with
-  | field_name when true -> sprintf "%s.%s" row field_name
-  | _ -> assert false
 and string_of_from_item (row_name, table) =
-  sprintf "%s AS %s" (string_of_view table) row_name
+  sprintf "%s AS %s" (string_of_view table) (keyword_safe row_name)
 and string_of_table (table : table) = string_of_table_name table.data.name
 and string_of_table_name = function
-  | (None, table) -> table
-  | (Some schema, table) -> sprintf "%s.%s" schema table
+  | (None, table) -> keyword_safe table
+  | (Some schema, table) -> sprintf "%s.%s" (keyword_safe schema) (keyword_safe table)
 and string_of_atom =
   let quote printer value = sprintf "'%s'" (printer value) in
   function

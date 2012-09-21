@@ -1,4 +1,4 @@
-INTERFACES= sql_base.cmi sql_types.cmi sql_parsers.cmi \
+INTERFACES= sql_base.cmi sql_types.cmi sql_parsers.cmi sql_keywords.cmi \
 		sql_printers.cmi sql_builders.cmi sql_public.cmi \
 		inner_sql.cmi \
 		sql.cmi check.cmi query.cmi \

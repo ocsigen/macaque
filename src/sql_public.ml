@@ -36,12 +36,13 @@ module Value = struct
   let int64 i = Atom (Int64 i), Non_nullable TInt64
   let float x = Atom (Float x), Non_nullable TFloat
   let string s = Atom (String s), Non_nullable TString
-  (* let bytea i = Atom (Bytea i), Non_nullable TBytea *)
+  let bytea i = Atom (Bytea i), Non_nullable TBytea
   let time i = Atom (Time i), Non_nullable TTime
   let date i = Atom (Date i), Non_nullable TDate
   let timestamp i = Atom (Timestamp i), Non_nullable TTimestamp
   let timestamptz i = Atom (Timestamptz i), Non_nullable TTimestamptz
   let interval i = Atom (Interval i), Non_nullable TInterval
+  let int32_array js = Atom (Int32_array js), Non_nullable TInt32_array
 end
 
 type 'a sequence = string * atom_type
@@ -131,12 +132,13 @@ module Table_type = struct
   let bigint = _type TInt64
   let double = _type TFloat
   let text = _type TString
-  (* let bytea = _type TBytea *)
+  let bytea = _type TBytea
   let time = _type TTime
   let date = _type TDate
   let timestamp = _type TTimestamp
   let timestamptz = _type TTimestamptz
   let interval = _type TInterval
+  let int32_array = _type TInt32_array
 end
 
 module View = struct

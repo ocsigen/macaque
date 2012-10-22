@@ -36,12 +36,13 @@ class type int32_t = object inherit [int32] type_info inherit numeric_t end
 class type int64_t = object inherit [int64] type_info inherit numeric_t end
 class type float_t = object inherit [float] type_info inherit numeric_t end
 class type string_t = object inherit [string] type_info end
-(* class type bytea_t = object inherit [bytea] type_info end *)
+class type bytea_t = object inherit [bytea] type_info end
 class type time_t = object inherit [time] type_info end
 class type date_t = object inherit [date] type_info end
 class type timestamp_t = object inherit [timestamp] type_info end
 class type timestamptz_t = object inherit [timestamptz] type_info end
 class type interval_t = object inherit [interval] type_info end
+class type int32_array_t = object inherit [int32 array] type_info end
 
 class type ['row] row_t = object inherit ['row] type_info end
 
@@ -99,13 +100,14 @@ let get_val : < get : _; t : 'a #type_info; .. > atom -> 'a =
     | SQLI.Int32 i -> !?i
     | SQLI.Int64 i -> !?i
     | SQLI.Float x -> !?x
-    (* | SQLI.Bytea t -> !?t *)
+    | SQLI.Bytea t -> !?t
     | SQLI.String s -> !?s
     | SQLI.Time t -> !?t
     | SQLI.Date d -> !?d
     | SQLI.Timestamp t -> !?t
     | SQLI.Timestamptz t -> !?t
     | SQLI.Interval i -> !?i
+    | SQLI.Int32_array js -> !?js
     | SQLI.Record o -> !?o
 
 let get ((r, t) : 'a t) =

@@ -65,12 +65,13 @@ and atom =
   | Int64 of int64
   | Float of float
   | String of string
-  (* | Bytea of bytea *)
+  | Bytea of bytea
   | Time of time
   | Date of date
   | Timestamp of timestamp
   | Timestamptz of timestamptz
   | Interval of interval
+  | Int32_array of int32 array
   | Record of untyped (* runtime object instance *)
 and table_name = string option * string
 and row_name = string
@@ -86,12 +87,13 @@ and atom_type =
   | TInt64
   | TFloat
   | TString
-  (* | TBytea *)
+  | TBytea
   | TTime
   | TDate
   | TTimestamp
   | TTimestamptz
   | TInterval
+  | TInt32_array
   | TRecord of unit generic_view
 and 'a record_parser = descr -> 'a result_parser
 
@@ -115,12 +117,13 @@ let atom_type_of_string = function
   | "bigint" -> TInt64
   | "double precision" -> TFloat
   | "text" -> TString
-  (* | "bytea" -> TBytea *)
+  | "bytea" -> TBytea
   | "time" -> TTime
   | "date" -> TDate
   | "timestamp" -> TTimestamp
   | "timestamptz" -> TTimestamptz
   | "interval" -> TInterval
+  | "int32_array" -> TInt32_array
   | other -> failwith ("unknown sql type " ^ other)
 let string_of_atom_type = function
   | TBool -> "boolean"
@@ -129,12 +132,13 @@ let string_of_atom_type = function
   | TInt64 -> "bigint"
   | TFloat -> "double precision"
   | TString -> "text"
-  (* | TBytea -> "bytea" *)
+  | TBytea -> "bytea"
   | TTime -> "time"
   | TDate -> "date"
   | TTimestamp -> "timestamp"
   | TTimestamptz -> "timestampz"
   | TInterval -> "interval"
+  | TInt32_array -> "int32_array"
   | TRecord _ -> "record"
 
 type query =
@@ -166,7 +170,7 @@ let rec unify t t' =
   let unify_atom a a' = match a, a' with
     (* identity unifications *)
     | ( TBool | TInt16 | TInt32 | TInt64 | TFloat
-      | TString (* | TBytea  *)| TTime | TDate | TInterval
+      | TString | TBytea | TTime | TDate | TInterval | TInt32_array
       | TTimestamp | TTimestamptz) as t, t' when t = t' -> t
     | TRecord r, TRecord r' ->
         let fields descr = List.sort compare (List.map fst descr) in
@@ -181,7 +185,7 @@ let rec unify t t' =
 
     (* failure *)
     | ( TBool | TInt16 | TInt32 | TInt64 | TFloat
-      | TString (* | TBytea *) | TTime | TDate | TInterval
+      | TString | TBytea | TTime | TDate | TInterval | TInt32_array
       | TTimestamp | TTimestamptz | TRecord _), _ ->
         failwith
           (Printf.sprintf "unify (%s and %s)"

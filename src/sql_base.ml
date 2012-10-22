@@ -36,3 +36,4 @@ and date = CalendarLib.Date.t
 and interval = CalendarLib.Calendar.Period.t
 and timestamp = CalendarLib.Calendar.t 
 and timestamptz = PGOCaml.timestamptz (* = CalendarLib.Calendar.t * CalendarLib.Time_Zone.t *)
+and int32_array = PGOCaml.int32_array

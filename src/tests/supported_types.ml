@@ -24,4 +24,5 @@ let () =
   let tz_compare (t, tz) (t', tz') =
     let t2 = Calendar.convert t' tz' tz in
     Calendar.compare t t2 in
-  cycle dbh timestamptz Sql.Value.timestamptz tz_compare
+  cycle dbh timestamptz Sql.Value.timestamptz tz_compare;
+  cycle dbh [|71l; 19l; 120l; 5l|] Sql.Value.int32_array compare

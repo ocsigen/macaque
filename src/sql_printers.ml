@@ -158,12 +158,13 @@ and string_of_atom =
     | Int64 i -> PGOCaml.string_of_int64 i
     | Float x -> macaque_string_of_float x
     | String s -> quote escape_string s
-    (* | Bytea i -> macaque_string_of_bytea *)
+    | Bytea i -> macaque_string_of_bytea i
     | Time i -> quote PGOCaml.string_of_time i
     | Date i -> quote PGOCaml.string_of_date i
     | Timestamp i -> quote PGOCaml.string_of_timestamp i
     | Timestamptz i -> quote PGOCaml.string_of_timestamptz i
     | Interval i -> quote PGOCaml.string_of_interval i
+    | Int32_array js -> quote PGOCaml.string_of_int32_array js
     | Record t ->
         (* all records should have been expanded,
            that's the !atom-records flatten postcondition *)
@@ -176,6 +177,12 @@ and macaque_string_of_float x =
   | FP_normal | FP_subnormal | FP_zero -> string_of_float x
   | FP_nan -> litteral "NaN"
   | FP_infinite -> litteral (if x = infinity then "Infinity" else "-Infinity")
+and macaque_string_of_bytea octets =
+  let buf = Buffer.create (String.length octets * 2 + 8) in
+  Buffer.add_string buf "E'\\\\x";
+  String.iter (fun ch -> Printf.bprintf buf "%02x" (Char.code ch)) octets;
+  Buffer.add_char buf '\'';
+  Buffer.contents buf
 
 let rec string_of_query = function
   | Select view -> string_of_view view

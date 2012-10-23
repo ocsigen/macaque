@@ -136,7 +136,7 @@ let string_of_atom_type = function
   | TTime -> "time"
   | TDate -> "date"
   | TTimestamp -> "timestamp"
-  | TTimestamptz -> "timestampz"
+  | TTimestamptz -> "timestamptz"
   | TInterval -> "interval"
   | TInt32_array -> "int32_array"
   | TRecord _ -> "record"

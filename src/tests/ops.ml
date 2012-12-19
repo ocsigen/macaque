@@ -23,9 +23,11 @@ let () =
   test "1 = 2 - 1 && 1 = 2" string_of_bool <:value< 1 = 2 - 1 && 1 = 2 >>;
   test "foo\"bar" (fun s -> s) <:value< "foo\"bar" >>;
   test "foo\nbar" (fun s -> s) <:value< "foo\nbar" >>;
+  test "foo\\nbar" (fun s -> s) <:value< "foo\\nbar" >>;
   test "foo\\bar" (fun s -> s) <:value< "foo\\bar" >>;
   test "foo'bar" (fun s -> s) <:value< "foo'bar" >>;
   test "foo''bar" (fun s -> s) <:value< "foo''bar" >>;
+  test "foo bar\\" (fun s -> s) <:value< "foo bar\\" >>;
   let accums =
     << group {count = count[t]; sum = sum[t.id]; max = max[t.id]} by {} |
         t in $Base.ingredient$ >> in

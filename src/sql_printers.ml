@@ -36,6 +36,8 @@ let escape_string s =
   String.iter (function
     | '\'' ->
       Buffer.add_char b '\''; Buffer.add_char b '\''
+    | '\\' ->
+      Buffer.add_char b '\\'; Buffer.add_char b '\\'
     | c -> Buffer.add_char b c)
     s;
   Buffer.contents b
@@ -150,7 +152,7 @@ and string_of_table_name = function
   | (None, table) -> keyword_safe table
   | (Some schema, table) -> sprintf "%s.%s" (keyword_safe schema) (keyword_safe table)
 and string_of_atom =
-  let quote printer value = sprintf "'%s'" (printer value) in
+  let quote printer value = sprintf "E'%s'" (printer value) in
   function
     | Bool b -> macaque_string_of_bool b
     | Int16 i -> PGOCaml.string_of_int16 i

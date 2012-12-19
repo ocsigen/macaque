@@ -355,7 +355,7 @@ let () =
           | `INT(i, _) -> <:expr< Sql.Value.int32 (Int32.of_int $`int:i$) >>
           | `INT32(i, _) -> <:expr< Sql.Value.int32 $`int32:i$ >>
           | `INT64(i, _) -> <:expr< Sql.Value.int64 $`int64:i$ >>
-          | `STRING(_, s) -> <:expr< Sql.Value.string $`str:s$ >>
+          | `STRING(s, _) -> <:expr< Sql.Value.string $`str:s$ >>
           | `FLOAT(f, _) -> <:expr< Sql.Value.float $`flo:f$ >>
           | "true" -> <:expr< Sql.Value.bool True >>
           | "false" -> <:expr< Sql.Value.bool False >>

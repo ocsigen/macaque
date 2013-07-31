@@ -118,7 +118,7 @@ and string_of_value (value, _) =
     | Cast (v, t) ->
         sprintf "CAST(%s AS %s)" (string_of_value v) (string_of_atom_type t)
     | Field ((Row (row_name, _), _), fields) ->
-        sprintf "%s.%s" (keyword_safe row_name)
+        sprintf "%s.\"%s\"" (keyword_safe row_name)
           (String.concat path_separator (List.map keyword_safe fields))
     | Field (v, _) ->
         failwith (Printf.sprintf "string_of_value : invalid field access (%s)"
@@ -139,7 +139,7 @@ and string_of_value (value, _) =
              | li -> " " ^ string_of_list string_of_value " " right)
     | Case ([], default) -> string_of_value default
     | Case (cases, default) ->
-        let string_of_case (cond, case) = 
+        let string_of_case (cond, case) =
           sprintf "WHEN %s THEN %s"
             (string_of_value cond) (string_of_value case) in
         sprintf "(CASE %s ELSE %s END)"
@@ -149,8 +149,9 @@ and string_of_from_item (row_name, table) =
   sprintf "%s AS %s" (string_of_view table) (keyword_safe row_name)
 and string_of_table (table : table) = string_of_table_name table.data.name
 and string_of_table_name = function
-  | (None, table) -> keyword_safe table
-  | (Some schema, table) -> sprintf "%s.%s" (keyword_safe schema) (keyword_safe table)
+  | (None, table) -> "\"" ^ (keyword_safe table) ^ "\""
+  | (Some schema, table) -> sprintf "%s.\"%s\"" (keyword_safe schema) (keyword_safe table)
+
 and string_of_atom =
   let quote printer value = sprintf "E'%s'" (printer value) in
   function
@@ -206,4 +207,3 @@ let rec string_of_query = function
         (string_of_assoc set)
         (string_of_from from)
         (string_of_where where)
-

@@ -19,3 +19,6 @@
 *)
 
 include Inner_sql
+
+type 'a nullable_t = < get : unit; t : 'a; nul : nullable > t
+type 'a non_nullable_t = < get : unit; t : 'a; nul : non_nullable > t

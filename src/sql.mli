@@ -59,6 +59,9 @@ type 't type_info_only = < t : 't type_info >
 type +'a t
 val untyped_t : 'a t -> untyped t
 
+type 'a nullable_t = < get : unit; t : 'a; nul : nullable > t
+type 'a non_nullable_t = < get : unit; t : 'a; nul : non_nullable > t
+
 type 'phant binary_op = 'a t -> 'b t -> 'c t
 constraint 'a = < t : 'in_t; nul : 'n; .. >
 constraint 'b = < t : 'in_t; nul : 'n; .. >

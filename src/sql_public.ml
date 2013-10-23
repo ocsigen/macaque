@@ -145,3 +145,6 @@ module View = struct
   open Sql_builders
   let one t = view (simple_select t) [] []
 end
+
+type 'a nullable_data = < get : unit; t : 'a; nul : nullable > t
+type 'a non_nullable_data = < get : unit; t : 'a; nul : non_nullable > t

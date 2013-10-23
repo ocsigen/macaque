@@ -59,15 +59,19 @@ type 't type_info_only = < t : 't type_info >
 type +'a t
 val untyped_t : 'a t -> untyped t
 
-type 'a nullable_t = < get : unit; t : 'a; nul : nullable > t
-type 'a non_nullable_t = < get : unit; t : 'a; nul : non_nullable > t
-
+(** type synonyms for convenience *)
 type 'phant binary_op = 'a t -> 'b t -> 'c t
 constraint 'a = < t : 'in_t; nul : 'n; .. >
 constraint 'b = < t : 'in_t; nul : 'n; .. >
 constraint 'c = < t : 'out_t; nul : 'n >
 constraint 'phant =
   < in_t : 'in_t; out_t : 'out_t; nul : 'n; a : 'a; b : 'b >
+
+type 'a nullable_data = < get : unit; t : 'a; nul : nullable > t
+type 'a non_nullable_data = < get : unit; t : 'a; nul : non_nullable > t
+(* we use the [_data] suffix to insist that those types have a 'get'
+   method, and are thus only fit to describe values obtained from a SQL
+   query, and not AST fragments describing values to build queries. *)
 
 (** unsafe *)
 type +'a unsafe

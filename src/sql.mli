@@ -50,6 +50,7 @@ class type timestamp_t = object inherit [timestamp] type_info end
 class type timestamptz_t = object inherit [timestamptz] type_info end
 class type interval_t = object inherit [interval] type_info end
 class type int32_array_t = object inherit [int32 array] type_info end
+class type string_array_t = object inherit [string array] type_info end
 
 class type ['row] row_t = object inherit ['row] type_info end
 
@@ -213,6 +214,8 @@ module Table_type : sig
     < get : unit; nul : 'nul; t : interval_t > sql_type
   val int32_array : 'nul nul_witness ->
     < get : unit; nul : 'nul; t : int32_array_t > sql_type
+  val string_array : 'nul nul_witness ->
+    < get : unit; nul : 'nul; t : string_array_t > sql_type
 end
 
 (** final query building *)
@@ -256,6 +259,7 @@ module Value : sig
   val timestamptz : timestamptz -> < t : timestamptz_t; nul : _ > t
   val interval : interval -> < t : interval_t; nul : _ > t
   val int32_array : int32 array -> < t : int32_array_t; nul : _ > t
+  val string_array : string array -> < t : string_array_t; nul : _ > t
 end
 
 

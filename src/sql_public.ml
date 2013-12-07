@@ -44,6 +44,7 @@ module Value = struct
   let timestamptz i = Atom (Timestamptz i), Non_nullable TTimestamptz
   let interval i = Atom (Interval i), Non_nullable TInterval
   let int32_array js = Atom (Int32_array js), Non_nullable TInt32_array
+  let string_array js = Atom (String_array js), Non_nullable TString_array
 end
 
 type 'a sequence = string * atom_type
@@ -157,6 +158,7 @@ module Table_type = struct
   let timestamptz = _type TTimestamptz
   let interval = _type TInterval
   let int32_array = _type TInt32_array
+  let string_array = _type TString_array
 end
 
 module View = struct

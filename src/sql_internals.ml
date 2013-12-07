@@ -75,6 +75,7 @@ and atom =
   | Timestamptz of timestamptz
   | Interval of interval
   | Int32_array of int32 array
+  | String_array of string array
   | Record of untyped (* runtime object instance *)
 and table_name = string option * string
 and row_name = string
@@ -98,6 +99,7 @@ and atom_type =
   | TTimestamptz
   | TInterval
   | TInt32_array
+  | TString_array
   | TRecord of unit generic_view
 and 'a record_parser = descr -> 'a result_parser
 
@@ -129,6 +131,7 @@ let atom_type_of_string = function
   | "timestamptz" -> TTimestamptz
   | "interval" -> TInterval
   | "int32_array" -> TInt32_array
+  | "string_array" -> TString_array
   | other -> failwith ("unknown sql type " ^ other)
 let string_of_atom_type = function
   | TUnit -> "unit"
@@ -145,6 +148,7 @@ let string_of_atom_type = function
   | TTimestamptz -> "timestamptz"
   | TInterval -> "interval"
   | TInt32_array -> "int32_array"
+  | TString_array -> "string_array"
   | TRecord _ -> "record"
 
 type query =
@@ -177,7 +181,7 @@ let rec unify t t' =
     (* identity unifications *)
     | ( TUnit | TBool | TInt16 | TInt32 | TInt64 | TFloat
       | TString | TBytea | TTime | TDate | TInterval | TInt32_array
-      | TTimestamp | TTimestamptz) as t, t' when t = t' -> t
+      | TString_array | TTimestamp | TTimestamptz) as t, t' when t = t' -> t
     | TRecord r, TRecord r' ->
         let fields descr = List.sort compare (List.map fst descr) in
         let d, d' = r.descr, r'.descr in
@@ -192,7 +196,7 @@ let rec unify t t' =
     (* failure *)
     | ( TUnit | TBool | TInt16 | TInt32 | TInt64 | TFloat
       | TString | TBytea | TTime | TDate | TInterval | TInt32_array
-      | TTimestamp | TTimestamptz | TRecord _), _ ->
+      | TString_array | TTimestamp | TTimestamptz | TRecord _), _ ->
         failwith
           (Printf.sprintf "unify (%s and %s)"
              (string_of_atom_type a)

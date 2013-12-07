@@ -44,6 +44,7 @@ class type timestamp_t = object inherit [timestamp] type_info end
 class type timestamptz_t = object inherit [timestamptz] type_info end
 class type interval_t = object inherit [interval] type_info end
 class type int32_array_t = object inherit [int32 array] type_info end
+class type string_array_t = object inherit [string array] type_info end
 
 class type ['row] row_t = object inherit ['row] type_info end
 
@@ -110,6 +111,7 @@ let get_val : < get : _; t : 'a #type_info; .. > atom -> 'a =
     | SQLI.Timestamptz t -> !?t
     | SQLI.Interval i -> !?i
     | SQLI.Int32_array js -> !?js
+    | SQLI.String_array js -> !?js
     | SQLI.Record o -> !?o
 
 let get ((r, t) : 'a t) =

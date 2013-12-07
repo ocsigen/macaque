@@ -1,3 +1,23 @@
+DROP TABLE liste;
+DROP TABLE ingredient;
+DROP TABLE recette;
+
+DROP SEQUENCE sequence_test_id_seq;
+DROP TABLE sequence_test;
+
+DROP TABLE tag;
+DROP TABLE url;
+
+DROP TABLE test1;
+DROP TABLE test2;
+
+CREATE TABLE test1 (
+    text text
+);
+CREATE TABLE test2 (
+    text text
+);
+
 CREATE TABLE ingredient (
     id integer NOT NULL,
     nom text
@@ -57,3 +77,33 @@ CREATE TABLE sequence_test (
 );
 
 CREATE SEQUENCE sequence_test_id_seq;
+
+
+CREATE TABLE url (
+    id integer NOT NULL,
+    text text
+);
+
+CREATE TABLE tag (
+    url_id integer NOT NULL,
+    text text
+);
+
+ALTER TABLE ONLY url
+    ADD CONSTRAINT url_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY tag
+    ADD CONSTRAINT tag_url_id_fkey FOREIGN KEY (url_id) REFERENCES url(id);
+
+COPY url (id, text) FROM stdin;
+0	'http://foo'
+1	'http://bar'
+2	'http://bla'
+3	'http://foo'
+\.
+
+COPY tag (url_id, text) FROM stdin;
+0	'foo is cool'
+0	'foo is great'
+1	'bar is also cool'
+2	'and bla is the best'
+\.

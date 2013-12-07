@@ -54,6 +54,8 @@ let rec flatten_view view =
   { view with data = flatten_concrete view.data }
 and flatten_concrete = function
   | Table t -> Table t
+  | View_op (v1, op, v2) ->
+    View_op (flatten_concrete v1, op, flatten_concrete v2)
   | Selection q -> Selection (flatten_selection q)
 and flatten_selection q =
   { select = flatten_select q.select;

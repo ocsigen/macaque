@@ -33,6 +33,7 @@ and table_data =
 and concrete_view =
   | Table of table_data
   | Selection of select
+  | View_op of concrete_view * string * concrete_view
 and select =
   { select : select_result;
     from : from;

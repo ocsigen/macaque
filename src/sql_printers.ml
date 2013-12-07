@@ -48,6 +48,8 @@ let string_of_fields tuple =
 let rec string_of_view view = string_of_concrete view.data
 and string_of_concrete = function
   | Selection q -> sprintf "(%s)" (string_of_selection q)
+  | View_op (v1, op, v2) -> sprintf "(%s %s %s)"
+    (string_of_concrete v1) op (string_of_concrete v2)
   | Table table_data -> string_of_table_name table_data.name
 and string_of_selection q =
   let result = match q.select with

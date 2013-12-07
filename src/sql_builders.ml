@@ -34,7 +34,7 @@ let field row path checker =
 let default table field checker =
   ignore checker;
   match table.data with
-    | Selection _ -> invalid_arg "default"
+    | Selection _ | View_op _ -> invalid_arg "default"
     | Table table -> List.assoc field table.defaults
 
 let row name view =
@@ -104,6 +104,7 @@ let group group_part result_part =
 (** queries *)
 let get_table writable_view = match writable_view.data with
   | Selection _ -> assert false
+  | View_op _ -> assert false
   | Table data -> { writable_view with data = data }
 
 let value value = Value value

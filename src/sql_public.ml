@@ -146,5 +146,19 @@ module View = struct
   let one t = view (simple_select t) [] []
 end
 
+module ViewOp = struct
+  let binop op v1 v2 =
+    (* v1 and v2 have the same type as the operator return
+       so using any of v1's or v2's metadata will work *)
+    {v1 with data = View_op(v1.data, op, v2.data)}
+
+  let union = binop "UNION"
+  let union_all = binop "UNION ALL"
+  let intersect = binop "INTERSECT"
+  let intersect_all = binop "INTERSECT ALL"
+  let except = binop "EXCEPT"
+  let except_all = binop "EXCEPT ALL"
+end
+
 type 'a nullable_data = < get : unit; t : 'a; nul : nullable > t
 type 'a non_nullable_data = < get : unit; t : 'a; nul : non_nullable > t

@@ -49,13 +49,19 @@ and update = table binding located * value located * refinement located
 and refinement = comp_item located list
 and where = value located list
 and select =
-  { result : select_result located;
+  | Comprehension of comprehension
+  | Select_atom of Ast.expr
+  | Select_op of select_op located * select located * select located list
+    (* first argument is distinguished to ensure argument list is not empty *)
+and select_op = ident
+and comprehension =
+  { result : comp_result located;
     items : refinement located;
     order_by : (value located * order) located list option;
     limit : value located option;
     offset : value located option }
 and order = Asc | Desc
-and select_result =
+and comp_result =
   | Simple_select of value
   | Group_by of tuple located * tuple located
 and comp_item =
@@ -266,16 +272,39 @@ let () =
 
    refinement: [[ "|"; items = comp_item_list -> (_loc, items) ]];
 
-   view: [[ result = result;
+   view:
+     [ "op"
+          [op = view_op; args = LIST1 view_arg ->
+            match args with
+              | [] -> assert false (* LIST 1 *)
+              | arg0::args ->
+                (_loc, Select_op (op, arg0, args)) ]
+     | "view"
+          [ result = result;
             order_by = OPT order_by;
             limit = OPT limit;
             offset = OPT offset;
             items = OPT refinement ->
-              (_loc, { result = result;
+              (_loc, Comprehension {
+                       result = result;
                        order_by = order_by;
                        limit = limit;
                        offset = offset;
-                       items = opt_list _loc items }) ]];
+                       items = opt_list _loc items;
+                     })
+          ]
+     ];
+
+   view_op: [[
+     op = ["union" | "union_all"
+          |"intersect" | "intersect_all"
+          | "except" | "except_all"]
+     -> (_loc, op)
+   ]];
+   view_arg: [[
+     "("; (_,v) = view; ")" -> (_loc, v)
+   | `ANTIQUOT("", t) -> (_loc, Select_atom (quote _loc t))
+   ]];
    result: [[ (_, v) = value -> (_loc, Simple_select v)
             | "group"; group = tuple; by = OPT ["by"; by = tuple -> by] ->
               let by = match by with
@@ -298,6 +327,7 @@ let () =
    table: [[ `ANTIQUOT("", t) -> (_loc, quote _loc t)
            | `ANTIQUOT(id, t) ->
                (_loc, <:expr< Sql.View.$lid:id$ $quote _loc t$ >>) ]];
+
    value:
      [ "top" RIGHTA
          [ "match"; e = SELF; "with";
@@ -471,17 +501,27 @@ let option_of_comp f = function
   | None -> None
   | Some x -> Some (f x)
 
-let rec view_of_comp (_loc, (select : select) ) =
-  let (from, where, env) = from_where_env_of_compitems select.items in
-  let limit = option_of_comp (value_of_comp Env.empty) select.limit in
-  let offset = option_of_comp (value_of_comp Env.empty) select.offset in
-  let order_by = option_of_comp (order_by_of_comp env _loc) select.order_by in
+let rec view_of_comp (_loc, (select : select)) = match select with
+  | Comprehension comp -> view_of_simple_comp (_loc, comp)
+  | Select_atom expr -> expr
+  | Select_op (op, arg0, args) ->
+    let viewop =
+      let (_loc, lid) = op in
+      <:expr< Sql.ViewOp.$lid:lid$ >> in
+    let apply f x = <:expr< $viewop$ $f$ $view_of_comp x$ >> in
+    (* view operators are all left-associative *)
+    List.fold_left apply (view_of_comp arg0) args
+and view_of_simple_comp (_loc, (comp : comprehension)) =
+  let (from, where, env) = from_where_env_of_compitems comp.items in
+  let limit = option_of_comp (value_of_comp Env.empty) comp.limit in
+  let offset = option_of_comp (value_of_comp Env.empty) comp.offset in
+  let order_by = option_of_comp (order_by_of_comp env _loc) comp.order_by in
   let from_rows, from_tables = List.split from in
   <:expr<
     let (result, from, _where, order_by) =
       (* restricted scope zone *)
       let $Ast.biAnd_of_list from_rows$ in
-      ( $result_of_comp env select.result$,
+      ( $result_of_comp env comp.result$,
         $camlp4_list _loc from_tables$,
         $camlp4_list _loc where$,
         $camlp4_option _loc order_by$ )

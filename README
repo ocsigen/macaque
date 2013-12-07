@@ -342,14 +342,16 @@ in `Sql.Op`.
     insert ::= table ':=' value [refinement]
     delete ::= row name 'in' table refinement
     update ::= row name 'in' table ':=' value refinement
-    view ::= view-result view-modifiers [refinement]
-    refinement ::= '|' comprehension-items ';' ...
-    view-result ::= value
+    view ::= comprehension
+           | view-op '(' view ')' '(' view ')' ...
+    comprehension ::= comp-result comp-modifiers [refinement]
+    refinement ::= '|' comp-items ';' ...
+    comp-result ::= value
                   | 'group' tuple ['by' tuple]
-    view-modifiers ::= ['order' 'by' order ',' ...] ['limit' value] ['offset' value]
+    comp-modifiers ::= ['order' 'by' order ',' ...] ['limit' value] ['offset' value]
     order ::= value ['asc' | 'desc']
-    comprehension-item ::= row-binding
-                         | guard
+    comp-item ::= row-binding
+                | guard
     row-binding ::= row-name 'in' view
     guard ::= boolean value
     value ::= litteral constants
@@ -363,6 +365,10 @@ in `Sql.Op`.
     tuple-field ::= field-name '=' value
                   | field-access
     field-access ::= value '.' field-name '.' ...
+    view-op ::=
+      | 'union'     | 'union_all'
+      | 'intersect' | 'intersect_all'
+      | 'except"    | 'except_all'
 
 :Note:
 
@@ -416,7 +422,13 @@ if the user forgets the guards altogether, she will also forget the
 
 :BNF:
 
-    view ::= view-result view-modifiers ['|' comprehension-item ';' ...]
+    view ::= comprehension
+           | view-op '(' view ')' '(' view ')' ...
+    comprehension ::= comp-result comp-modifiers [refinement]
+    view-op ::=
+      | 'union'     | 'union_all'
+      | 'intersect' | 'intersect_all'
+      | 'except"    | 'except_all'
 
 #### View results                                                [.view_results]
 
@@ -479,6 +491,19 @@ further discussion, see the [Remarks > semantic of row
 bindings](#row_binding_semantics) section of this manual.
 
 Of course, guards can depend on the declared rows.
+
+#### View operators
+
+The usual UNION, INTERSECT and EXCEPT operators can be used in prefix
+position, with parentheses around their parameters. The syntax allows
+to pass arbitrary number of parameters, and a left-associativity is
+applied:
+
+  except (foo...) (bar...) (baz...)
+
+is equivalent to
+
+  except (except (foo...) (bar...)) (baz...)
 
 
 

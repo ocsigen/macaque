@@ -18,3 +18,6 @@ let liste = <:table< liste (
   recette integer,
   ingredient integer
 ) >>
+
+let test1 = <:table< test1 ( text text ) >>
+let test2 = <:table< test2 ( text text ) >>

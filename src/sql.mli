@@ -233,7 +233,7 @@ val sql_of_view : (_, _) view -> string
 (** handle result from PGOCaml call *)
 val handle_query_results : 'a query -> string array list unsafe -> 'a
 
-(** standard SQL value types
+(** standard SQL value injections
     (usable from user code, in pa_macaque value antiquotations) *)
 module Value : sig
   val bool : bool -> < t : bool_t; nul : _ > t
@@ -327,10 +327,20 @@ module Op : sig
   val current_timestamp : < t : timestamp_t; nul : _ > t
 end
 
-(** standard view operators
+(** standard view injections
    (in pa_comp, view antiquotations) *)
 module View : sig
   val one : < t : 'a #row_t; nul : non_nullable; .. > t -> ('a, non_writable) view
+end
+
+(** standard view operators *)
+module ViewOp : sig
+  val union : ('a, _) view -> ('a, _) view -> ('a, non_writable) view
+  val union_all : ('a, _) view -> ('a, _) view -> ('a, non_writable) view
+  val intersect : ('a, _) view -> ('a, _) view -> ('a, non_writable) view
+  val intersect_all : ('a, _) view -> ('a, _) view -> ('a, non_writable) view
+  val except : ('a, _) view -> ('a, _) view -> ('a, non_writable) view
+  val except_all : ('a, _) view -> ('a, _) view -> ('a, non_writable) view
 end
 
 val break : _ t -> Sql_internals.value

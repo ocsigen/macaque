@@ -125,6 +125,7 @@ module Op = struct
   let max (v, t) = nullable (prefixop "max" (v, t), t)
   let sum (v, t) = nullable (prefixop "sum" (v, t), t)
   let md5 (v, t) = prefixop "md5" (v, t), t
+  let string_array_agg x = prefixop "array_agg" x, Nullable (Some TString_array)
 
   let label seq_name = Atom (String seq_name), Non_nullable TString
   let nextval (seq_name, typ) =

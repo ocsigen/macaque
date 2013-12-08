@@ -32,11 +32,11 @@ class type numeric_t = object method numeric : unit end
 class type arrayable_t = object method arrayable : unit end
 
 class type unit_t = object inherit [unit] type_info end
-class type bool_t = object inherit [bool] type_info end
+class type bool_t = object inherit [bool] type_info inherit arrayable_t end
 class type int16_t = object inherit [int16] type_info inherit numeric_t end
 class type int32_t = object inherit [int32] type_info inherit numeric_t inherit arrayable_t end
-class type int64_t = object inherit [int64] type_info inherit numeric_t end
-class type float_t = object inherit [float] type_info inherit numeric_t end
+class type int64_t = object inherit [int64] type_info inherit numeric_t inherit arrayable_t end
+class type float_t = object inherit [float] type_info inherit numeric_t inherit arrayable_t end
 class type string_t = object inherit [string] type_info inherit arrayable_t end
 class type bytea_t = object inherit [bytea] type_info end
 class type time_t = object inherit [time] type_info end
@@ -44,7 +44,10 @@ class type date_t = object inherit [date] type_info end
 class type timestamp_t = object inherit [timestamp] type_info end
 class type timestamptz_t = object inherit [timestamptz] type_info end
 class type interval_t = object inherit [interval] type_info end
+class type bool_array_t = object inherit [bool array] type_info end
 class type int32_array_t = object inherit [int32 array] type_info end
+class type int64_array_t = object inherit [int64 array] type_info end
+class type float_array_t = object inherit [float array] type_info end
 class type string_array_t = object inherit [string array] type_info end
 
 class type ['t] array_t = object constraint 't = < typ : 'ty; arrayable : unit; .. > inherit ['ty array] type_info end
@@ -113,7 +116,10 @@ let get_val : < get : _; t : 'a #type_info; .. > atom -> 'a =
     | SQLI.Timestamp t -> !?t
     | SQLI.Timestamptz t -> !?t
     | SQLI.Interval i -> !?i
+    | SQLI.Bool_array js -> !?js
     | SQLI.Int32_array js -> !?js
+    | SQLI.Int64_array js -> !?js
+    | SQLI.Float_array js -> !?js
     | SQLI.String_array js -> !?js
     | SQLI.Record o -> !?o
 

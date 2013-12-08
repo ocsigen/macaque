@@ -43,7 +43,10 @@ module Value = struct
   let timestamp i = Atom (Timestamp i), Non_nullable TTimestamp
   let timestamptz i = Atom (Timestamptz i), Non_nullable TTimestamptz
   let interval i = Atom (Interval i), Non_nullable TInterval
+  let bool_array js = Atom (Bool_array js), Non_nullable (TArray TBool)
   let int32_array js = Atom (Int32_array js), Non_nullable (TArray TInt32)
+  let int64_array js = Atom (Int64_array js), Non_nullable (TArray TInt64)
+  let float_array js = Atom (Float_array js), Non_nullable (TArray TFloat)
   let string_array js = Atom (String_array js), Non_nullable (TArray TString)
 end
 
@@ -164,7 +167,10 @@ module Table_type = struct
   let timestamp = _type TTimestamp
   let timestamptz = _type TTimestamptz
   let interval = _type TInterval
+  let bool_array = _type (TArray TBool)
   let int32_array = _type (TArray TInt32)
+  let int64_array = _type (TArray TInt64)
+  let float_array = _type (TArray TFloat)
   let string_array = _type (TArray TString)
 end
 

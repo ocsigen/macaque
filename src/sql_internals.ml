@@ -74,7 +74,10 @@ and atom =
   | Timestamp of timestamp
   | Timestamptz of timestamptz
   | Interval of interval
+  | Bool_array of bool array
   | Int32_array of int32 array
+  | Int64_array of int64 array
+  | Float_array of float array
   | String_array of string array
   | Record of untyped (* runtime object instance *)
 and table_name = string option * string
@@ -129,7 +132,10 @@ let atom_type_of_string = function
   | "timestamp" -> TTimestamp
   | "timestamptz" -> TTimestamptz
   | "interval" -> TInterval
+  | "bool_array" -> TArray TBool
   | "int32_array" -> TArray TInt32
+  | "int64_array" -> TArray TInt64
+  | "float_array" -> TArray TFloat
   | "string_array" -> TArray TString
   | other -> failwith ("unknown sql type " ^ other)
 let string_of_atom_type = function
@@ -146,7 +152,10 @@ let string_of_atom_type = function
   | TTimestamp -> "timestamp"
   | TTimestamptz -> "timestamptz"
   | TInterval -> "interval"
+  | TArray TBool -> "bool_array"
   | TArray TInt32 -> "int32_array"
+  | TArray TInt64 -> "int64_array"
+  | TArray TFloat -> "float_array"
   | TArray TString -> "string_array"
   | TArray _ -> assert false
   | TRecord _ -> "record"

@@ -38,11 +38,11 @@ class type numeric_t = object method numeric : unit end
 class type arrayable_t = object method arrayable : unit end
 
 class type unit_t = object inherit [unit] type_info end
-class type bool_t = object inherit [bool] type_info end
+class type bool_t = object inherit [bool] type_info inherit arrayable_t end
 class type int16_t = object inherit [int16] type_info inherit numeric_t end
 class type int32_t = object inherit [int32] type_info inherit numeric_t inherit arrayable_t end
-class type int64_t = object inherit [int64] type_info inherit numeric_t end
-class type float_t = object inherit [float] type_info inherit numeric_t end
+class type int64_t = object inherit [int64] type_info inherit numeric_t inherit arrayable_t end
+class type float_t = object inherit [float] type_info inherit numeric_t inherit arrayable_t end
 class type string_t = object inherit [string] type_info inherit arrayable_t end
 class type bytea_t = object inherit [bytea] type_info end
 class type time_t = object inherit [time] type_info end
@@ -50,7 +50,10 @@ class type date_t = object inherit [date] type_info end
 class type timestamp_t = object inherit [timestamp] type_info end
 class type timestamptz_t = object inherit [timestamptz] type_info end
 class type interval_t = object inherit [interval] type_info end
+class type bool_array_t = object inherit [bool array] type_info end
 class type int32_array_t = object inherit [int32 array] type_info end
+class type int64_array_t = object inherit [int64 array] type_info end
+class type float_array_t = object inherit [float array] type_info end
 class type string_array_t = object inherit [string array] type_info end
 
 class type ['t] array_t = object constraint 't = < typ : 'ty; arrayable : unit; .. > inherit ['ty array] type_info end
@@ -215,8 +218,14 @@ module Table_type : sig
     < get : unit; nul : 'nul; t : timestamptz_t > sql_type
   val interval : 'nul nul_witness ->
     < get : unit; nul : 'nul; t : interval_t > sql_type
+  val bool_array : 'nul nul_witness ->
+    < get : unit; nul : 'nul; t : bool_array_t > sql_type
   val int32_array : 'nul nul_witness ->
     < get : unit; nul : 'nul; t : int32_array_t > sql_type
+  val int64_array : 'nul nul_witness ->
+    < get : unit; nul : 'nul; t : int64_array_t > sql_type
+  val float_array : 'nul nul_witness ->
+    < get : unit; nul : 'nul; t : float_array_t > sql_type
   val string_array : 'nul nul_witness ->
     < get : unit; nul : 'nul; t : string_array_t > sql_type
 end
@@ -261,7 +270,10 @@ module Value : sig
   val timestamp : timestamp -> < t : timestamp_t; nul : _ > t
   val timestamptz : timestamptz -> < t : timestamptz_t; nul : _ > t
   val interval : interval -> < t : interval_t; nul : _ > t
+  val bool_array : bool array -> < t : bool_array_t; nul : _ > t
   val int32_array : int32 array -> < t : int32_array_t; nul : _ > t
+  val int64_array : int64 array -> < t : int64_array_t; nul : _ > t
+  val float_array : float array -> < t : float_array_t; nul : _ > t
   val string_array : string array -> < t : string_array_t; nul : _ > t
 end
 

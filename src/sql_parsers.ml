@@ -45,8 +45,14 @@ let timestamptzval_of_string s =
   pack (Timestamptz (PGOCaml.timestamptz_of_string s)) TTimestamptz
 let intervalval_of_string s =
   pack (Interval (PGOCaml.interval_of_string s)) TInterval
+let bool_array_of_string s =
+  pack (Bool_array (PGOCaml.bool_array_of_string s)) (TArray TBool)
 let int32_array_of_string s =
   pack (Int32_array (PGOCaml.int32_array_of_string s)) (TArray TInt32)
+let int64_array_of_string s =
+  pack (Int64_array (PGOCaml.int64_array_of_string s)) (TArray TInt64)
+let float_array_of_string s =
+  pack (Float_array (PGOCaml.float_array_of_string s)) (TArray TFloat)
 let string_array_of_string s =
   pack (String_array (PGOCaml.string_array_of_string s)) (TArray TString)
 
@@ -63,7 +69,10 @@ let date_field_parser = unsafe_parser (incr &&& dateval_of_string)
 let timestamp_field_parser = unsafe_parser (incr &&& timestampval_of_string)
 let timestamptz_field_parser = unsafe_parser (incr &&& timestamptzval_of_string)
 let interval_field_parser = unsafe_parser (incr &&& intervalval_of_string)
+let bool_array_field_parser = unsafe_parser (incr &&& bool_array_of_string)
 let int32_array_field_parser = unsafe_parser (incr &&& int32_array_of_string)
+let int64_array_field_parser = unsafe_parser (incr &&& int64_array_of_string)
+let float_array_field_parser = unsafe_parser (incr &&& float_array_of_string)
 let string_array_field_parser = unsafe_parser (incr &&& string_array_of_string)
 
 let error_field_parser=
@@ -104,7 +113,10 @@ let parser_of_type =
     | TTimestamp -> timestamp_field_parser
     | TTimestamptz -> timestamptz_field_parser
     | TInterval -> interval_field_parser
+    | TArray TBool -> bool_array_field_parser
     | TArray TInt32 -> int32_array_field_parser
+    | TArray TInt64 -> int64_array_field_parser
+    | TArray TFloat -> float_array_field_parser
     | TArray TString -> string_array_field_parser
     | TArray _ -> assert false
     | TRecord t -> record_parser t in

@@ -46,9 +46,9 @@ let timestamptzval_of_string s =
 let intervalval_of_string s =
   pack (Interval (PGOCaml.interval_of_string s)) TInterval
 let int32_array_of_string s =
-  pack (Int32_array (PGOCaml.int32_array_of_string s)) TInt32_array
+  pack (Int32_array (PGOCaml.int32_array_of_string s)) (TArray TInt32)
 let string_array_of_string s =
-  pack (String_array (PGOCaml.string_array_of_string s)) TString_array
+  pack (String_array (PGOCaml.string_array_of_string s)) (TArray TString)
 
 let unit_field_parser = unsafe_parser (incr &&& unitval_of_string)
 let bool_field_parser = unsafe_parser (incr &&& boolval_of_string)
@@ -104,8 +104,9 @@ let parser_of_type =
     | TTimestamp -> timestamp_field_parser
     | TTimestamptz -> timestamptz_field_parser
     | TInterval -> interval_field_parser
-    | TInt32_array -> int32_array_field_parser
-    | TString_array -> string_array_field_parser
+    | TArray TInt32 -> int32_array_field_parser
+    | TArray TString -> string_array_field_parser
+    | TArray _ -> assert false
     | TRecord t -> record_parser t in
   function
   | Non_nullable typ -> parser_of_sql_type typ

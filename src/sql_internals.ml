@@ -95,8 +95,7 @@ and atom_type =
   | TTimestamp
   | TTimestamptz
   | TInterval
-  | TInt32_array
-  | TString_array
+  | TArray of atom_type
   | TRecord of unit generic_view
 and 'a record_parser = descr -> 'a result_parser
 
@@ -126,8 +125,8 @@ let atom_type_of_string = function
   | "timestamp" -> TTimestamp
   | "timestamptz" -> TTimestamptz
   | "interval" -> TInterval
-  | "int32_array" -> TInt32_array
-  | "string_array" -> TString_array
+  | "int32_array" -> TArray TInt32
+  | "string_array" -> TArray TString
   | other -> failwith ("unknown sql type " ^ other)
 let string_of_atom_type = function
   | TBool -> "boolean"
@@ -142,8 +141,9 @@ let string_of_atom_type = function
   | TTimestamp -> "timestamp"
   | TTimestamptz -> "timestamptz"
   | TInterval -> "interval"
-  | TInt32_array -> "int32_array"
-  | TString_array -> "string_array"
+  | TArray TInt32 -> "int32_array"
+  | TArray TString -> "string_array"
+  | TArray _ -> assert false
   | TRecord _ -> "record"
 
 type query =
@@ -175,8 +175,8 @@ let rec unify t t' =
   let unify_atom a a' = match a, a' with
     (* identity unifications *)
     | ( TBool | TInt16 | TInt32 | TInt64 | TFloat
-      | TString | TBytea | TTime | TDate | TInterval | TInt32_array
-      | TString_array | TTimestamp | TTimestamptz) as t, t' when t = t' -> t
+      | TString | TBytea | TTime | TDate | TInterval | TArray _
+      | TTimestamp | TTimestamptz) as t, t' when t = t' -> t
     | TRecord r, TRecord r' ->
         let fields descr = List.sort compare (List.map fst descr) in
         let d, d' = r.descr, r'.descr in
@@ -190,8 +190,8 @@ let rec unify t t' =
 
     (* failure *)
     | ( TBool | TInt16 | TInt32 | TInt64 | TFloat
-      | TString | TBytea | TTime | TDate | TInterval | TInt32_array
-      | TString_array | TTimestamp | TTimestamptz | TRecord _), _ ->
+      | TString | TBytea | TTime | TDate | TInterval | TArray _
+      | TTimestamp | TTimestamptz | TRecord _), _ ->
         failwith
           (Printf.sprintf "unify (%s and %s)"
              (string_of_atom_type a)

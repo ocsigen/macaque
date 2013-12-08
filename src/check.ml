@@ -102,7 +102,7 @@ let check_table (table : ('a, _ writable) Sql.view) =
   let (table : Sql_internals.view) = Obj.magic table in
   let (schema, table_name) as name = match table.data with
     | Table t -> t.name
-    | Selection _ -> invalid_arg "check_table" in
+    | Selection _ | View_op _ -> invalid_arg "check_table" in
   let long_name = string_of_table_name name in
   let schema = match schema with
     | None -> "public"

@@ -35,13 +35,14 @@ val non_nullable_witness : non_nullable nul_witness
 
 class type ['t] type_info = object method typ : 't end
 class type numeric_t = object method numeric : unit end
+class type arrayable_t = object method arrayable : unit end
 
 class type bool_t = object inherit [bool] type_info end
 class type int16_t = object inherit [int16] type_info inherit numeric_t end
-class type int32_t = object inherit [int32] type_info inherit numeric_t end
+class type int32_t = object inherit [int32] type_info inherit numeric_t inherit arrayable_t end
 class type int64_t = object inherit [int64] type_info inherit numeric_t end
 class type float_t = object inherit [float] type_info inherit numeric_t end
-class type string_t = object inherit [string] type_info end
+class type string_t = object inherit [string] type_info inherit arrayable_t end
 class type bytea_t = object inherit [bytea] type_info end
 class type time_t = object inherit [time] type_info end
 class type date_t = object inherit [date] type_info end
@@ -50,6 +51,8 @@ class type timestamptz_t = object inherit [timestamptz] type_info end
 class type interval_t = object inherit [interval] type_info end
 class type int32_array_t = object inherit [int32 array] type_info end
 class type string_array_t = object inherit [string array] type_info end
+
+class type ['t] array_t = object constraint 't = < typ : 'ty; arrayable : unit; .. > inherit ['ty array] type_info end
 
 class type ['row] row_t = object inherit ['row] type_info end
 
@@ -324,8 +327,8 @@ module Op : sig
     < t : #numeric_t as 't; nul : 'n; .. > group -> < t : 't; nul : nullable > t
   val md5 :
     < t : string_t; nul : 'n; .. > group -> < t : string_t; nul : 'n > t
-  val string_array_agg :
-    < t : string_t; .. > group -> < t : string_array_t; nul : nullable > t
+  val array_agg :
+    < t : #arrayable_t as 't; .. > group -> < t : 't array_t; nul : nullable > t
 
   (** sequence functions *)
   val nextval : 'a sequence -> < t : 'a; nul : non_nullable > t

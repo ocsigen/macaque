@@ -318,6 +318,8 @@ module Op : sig
     < t : #numeric_t as 't; nul : 'n; .. > group -> < t : 't; nul : nullable > t
   val sum :
     < t : #numeric_t as 't; nul : 'n; .. > group -> < t : 't; nul : nullable > t
+  val md5 :
+    < t : string_t; nul : 'n; .. > group -> < t : string_t; nul : 'n > t
 
   (** sequence functions *)
   val nextval : 'a sequence -> < t : 'a; nul : non_nullable > t

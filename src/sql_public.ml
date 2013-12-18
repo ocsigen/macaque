@@ -96,6 +96,13 @@ module Op = struct
     fixed_op "IS DISTINCT FROM" a b (Non_nullable TBool)
   let is_not_distinct_from a b =
     fixed_op "IS NOT DISTINCT FROM" a b (Non_nullable TBool)
+  let in' ((_, t) as v) l =
+    let change_ty = function
+      | Non_nullable _ -> Non_nullable TBool
+      | Nullable None -> Nullable None
+      | Nullable (Some _) -> Nullable (Some TBool)
+    in
+    OpTuple (null_workaround v, "IN", List.map null_workaround l), change_ty t
 
   type 'phant logic_op = 'phant binary_op
   constraint 'phant = < in_t : #bool_t as 't; out_t : 't; .. >

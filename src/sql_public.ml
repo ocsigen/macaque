@@ -104,6 +104,7 @@ module Op = struct
     in
     let v = null_workaround v in
     let l = List.map null_workaround l in
+    let t = List.fold_left (fun acc (_, x) -> unify acc x) t l in
     OpTuple (v, "IN", l, Some "FALSE"), change_ty t
 
   type 'phant logic_op = 'phant binary_op

@@ -189,8 +189,8 @@ and flatten_value value =
     | Cast (v, cast_t), t -> Cast (flatten v, cast_t), t
     | Op (left, op, right), t ->
         Op (List.map flatten left, op, List.map flatten right), t
-    | OpTuple (left, op, right), t ->
-        OpTuple (flatten left, op, List.map flatten right), t
+    | OpTuple (left, op, right, default), t ->
+        OpTuple (flatten left, op, List.map flatten right, default), t
     | Case (cases, default), t ->
         let flatten_case (cond, case) = flatten cond, flatten case in
         Case (List.map flatten_case cases, flatten default), t

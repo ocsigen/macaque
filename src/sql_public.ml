@@ -102,7 +102,9 @@ module Op = struct
       | Nullable None -> Nullable None
       | Nullable (Some _) -> Nullable (Some TBool)
     in
-    OpTuple (null_workaround v, "IN", List.map null_workaround l), change_ty t
+    let v = null_workaround v in
+    let l = List.map null_workaround l in
+    OpTuple (v, "IN", l, Some "FALSE"), change_ty t
 
   type 'phant logic_op = 'phant binary_op
   constraint 'phant = < in_t : #bool_t as 't; out_t : 't; .. >

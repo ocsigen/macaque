@@ -56,7 +56,7 @@ and value' =
   | Field of value * field_name list
   | Cast of value * atom_type
   | Op of value list * string * value list
-  | OpTuple of value * string * value list
+  | OpTuple of value * string * value list * string option
   | Row of (row_name * view)
   | Tuple of value tuple
   | Case of (value * value) list * value (* [when .. then ..]+ else ..*)

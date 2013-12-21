@@ -44,7 +44,7 @@ let () =
   test "current_timestamp"
     PGOCaml.string_of_timestamp <:value< current_timestamp >>;
   test_opt "NULL" string_of_bool <:value< null >>;
-  let in_list = [<:value< 1 >>, <:value< 2 >>, <:value< 3 >>] in
-  test "1 IN (1, 2, 3)" Int32.to_string <:value< in 1 $in_list$ >>;
-  test "FALSE" Int32.to_string <:value< in 1 $[]$ >>;
+  let in_list = [(<:value< 1 >>); (<:value< 2 >>); (<:value< 3 >>)] in
+  test "(1 IN (1, 2, 3))" string_of_bool <:value< in' 1 $in_list$ >>;
+  test "FALSE" string_of_bool <:value< in' 1 $[]$ >>;
   ()

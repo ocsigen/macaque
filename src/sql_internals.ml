@@ -152,11 +152,11 @@ let string_of_atom_type = function
   | TTimestamp -> "timestamp"
   | TTimestamptz -> "timestamptz"
   | TInterval -> "interval"
-  | TArray TBool -> "bool_array"
-  | TArray TInt32 -> "int32_array"
-  | TArray TInt64 -> "int64_array"
-  | TArray TFloat -> "float_array"
-  | TArray TString -> "string_array"
+  | TArray TBool -> "boolean[]"
+  | TArray TInt32 -> "integer[]"
+  | TArray TInt64 -> "bigint[]"
+  | TArray TFloat -> "double precision[]"
+  | TArray TString -> "text[]"
   | TArray _ -> assert false
   | TRecord _ -> "record"
 

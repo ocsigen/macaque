@@ -271,6 +271,9 @@ end
 module Op : sig
   val null :
     < t : < .. >; nul : nullable; get : unit > t
+  val typed_null :
+    < get : unit; nul : 'nul; t : 't > sql_type ->
+    < t : 't; nul : nullable; get : unit > t
   val nullable :
     < t : 't; nul : non_nullable; .. > t -> < t : 't; nul : nullable > t
   val is_null :

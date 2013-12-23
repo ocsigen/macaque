@@ -358,6 +358,8 @@ let () =
          [ v = atom -> (_loc, Atom v)
          | (_, tup) = tuple -> (_loc, Tuple tup)
          | LIDENT "null" -> unary _loc "null"
+         | "typed_null"; ty = LIDENT ->
+             (_loc, Atom <:expr< Sql.Op.typed_null (Sql.Table_type.$lid:ty$ Sql.nullable_witness) >>)
          | LIDENT "current_timestamp" -> unary _loc "current_timestamp"
          | id = sql_ident -> (_loc, Ident id)
          | "("; (_, e) = SELF; ")" -> (_loc, e)

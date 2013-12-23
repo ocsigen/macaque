@@ -90,6 +90,11 @@ val get_type :
   < t : 't; nul : 'nul; .. > t ->
   < t : 't; nul : 'nul; get : unit > sql_type
 
+val cast :
+  (< t : 't; nul : 'nul; .. > as 'a) t ->
+  < t : 't; nul : 'nul; .. > sql_type ->
+  'a t
+
 (** parsers *)
 type 'a result_parser = string array * int ref -> 'a
 type 'a record_parser = untyped sql_type tuple -> 'a result_parser

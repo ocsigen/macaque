@@ -52,6 +52,9 @@ let () =
     << union ({x=null}) ({x=1}) >>;
   test_size "bugfix2" 2
     << union ({x=1}) ({x=null}) >>;
+  test_size "bugfix3" 2
+    (* fix https://github.com/ocsigen/macaque/issues/14 *)
+    << union (union ({x= cast null as integer}) ({x=null})) ({x=1}) >>;
   clear dbh test1;
   clear dbh test2;
   ()

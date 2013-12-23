@@ -77,6 +77,7 @@ and value =
   | Tuple of tuple
   | Accum of value located
   | Access of value located * accessor located
+  | Cast of value located * sql_type located
 and accessor =
   | Field of ident located list located
   | Default of ident located
@@ -84,6 +85,7 @@ and tuple = value binding located list
 and 'a binding = (ident * 'a located)
 and 'a located = (Loc.t * 'a)
 and ident = string
+and sql_type = ident
 
 (** Description (syntaxic form) structure *)
 type descr =
@@ -91,16 +93,18 @@ type descr =
     field_descrs : field_descr located list }
 and field_descr =
   { field_name : ident;
-    sql_type : ident;
+    sql_type : sql_type located;
     nullable : bool;
     default : value located option }
 
 (** Syntaxic form parsing *)
 module CompGram = MakeGram(Lexer)
 
-let view_eoi, select_eoi, insert_eoi, delete_eoi, update_eoi, value =
+let view_eoi, select_eoi, insert_eoi, delete_eoi, update_eoi,
+    value, sql_type =
   let mk = CompGram.Entry.mk in
-  mk "view", mk "select", mk "insert", mk "delete", mk "update", mk "value"
+  mk "view", mk "select", mk "insert", mk "delete", mk "update",
+  mk "value", mk "sql_type"
 
 let table_descr, seq_descr =
   let mk = CompGram.Entry.mk in
@@ -255,7 +259,7 @@ let () =
 
   (* Comprehensions *)
   EXTEND CompGram
-   GLOBAL: view_eoi select_eoi insert_eoi delete_eoi update_eoi value;
+   GLOBAL: view_eoi select_eoi insert_eoi delete_eoi update_eoi value sql_type;
 
    select_eoi: [[ (_, s) = view; `EOI -> (_loc, Select s) ]];
    view_eoi: [[ (_, s) = view; `EOI -> (_loc, s) ]];
@@ -335,7 +339,10 @@ let () =
            "|"; id = sql_binder; "->"; other_case = SELF ->
               (_loc, Match (e, null_case, id, other_case))
          | "if"; p = SELF; "then"; a = SELF; "else"; b = SELF ->
-             (_loc, If(p, a, b)) ]
+             (_loc, If(p, a, b))
+         | "cast"; e = SELF; "as"; typ = sql_type ->
+         (_loc, Cast (e, typ))
+         ]
      | "||" RIGHTA [ e1 = SELF; op = infixop6; e2 = SELF -> operation _loc op [e1; e2] ]
      | "&&" RIGHTA [ e1 = SELF; op = infixop5; e2 = SELF -> operation _loc op [e1; e2] ]
      | "<"  LEFTA [ e1 = SELF; op = infixop0; e2 = SELF -> operation _loc op [e1; e2] ]
@@ -355,6 +362,8 @@ let () =
          | id = sql_ident -> (_loc, Ident id)
          | "("; (_, e) = SELF; ")" -> (_loc, e)
          | "["; e = SELF; "]" -> (_loc, Accum e) ]];
+
+   sql_type: [[ typ = LIDENT -> (_loc, typ) ]];
 
    comp_item_list:
      [[ i = comp_item; ";"; is = SELF -> i :: is
@@ -403,7 +412,7 @@ let () =
     (* types are not binding names but reusing existing
        (probably keyword) identifiers, so we use LIDENT instead of
        sql_ident *)
-    field_descr: [[ name = sql_binder; typ = LIDENT;
+    field_descr: [[ name = sql_binder; typ = sql_type;
                     is_null = nullable_descr; def = OPT default_descr ->
                       (_loc,
                        { field_name = name;
@@ -590,6 +599,7 @@ and result_of_comp env (_loc, r) = match r with
           | Tuple tup -> Tuple (map_tuple tup)
           | Accum expr -> accum expr
           | If (p, a, b) -> If (!!map_ref p, !!map_ref a, !!map_ref b)
+          | Cast (e, typ) -> Cast (!!map_ref e, typ)
           | Match (patt, null_case, id, other_case) ->
               Match (!!map_ref patt, !!map_ref null_case,
                      id, !!map_ref other_case)
@@ -654,6 +664,11 @@ and value_of_comp env (_loc, r) =
         in
         <:expr< $constructor$ $row$ $path$ $witness$ >>
     | If (p, a, b) -> <:expr< Sql.if_then_else $!!p$ $!!a$ $!!b$ >>
+    | Cast (expr, typ) ->
+      let sql_type =
+        let (_loc, typ) = typ in
+        <:expr< Sql.Table_type.$lid:typ$ Sql.nullable_witness >> in
+      <:expr< Sql.cast $!!expr$ $sql_type$ >>
     | Match (matched, null_case, id, other_case) ->
         <:expr< Sql.match_null $!!matched$ $!!null_case$
           (fun $lid:id$ -> $!!other_case$) >>
@@ -736,8 +751,11 @@ let table_of_descr (_loc, table) =
     let bind (_loc, f) =
       let witness =
         (if f.nullable then "nullable" else "non_nullable") ^ "_witness" in
+      let sql_type =
+        let (_loc, typ) = f.sql_type in
+        <:expr< Sql.Table_type.$lid:typ$ >> in
       <:binding< $lid:field_name f.field_name$
-                   = Sql.Table_type.$lid:f.sql_type$ Sql.$lid:witness$ >> in
+                   = $sql_type$ Sql.$lid:witness$ >> in
     Ast.biAnd_of_list (List.map bind table.field_descrs) in
   let fields = map_located (fun _ descr -> descr.field_name) table.field_descrs in
   let descr =

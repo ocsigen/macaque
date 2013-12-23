@@ -24,6 +24,12 @@ let op type_fun op a b =
   let input_t = unify (get_type a) (get_type b) in
   fixed_op op a b (type_fun input_t)
 
+let cast expr expected_type =
+  let atom_type = match expected_type with
+    | Nullable None -> failwith "cast with polymorphic null"
+    | Nullable (Some ty) | Non_nullable ty -> ty in
+  (Cast (expr, atom_type), unify (get_type expr) expected_type)
+
 (** values *)
 
 let field row path checker =

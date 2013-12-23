@@ -17,7 +17,7 @@ let install dbh table values =
 
 let () =
   let dbh = PGOCaml.connect () in
-  let test_size = test_size dbh in
+  let test_size x = test_size dbh x in
   let set1 = ["foo"; "bar"; "baz"; "foo"] in
   let set2 = ["bar"; "baz"] in
   let len1, len2 = List.length set1, List.length set2 in
@@ -48,6 +48,10 @@ let () =
     << except $!test1$ $!test2$ $!test2$ >>;
   test_size "except ter" len1_nodup
     << except $!test1$ (except $!test2$ $!test2$) >>;
+  test_size "bugfix1" 2
+    << union ({x=null}) ({x=1}) >>;
+  test_size "bugfix2" 2
+    << union ({x=1}) ({x=null}) >>;
   clear dbh test1;
   clear dbh test2;
   ()

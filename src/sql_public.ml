@@ -149,9 +149,10 @@ end
 
 module ViewOp = struct
   let binop op v1 v2 =
-    (* v1 and v2 have the same type as the operator return
-       so using any of v1's or v2's metadata will work *)
-    {v1 with data = View_op(v1.data, op, v2.data)}
+    {v1 with
+      descr = unify_descr v1.descr v2.descr;
+      data = View_op(v1.data, op, v2.data);
+    }
 
   let union = binop "UNION"
   let union_all = binop "UNION ALL"

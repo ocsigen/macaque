@@ -218,6 +218,11 @@ let is_unifiable t t' =
   try ignore (unify t t'); true
   with Failure "unify" -> false
 
+let unify_descr d1 d2 =
+  List.map (fun (n,t1) ->
+    let t2 = List.assoc n d2 in
+    (n, unify t1 t2)) d1
+
 let is_null_type = (=) (Nullable None)
 
 let null = Null, Nullable None

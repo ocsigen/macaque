@@ -185,6 +185,7 @@ and flatten_value value =
     (* propagating the transformation to non-fields, non-records subvalues;
        termination : subcalls on inferior value depth *)
     | Null, t -> Null, t
+    | Typed_null ty, t -> Typed_null ty, t
     | Atom v, t -> Atom v, t
     | Cast (v, cast_t), t -> Cast (flatten v, cast_t), t
     | Op (left, op, right), t ->

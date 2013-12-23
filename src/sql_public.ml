@@ -55,12 +55,10 @@ end
 module Op = struct
   open Sql_builders
 
-  let nullable (r, t) =
-    r, match t with
-       | Non_nullable t -> Nullable (Some t)
-       | Nullable t -> Nullable t
+  let nullable (r, t) = r, nullable_ty t
 
   let null = null
+  let typed_null = typed_null
   let postfixop value op = Op ([null_workaround value], op, [])
   let is_null value = postfixop value "IS NULL", Non_nullable TBool
   let is_not_null value = postfixop value "IS NOT NULL", Non_nullable TBool

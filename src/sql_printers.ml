@@ -113,6 +113,7 @@ and string_of_value (value, _) =
   match value with
     | Atom v -> string_of_atom v
     | Null -> "NULL"
+    | Typed_null ty -> sprintf "NULL::%s" (string_of_atom_type ty)
     | Field ((Null, _), _) ->
         (* NULL.foo is considered equivalent to NULL *)
         "NULL"
@@ -141,7 +142,7 @@ and string_of_value (value, _) =
              | li -> " " ^ string_of_list string_of_value " " right)
     | Case ([], default) -> string_of_value default
     | Case (cases, default) ->
-        let string_of_case (cond, case) = 
+        let string_of_case (cond, case) =
           sprintf "WHEN %s THEN %s"
             (string_of_value cond) (string_of_value case) in
         sprintf "(CASE %s ELSE %s END)"
@@ -208,4 +209,3 @@ let rec string_of_query = function
         (string_of_assoc set)
         (string_of_from from)
         (string_of_where where)
-

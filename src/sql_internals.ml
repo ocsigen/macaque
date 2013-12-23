@@ -52,6 +52,7 @@ and row = value
 and value = value' * sql_type
 and value' =
   | Null
+  | Typed_null of atom_type
   | Atom of atom
   | Field of value * field_name list
   | Cast of value * atom_type
@@ -220,4 +221,15 @@ let is_unifiable t t' =
 
 let is_null_type = (=) (Nullable None)
 
+let nullable_ty = function
+  | Nullable ty -> Nullable ty
+  | Non_nullable ty -> Nullable (Some ty)
+
 let null = Null, Nullable None
+let typed_null ty =
+  let extract = function
+    | Nullable (Some ty) -> ty
+    | Non_nullable ty -> ty
+    | Nullable None -> assert false
+  in
+  Typed_null (extract ty), nullable_ty ty

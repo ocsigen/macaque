@@ -361,6 +361,7 @@ in `Sql.Op`.
             | tuple : tuple
             | row '.' field : field-access
             | row '?' field : default value for a field
+            | 'cast' value 'as' column-type
     tuple ::= '{' tuple-field ';' ... '}'
     tuple-field ::= field-name '=' value
                   | field-access
@@ -369,6 +370,7 @@ in `Sql.Op`.
       | 'union'     | 'union_all'
       | 'intersect' | 'intersect_all'
       | 'except"    | 'except_all'
+    column-type ::= identifier   (see the "Column Types" section)
 
 :Note:
 
@@ -697,6 +699,16 @@ Data types used in table descriptions are defined in the
 order to mimic SQL type names and ease specification derivation from
 existing SQL tables. For example, "integer" is used instead of "int",
 and will expand to a `Sql.Table_type.integer` value.
+
+#### Casts                                                              [.casts]
+
+You can use an explicit cast of the form `cast foo as bar`, where
+`bar` is an identifier for a column-type as described in the "Column
+types" section above. This is useful in particular to work around some
+limitations of PostgreSQL type inference for nulls (see the "NULL and
+semantic issues" subsection): if a `null` somewhere is "too
+polymorphic" for PostgreSQL, you may want to use for example `cast
+null as integer` instead.
 
 #### Sequence description
 

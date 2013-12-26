@@ -120,7 +120,10 @@ module Op = struct
     prefixop "currval" (label seq_name), Non_nullable typ
 
   let current_timestamp =
-    Op ([], "current_timestamp", []), Non_nullable TTimestamp
+    Op ([], "current_timestamp", []), Non_nullable TTimestamptz
+
+  let localtimestamp =
+    Op ([], "localtimestamp", []), Non_nullable TTimestamp
 end
 
 module Table_type = struct

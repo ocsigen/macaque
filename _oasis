@@ -1,0 +1,43 @@
+OASISFormat: 0.3
+Name: macaque
+Version: 0.6.1
+Synopsis: MaCaQue (or macaque) is a DSL for SQL Queries in Caml
+Authors:
+  Gabriel Scherer,
+  Jérôme Vouillon
+License: LGPL-2 with OCaml linking exception
+Plugins: DevFiles (0.3), META (0.3)
+BuildTools: ocamlbuild
+
+Library "macaque"
+  Path: src
+  Modules:
+    Sql_base,
+    Sql_types,
+    Sql_parsers,
+    Sql_keywords,
+    Sql_printers,
+    Sql_builders,
+    Sql_public,
+    Inner_sql,
+    Sql,
+    Check,
+    Query
+  InternalModules:
+    Sql_flatten,
+    Sql_internals
+  BuildDepends:
+    pgocaml,
+    macaque.syntax
+
+Library "syntax"
+  Path: src
+  FindlibParent: macaque
+  Modules:
+    Pa_macaque,
+    Pa_bananas
+  BuildDepends:
+    camlp4
+  XMETARequires:
+    camlp4
+  XMETAType: syntax

@@ -603,8 +603,7 @@ and result_of_comp env (_loc, r) = match r with
         let use (_loc, (id, _)) = <:binding< _ = $lid:id$ >> in
         Ast.biAnd_of_list (List.map use bindings) in
       let by_tuple = (_loc, Tuple rebound_by) in
-      let order_tuple = List.sort (fun (_, (x, _)) (_, (y, _)) -> String.compare x y) in
-      let result_tuple = (_loc, Tuple (order_tuple (rebound_by @ rebound_group))) in
+      let result_tuple = (_loc, Tuple (rebound_by @ rebound_group)) in
       let with_bindings bindings cont =
         <:expr< let $bindings_of_comp bindings$ in
         let $use_bindings bindings$ in
@@ -659,9 +658,10 @@ and value_of_comp env (_loc, r) =
         <:expr< Sql.match_null $!!matched$ $!!null_case$
           (fun $lid:id$ -> $!!other_case$) >>
     | Tuple tup ->
+        let order_tuple = List.sort (fun (_, (x, _)) (_, (y, _)) -> String.compare x y) in
         let field_names, field_values =
           let split (_loc, (name, value)) = (_loc, name), value in
-          List.split (List.map split tup) in
+          List.split (List.map split (order_tuple tup)) in
         let fields_binding action =
           let custom_binding (_loc, (id, value)) =
             <:binding< $lid:id$ = $action _loc id value$ >> in

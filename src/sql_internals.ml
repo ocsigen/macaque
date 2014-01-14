@@ -56,6 +56,7 @@ and value' =
   | Field of value * field_name list
   | Cast of value * atom_type
   | Op of value list * string * value list
+  | OpTuple of value * string * value list * string option
   | Row of (row_name * view)
   | Tuple of value tuple
   | Case of (value * value) list * value (* [when .. then ..]+ else ..*)
@@ -72,7 +73,11 @@ and atom =
   | Timestamp of timestamp
   | Timestamptz of timestamptz
   | Interval of interval
+  | Bool_array of bool array
   | Int32_array of int32 array
+  | Int64_array of int64 array
+  | Float_array of float array
+  | String_array of string array
   | Record of untyped (* runtime object instance *)
 and table_name = string option * string
 and row_name = string
@@ -94,7 +99,7 @@ and atom_type =
   | TTimestamp
   | TTimestamptz
   | TInterval
-  | TInt32_array
+  | TArray of atom_type
   | TRecord of unit generic_view
 and 'a record_parser = descr -> 'a result_parser
 
@@ -124,7 +129,11 @@ let atom_type_of_string = function
   | "timestamp" -> TTimestamp
   | "timestamptz" -> TTimestamptz
   | "interval" -> TInterval
-  | "int32_array" -> TInt32_array
+  | "bool_array" -> TArray TBool
+  | "int32_array" -> TArray TInt32
+  | "int64_array" -> TArray TInt64
+  | "float_array" -> TArray TFloat
+  | "string_array" -> TArray TString
   | other -> failwith ("unknown sql type " ^ other)
 let string_of_atom_type = function
   | TBool -> "boolean"
@@ -139,7 +148,12 @@ let string_of_atom_type = function
   | TTimestamp -> "timestamp"
   | TTimestamptz -> "timestamptz"
   | TInterval -> "interval"
-  | TInt32_array -> "int32_array"
+  | TArray TBool -> "boolean[]"
+  | TArray TInt32 -> "integer[]"
+  | TArray TInt64 -> "bigint[]"
+  | TArray TFloat -> "double precision[]"
+  | TArray TString -> "text[]"
+  | TArray _ -> assert false
   | TRecord _ -> "record"
 
 type query =
@@ -171,7 +185,7 @@ let rec unify t t' =
   let unify_atom a a' = match a, a' with
     (* identity unifications *)
     | ( TBool | TInt16 | TInt32 | TInt64 | TFloat
-      | TString | TBytea | TTime | TDate | TInterval | TInt32_array
+      | TString | TBytea | TTime | TDate | TInterval | TArray _
       | TTimestamp | TTimestamptz) as t, t' when t = t' -> t
     | TRecord r, TRecord r' ->
         let fields descr = List.sort compare (List.map fst descr) in
@@ -186,7 +200,7 @@ let rec unify t t' =
 
     (* failure *)
     | ( TBool | TInt16 | TInt32 | TInt64 | TFloat
-      | TString | TBytea | TTime | TDate | TInterval | TInt32_array
+      | TString | TBytea | TTime | TDate | TInterval | TArray _
       | TTimestamp | TTimestamptz | TRecord _), _ ->
         failwith
           (Printf.sprintf "unify (%s and %s)"

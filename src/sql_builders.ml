@@ -4,7 +4,7 @@ open Sql_types
 (** operations *)
 let null_workaround (v, t) =
   (* NULL WORKAROUND
-     
+
      It is assumed that any value with type Nullable None is NULL.
      This can work around several PostGreSQL Typing limitations
      wrt. NULL, such as the (NULL + NULL) issue or, worse :
@@ -85,8 +85,12 @@ let table descr producer record_parser name (obj_witness, defaults) =
 
 (** views *)
 let view (select, select_type) ?order_by ?limit ?offset from where =
+  let order_tuple = List.sort (fun (x, _) (y, _) -> String.compare x y) in
   let query =
-    { select = select;
+    { select = (match select with
+       | Simple_select (Tuple tup, t) -> Simple_select (Tuple (order_tuple tup), t)
+       | Group_by ((Tuple tup, t), r) -> Group_by ((Tuple (order_tuple tup), t), r)
+       | _ -> select);
       from = from;
       where = where;
       order_by = order_by;

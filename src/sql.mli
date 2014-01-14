@@ -324,6 +324,10 @@ module Op : sig
     < nul : 'n; t : 't; .. > t ->
     < nul : 'n; t : 't; .. > t ->
     < nul : non_nullable; t : bool_t > t
+  val in' :
+    < nul : 'n; t : 't; .. > t ->
+    < nul : 'n; t : 't; .. > t list ->
+    < nul : 'n; t : bool_t > t
 
   type 'phant logic_op = 'phant binary_op
   constraint 'phant = < in_t : #bool_t as 't; out_t : 't; .. >

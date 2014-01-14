@@ -139,6 +139,18 @@ and string_of_value (value, _) =
           (match right with
              | [] -> ""
              | li -> " " ^ string_of_list string_of_value " " right)
+    | OpTuple (_, _, [], Some default) -> sprintf "%s" default
+    | OpTuple (_, op, [], None) ->
+        failwith
+          (Printf.sprintf
+             "The operator '%s' needs a non-empty right parameter"
+             op
+          )
+    | OpTuple (left, op, right, _) ->
+        sprintf "(%s %s (%s))"
+          (string_of_value left)
+          op
+          (string_of_list string_of_value ", " right)
     | Case ([], default) -> string_of_value default
     | Case (cases, default) ->
         let string_of_case (cond, case) =

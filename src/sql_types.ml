@@ -50,7 +50,7 @@ class type int64_array_t = object inherit [int64 option array] type_info end
 class type float_array_t = object inherit [float option array] type_info end
 class type string_array_t = object inherit [string option array] type_info end
 
-class type ['t] array_t = object constraint 't = < typ : 'ty; arrayable : unit; .. > inherit ['ty array] type_info end
+class type ['t] array_t = object constraint 't = < typ : 'ty; arrayable : unit; .. > inherit ['ty option array] type_info end
 
 class type ['row] row_t = object inherit ['row] type_info end
 

@@ -44,11 +44,11 @@ class type date_t = object inherit [date] type_info end
 class type timestamp_t = object inherit [timestamp] type_info end
 class type timestamptz_t = object inherit [timestamptz] type_info end
 class type interval_t = object inherit [interval] type_info end
-class type bool_array_t = object inherit [bool array] type_info end
-class type int32_array_t = object inherit [int32 array] type_info end
-class type int64_array_t = object inherit [int64 array] type_info end
-class type float_array_t = object inherit [float array] type_info end
-class type string_array_t = object inherit [string array] type_info end
+class type bool_array_t = object inherit [bool option array] type_info end
+class type int32_array_t = object inherit [int32 option array] type_info end
+class type int64_array_t = object inherit [int64 option array] type_info end
+class type float_array_t = object inherit [float option array] type_info end
+class type string_array_t = object inherit [string option array] type_info end
 
 class type ['t] array_t = object constraint 't = < typ : 'ty; arrayable : unit; .. > inherit ['ty array] type_info end
 

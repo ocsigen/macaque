@@ -50,11 +50,11 @@ class type date_t = object inherit [date] type_info end
 class type timestamp_t = object inherit [timestamp] type_info end
 class type timestamptz_t = object inherit [timestamptz] type_info end
 class type interval_t = object inherit [interval] type_info end
-class type bool_array_t = object inherit [bool array] type_info end
-class type int32_array_t = object inherit [int32 array] type_info end
-class type int64_array_t = object inherit [int64 array] type_info end
-class type float_array_t = object inherit [float array] type_info end
-class type string_array_t = object inherit [string array] type_info end
+class type bool_array_t = object inherit [bool option array] type_info end
+class type int32_array_t = object inherit [int32 option array] type_info end
+class type int64_array_t = object inherit [int64 option array] type_info end
+class type float_array_t = object inherit [float option array] type_info end
+class type string_array_t = object inherit [string option array] type_info end
 
 class type ['t] array_t = object constraint 't = < typ : 'ty; arrayable : unit; .. > inherit ['ty array] type_info end
 
@@ -270,11 +270,11 @@ module Value : sig
   val timestamp : timestamp -> < t : timestamp_t; nul : _ > t
   val timestamptz : timestamptz -> < t : timestamptz_t; nul : _ > t
   val interval : interval -> < t : interval_t; nul : _ > t
-  val bool_array : bool array -> < t : bool_array_t; nul : _ > t
-  val int32_array : int32 array -> < t : int32_array_t; nul : _ > t
-  val int64_array : int64 array -> < t : int64_array_t; nul : _ > t
-  val float_array : float array -> < t : float_array_t; nul : _ > t
-  val string_array : string array -> < t : string_array_t; nul : _ > t
+  val bool_array : bool option array -> < t : bool_array_t; nul : _ > t
+  val int32_array : int32 option array -> < t : int32_array_t; nul : _ > t
+  val int64_array : int64 option array -> < t : int64_array_t; nul : _ > t
+  val float_array : float option array -> < t : float_array_t; nul : _ > t
+  val string_array : string option array -> < t : string_array_t; nul : _ > t
 end
 
 

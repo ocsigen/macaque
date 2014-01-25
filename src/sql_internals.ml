@@ -74,11 +74,11 @@ and atom =
   | Timestamp of timestamp
   | Timestamptz of timestamptz
   | Interval of interval
-  | Bool_array of bool option array
-  | Int32_array of int32 option array
-  | Int64_array of int64 option array
-  | Float_array of float option array
-  | String_array of string option array
+  | Bool_array of bool option list
+  | Int32_array of int32 option list
+  | Int64_array of int64 option list
+  | Float_array of float option list
+  | String_array of string option list
   | Record of untyped (* runtime object instance *)
 and table_name = string option * string
 and row_name = string

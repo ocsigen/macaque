@@ -331,7 +331,8 @@ module Op : sig
   val currval : 'a sequence -> < t : 'a; nul : non_nullable > t
 
   (** timestamp *)
-  val current_timestamp : < t : timestamp_t; nul : _ > t
+  val current_timestamp : < t : timestamptz_t; nul : _ > t
+  val localtimestamp : < t : timestamp_t; nul : _ > t
 end
 
 (** standard view injections

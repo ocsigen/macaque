@@ -60,6 +60,7 @@ and value' =
   | Tuple of value tuple
   | Case of (value * value) list * value (* [when .. then ..]+ else ..*)
 and atom =
+  | Unit of unit
   | Bool of bool
   | Int16 of int16
   | Int32 of int32
@@ -82,6 +83,7 @@ and sql_type =
   | Non_nullable of atom_type
   | Nullable of atom_type option
 and atom_type =
+  | TUnit
   | TBool
   | TInt16
   | TInt32
@@ -112,6 +114,7 @@ let rec get_sql_type ref_type = function
         | _ -> invalid_arg "get_sql_type"
 
 let atom_type_of_string = function
+  | "unit" -> TUnit
   | "boolean" -> TBool
   | "smallint" -> TInt16
   | "integer" -> TInt32
@@ -127,6 +130,7 @@ let atom_type_of_string = function
   | "int32_array" -> TInt32_array
   | other -> failwith ("unknown sql type " ^ other)
 let string_of_atom_type = function
+  | TUnit -> "unit"
   | TBool -> "boolean"
   | TInt16 -> "smallint"
   | TInt32 -> "integer"
@@ -170,7 +174,7 @@ let is_record_type record =
 let rec unify t t' =
   let unify_atom a a' = match a, a' with
     (* identity unifications *)
-    | ( TBool | TInt16 | TInt32 | TInt64 | TFloat
+    | ( TUnit | TBool | TInt16 | TInt32 | TInt64 | TFloat
       | TString | TBytea | TTime | TDate | TInterval | TInt32_array
       | TTimestamp | TTimestamptz) as t, t' when t = t' -> t
     | TRecord r, TRecord r' ->
@@ -185,7 +189,7 @@ let rec unify t t' =
         TRecord  { r with descr = unified_descr }
 
     (* failure *)
-    | ( TBool | TInt16 | TInt32 | TInt64 | TFloat
+    | ( TUnit | TBool | TInt16 | TInt32 | TInt64 | TFloat
       | TString | TBytea | TTime | TDate | TInterval | TInt32_array
       | TTimestamp | TTimestamptz | TRecord _), _ ->
         failwith
@@ -216,7 +220,7 @@ let rec unify t t' =
 
 let is_unifiable t t' =
   try ignore (unify t t'); true
-  with Failure "unify" -> false
+  with Failure _ -> false
 
 let unify_descr d1 d2 =
   List.map (fun (n,t1) ->

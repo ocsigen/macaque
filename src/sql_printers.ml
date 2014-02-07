@@ -156,6 +156,7 @@ and string_of_table_name = function
 and string_of_atom =
   let quote printer value = sprintf "E'%s'" (printer value) in
   function
+    | Unit u -> PGOCaml.string_of_unit u
     | Bool b -> macaque_string_of_bool b
     | Int16 i -> PGOCaml.string_of_int16 i
     | Int32 i -> PGOCaml.string_of_int32 i

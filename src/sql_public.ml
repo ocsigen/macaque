@@ -30,6 +30,7 @@ let parse ty =
     (Sql_parsers.parser_of_type ty)
 
 module Value = struct
+  let unit () = Atom (Unit ()), Non_nullable TUnit
   let bool b = Atom (Bool b), Non_nullable TBool
   let int16 i = Atom (Int16 i), Non_nullable TInt16
   let int32 i = Atom (Int32 i), Non_nullable TInt32
@@ -119,10 +120,12 @@ module Op = struct
   let currval (seq_name, typ) =
     prefixop "currval" (label seq_name), Non_nullable typ
 
-  let current_timestamp =
+  let current_timestamp u =
+    check_atom_type (get_type u) TUnit;
     Op ([], "current_timestamp", []), Non_nullable TTimestamptz
 
-  let localtimestamp =
+  let localtimestamp u =
+    check_atom_type (get_type u) TUnit;
     Op ([], "localtimestamp", []), Non_nullable TTimestamp
 end
 

@@ -30,6 +30,7 @@ type non_nullable
 class type ['t] type_info = object method typ : 't end
 class type numeric_t = object method numeric : unit end
 
+class type unit_t = object inherit [unit] type_info end
 class type bool_t = object inherit [bool] type_info end
 class type int16_t = object inherit [int16] type_info inherit numeric_t end
 class type int32_t = object inherit [int32] type_info inherit numeric_t end
@@ -95,6 +96,7 @@ let get_val : < get : _; t : 'a #type_info; .. > atom -> 'a =
   let (!?) = Obj.magic in
   (* the magic is correct by type safety of 'a t *)
   function
+    | SQLI.Unit u -> !?u
     | SQLI.Bool b -> !?b
     | SQLI.Int16 i -> !?i
     | SQLI.Int32 i -> !?i

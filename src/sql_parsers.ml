@@ -19,6 +19,8 @@ let unsafe_record_parser record_parser : untyped record_parser =
 
 let pack atom atom_type : value = Atom atom, Non_nullable atom_type
 
+let unitval_of_string s =
+  pack (Unit (PGOCaml.unit_of_string s)) TBool
 let boolval_of_string s =
   pack (Bool (PGOCaml.bool_of_string s)) TBool
 let int16val_of_string s =
@@ -46,6 +48,7 @@ let intervalval_of_string s =
 let int32_array_of_string s =
   pack (Int32_array (PGOCaml.int32_array_of_string s)) TInt32_array
 
+let unit_field_parser = unsafe_parser (incr &&& unitval_of_string)
 let bool_field_parser = unsafe_parser (incr &&& boolval_of_string)
 let int16_field_parser = unsafe_parser (incr &&& int16val_of_string)
 let int32_field_parser = unsafe_parser (incr &&& int32val_of_string)
@@ -85,6 +88,7 @@ let record_parser t =
 
 let parser_of_type =
   let parser_of_sql_type = function
+    | TUnit -> unit_field_parser
     | TBool -> bool_field_parser
     | TInt16 -> int16_field_parser
     | TInt32 -> int32_field_parser

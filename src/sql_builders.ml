@@ -4,7 +4,7 @@ open Sql_types
 (** operations *)
 let null_workaround (v, t) =
   (* NULL WORKAROUND
-     
+
      It is assumed that any value with type Nullable None is NULL.
      This can work around several PostGreSQL Typing limitations
      wrt. NULL, such as the (NULL + NULL) issue or, worse :
@@ -12,6 +12,9 @@ let null_workaround (v, t) =
   *)
   if is_null_type t then null
   else (v, t)
+
+let check_atom_type ty atom_t =
+  ignore (unify ty (Non_nullable atom_t))
 
 let fixed_op op a b return_t =
   let input_t = unify (get_type a) (get_type b) in

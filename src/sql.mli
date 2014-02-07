@@ -36,6 +36,7 @@ val non_nullable_witness : non_nullable nul_witness
 class type ['t] type_info = object method typ : 't end
 class type numeric_t = object method numeric : unit end
 
+class type unit_t = object inherit [unit] type_info end
 class type bool_t = object inherit [bool] type_info end
 class type int16_t = object inherit [int16] type_info inherit numeric_t end
 class type int32_t = object inherit [int32] type_info inherit numeric_t end
@@ -241,6 +242,7 @@ val handle_query_results : 'a query -> string array list unsafe -> 'a
 (** standard SQL value injections
     (usable from user code, in pa_macaque value antiquotations) *)
 module Value : sig
+  val unit : unit -> < t : unit_t; nul : _ > t
   val bool : bool -> < t : bool_t; nul : _ > t
   val int16 : int16 -> < t : int16_t; nul : _ > t
   val int32 : int32 -> < t : int32_t; nul : _ > t
@@ -331,8 +333,8 @@ module Op : sig
   val currval : 'a sequence -> < t : 'a; nul : non_nullable > t
 
   (** timestamp *)
-  val current_timestamp : < t : timestamptz_t; nul : _ > t
-  val localtimestamp : < t : timestamp_t; nul : _ > t
+  val current_timestamp : < t : unit_t; .. > t -> < t : timestamptz_t; nul : _ > t
+  val localtimestamp : < t : unit_t; .. > t -> < t : timestamp_t; nul : _ > t
 end
 
 (** standard view injections

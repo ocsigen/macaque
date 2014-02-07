@@ -144,6 +144,11 @@ Examples :
     <:value< 1 = 1 >>
 
 
+- the current timestamp (with local timezone information, use
+  `localtimestamp` to omit it):
+
+    <:value< current_timestamp () >>
+
 - field 'id' of table 'foo', casted as a nullable value (wich can take the `NULL` value)
 
     <:value< nullable foo.id >>
@@ -281,7 +286,7 @@ For this purpose, Macaque was extended with:
 
 As an example, the following three definitions of `get_time` are equivalent:
 
-  let time = <:value< current_timestamp >>
+  let time = <:value< current_timestamp () >>
 
   let get_time dbh =
     Sql.get (Query.view_one dbh <:view< {x = $time$} >>)#x

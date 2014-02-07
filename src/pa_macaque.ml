@@ -209,8 +209,6 @@ let () =
 
   let operation _loc op operands = (_loc, Op ((_loc, op), operands)) in
 
-  let unary _loc op = (_loc, Op ((_loc, Ident op), [])) in
-
   let opt_list _loc = function
     | None -> (_loc, [])
     | Some thing -> thing in
@@ -357,10 +355,9 @@ let () =
      | "simple"
          [ v = atom -> (_loc, Atom v)
          | (_, tup) = tuple -> (_loc, Tuple tup)
-         | LIDENT "null" -> unary _loc "null"
-         | LIDENT "current_timestamp" -> unary _loc "current_timestamp"
+         | LIDENT "null" -> operation _loc (Ident "null") []
          | id = sql_ident -> (_loc, Ident id)
-         | "("; (_, e) = SELF; ")" -> (_loc, e)
+         | TRY "("; (_, e) = SELF; ")" -> (_loc, e)
          | "["; e = SELF; "]" -> (_loc, Accum e) ]];
 
    sql_type: [[ typ = LIDENT -> (_loc, typ) ]];
@@ -398,6 +395,7 @@ let () =
           | `FLOAT(f, _) -> <:expr< Sql.Value.float $`flo:f$ >>
           | "true" -> <:expr< Sql.Value.bool True >>
           | "false" -> <:expr< Sql.Value.bool False >>
+          | "("; ")" -> <:expr< Sql.Value.unit () >>
           | `ANTIQUOT(id, v) ->
               <:expr< Sql.Value.$lid:id$ $quote _loc v$ >> ]];
  END;

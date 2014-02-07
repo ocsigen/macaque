@@ -42,6 +42,8 @@ let () =
   test "null IS NOT DISTINCT FROM null"
     string_of_bool <:value< is_not_distinct_from null null >>;
   test "current_timestamp"
-    PGOCaml.string_of_timestamp <:value< current_timestamp >>;
+    PGOCaml.string_of_timestamptz <:value< current_timestamp () >>;
+  test "localtimestamp"
+    PGOCaml.string_of_timestamp <:value< localtimestamp () >>;
   test_opt "NULL" string_of_bool <:value< null >>;
   ()

@@ -79,6 +79,11 @@ let table descr producer record_parser name (obj_witness, defaults) =
 
 (** views *)
 let view (select, select_type) ?order_by ?limit ?offset from where =
+  (* We need to order the result.
+     For example, with « (SELECT x FROM …) UNION (SELECT y FROM …) »,
+     x and y should be ordered the same way, otherwise SQL will
+     raise an error. (see #12)
+  *)
   let order_tuple = List.sort (fun (x, _) (y, _) -> String.compare x y) in
   let query =
     { select = (match select with

@@ -1,4 +1,4 @@
-OASISFormat: 0.3
+OASISFormat: 0.4
 Name: macaque
 Version: 0.6.1
 Synopsis: MaCaQue (or macaque) is a DSL for SQL Queries in Caml
@@ -6,7 +6,8 @@ Authors:
   Gabriel Scherer,
   Jérôme Vouillon
 License: LGPL-2 with OCaml linking exception
-Plugins: DevFiles (0.3), META (0.3)
+Plugins: DevFiles (0.4), META (0.4)
+AlphaFeatures: compiled_setup_ml
 BuildTools: ocamlbuild
 
 Library "macaque"

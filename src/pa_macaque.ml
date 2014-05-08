@@ -455,26 +455,28 @@ let camlp4_option _loc = function
 
 
 (* common definitions *)
+(* Note: Identifiers beginning with _ are named in this way to remove unused
+   variable warnings (in case there are no fields) *)
 let producer _loc fields =
   let field_producer (_loc, name) =
-    <:expr< ($str:name$, Sql.untyped_t obj#$lid:name$) >> in
+    <:expr< ($str:name$, Sql.untyped_t _obj#$lid:name$) >> in
   let descr = camlp4_list _loc (List.map field_producer fields) in
-  <:expr< fun obj -> $descr$ >>
+  <:expr< fun _obj -> $descr$ >>
 
 let result_parser _loc fields =
   let var name = "field_" ^ name in
   let parser_binding (_loc, (name, typ_expr)) =
     <:binding< $lid:var name$ =
                  Sql.parse (Sql.recover_type $typ_expr$
-                              (Sql.unsafe (List.assoc $str:name$ descr))) >> in
+                              (Sql.unsafe (List.assoc $str:name$ _descr))) >> in
   let value_binding (_loc, (name, _)) =
-    <:binding< $lid:var name$ = $lid:var name$ input >> in
+    <:binding< $lid:var name$ = $lid:var name$ _input >> in
   let meth (_loc, (name, _)) =
     <:class_str_item< method $lid:name$ = $lid:var name$ >> in
   <:expr<
-    fun descr ->
+    fun _descr ->
       let $Ast.biAnd_of_list (List.map parser_binding fields)$ in
-      fun input ->
+      fun _input ->
         let $Ast.biAnd_of_list (List.map value_binding fields)$ in
         object $Ast.crSem_of_list (List.map meth fields)$ end >>
 

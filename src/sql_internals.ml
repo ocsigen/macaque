@@ -74,7 +74,7 @@ and atom =
   | Timestamp of timestamp
   | Timestamptz of timestamptz
   | Interval of interval
-  | Int32_array of int32 array
+  | Int32_array of int32 option list
   | Record of untyped (* runtime object instance *)
 and table_name = string option * string
 and row_name = string

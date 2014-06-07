@@ -43,7 +43,7 @@ class type date_t = object inherit [date] type_info end
 class type timestamp_t = object inherit [timestamp] type_info end
 class type timestamptz_t = object inherit [timestamptz] type_info end
 class type interval_t = object inherit [interval] type_info end
-class type int32_array_t = object inherit [int32 array] type_info end
+class type int32_array_t = object inherit [int32 option list] type_info end
 
 class type ['row] row_t = object inherit ['row] type_info end
 

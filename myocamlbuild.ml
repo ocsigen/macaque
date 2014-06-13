@@ -2,6 +2,9 @@
   This file is Public Domain
 *)
 
+(* OASIS_START *)
+(* OASIS_STOP *)
+
 open Ocamlbuild_plugin
 open Command (* no longer needed for OCaml >= 3.10.2 *)
 
@@ -9,9 +12,9 @@ module OCamlFind =
 struct
   (* these functions are not really officially exported *)
   let run_and_read      = Ocamlbuild_pack.My_unix.run_and_read
-    
+
   let blank_sep_strings = Ocamlbuild_pack.Lexers.blank_sep_strings
-  
+
   (* this lists all supported packages *)
   let find_packages () =
     blank_sep_strings &
@@ -27,7 +30,7 @@ struct
   let  before_options () =
     (* by using Before_options one let command line options have an higher priority *)
     (* on the contrary using After_options will guarantee to have the higher priority *)
-    
+
     (* override default commands by ocamlfind ones *)
     Options.ocamlc     := ocamlfind & A"ocamlc";
     Options.ocamlopt   := ocamlfind & A"ocamlopt";
@@ -58,12 +61,12 @@ struct
          flag ["ocaml"; "ocamldep"; "syntax_"^syntax] & S[A"-syntax"; A syntax];
          flag ["ocaml"; "doc";      "syntax_"^syntax] & S[A"-syntax"; A syntax];
        end (find_syntaxes ());
-       
+
        (* The default "thread" tag is not compatible with ocamlfind.
           Indeed, the default rules add the "threads.cma" or "threads.cmxa"
           options when using this tag. When using the "-linkpkg" option with
           ocamlfind, this module will then be added twice on the command line.
-       
+
           To solve this, one approach is to add the "-thread" option when using
           the "threads" package using the previous plugin.
         *)
@@ -75,7 +78,7 @@ end
 module Sql_syntax = struct
   let before_options () = ()
   let after_rules () =
-    let maca, bana = "pa_macaque.cmo", "pa_bananas.cmo" in
+    let maca, bana = "src/pa_macaque.cmo", "src/pa_bananas.cmo" in
     flag ["ocaml"; "pp"; "use_macaque"] (S[A maca;A bana]);
     flag ["ocaml"; "pp"; "use_check"] (A "-check_tables");
     dep ["ocaml"; "ocamldep"; "use_macaque"] [maca; bana];

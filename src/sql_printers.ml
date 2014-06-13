@@ -139,7 +139,7 @@ and string_of_value (value, _) =
           (match right with
              | [] -> ""
              | li -> " " ^ string_of_list string_of_value " " right)
-    | OpTuple (_, _, [], Some default) -> sprintf "%s" default
+    | OpTuple (_, _, [], Some default) -> string_of_value default
     | OpTuple (_, op, [], None) ->
         failwith
           (Printf.sprintf

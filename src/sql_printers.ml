@@ -139,9 +139,21 @@ and string_of_value (value, _) =
           (match right with
              | [] -> ""
              | li -> " " ^ string_of_list string_of_value " " right)
+    | OpTuple (_, _, [], Some default) -> string_of_value default
+    | OpTuple (_, op, [], None) ->
+        failwith
+          (Printf.sprintf
+             "The operator '%s' needs a non-empty right parameter"
+             op
+          )
+    | OpTuple (left, op, right, _) ->
+        sprintf "(%s %s (%s))"
+          (string_of_value left)
+          op
+          (string_of_list string_of_value ", " right)
     | Case ([], default) -> string_of_value default
     | Case (cases, default) ->
-        let string_of_case (cond, case) = 
+        let string_of_case (cond, case) =
           sprintf "WHEN %s THEN %s"
             (string_of_value cond) (string_of_value case) in
         sprintf "(CASE %s ELSE %s END)"
@@ -209,4 +221,3 @@ let rec string_of_query = function
         (string_of_assoc set)
         (string_of_from from)
         (string_of_where where)
-

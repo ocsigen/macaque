@@ -673,9 +673,15 @@ and value_of_comp env (_loc, r) =
         <:expr< Sql.match_null $!!matched$ $!!null_case$
           (fun $lid:id$ -> $!!other_case$) >>
     | Tuple tup ->
+        (* We need to order the result.
+           For example, with « (SELECT x FROM …) UNION (SELECT y FROM …) »,
+           x and y should be ordered the same way, otherwise SQL will
+           raise an error. (see #12)
+        *)
+        let order_tuple = List.sort (fun (_, (x, _)) (_, (y, _)) -> String.compare x y) in
         let field_names, field_values =
           let split (_loc, (name, value)) = (_loc, name), value in
-          List.split (List.map split tup) in
+          List.split (List.map split (order_tuple tup)) in
         let fields_binding action =
           let custom_binding (_loc, (id, value)) =
             <:binding< $lid:id$ = $action _loc id value$ >> in

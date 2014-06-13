@@ -30,6 +30,10 @@ Library "macaque"
   BuildDepends:
     pgocaml,
     macaque.syntax
+  XMETARequires:
+    pgocaml
+  XMETADescription:
+    MaCaQue, Macros for Caml Queries : a typed SQL DSL for Caml
 
 Library "syntax"
   Path: src
@@ -40,5 +44,8 @@ Library "syntax"
   BuildDepends:
     camlp4
   XMETARequires:
+    macaque,
     camlp4
   XMETAType: syntax
+  XMETADescription:
+    Syntax extension: Comprehension syntax for composable SQL statements

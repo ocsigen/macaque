@@ -55,11 +55,6 @@ class type date_t = object inherit [date] type_info end
 class type timestamp_t = object inherit [timestamp] type_info end
 class type timestamptz_t = object inherit [timestamptz] type_info end
 class type interval_t = object inherit [interval] type_info end
-class type bool_array_t = object inherit [bool_t] array_t end
-class type int32_array_t = object inherit [int32_t] array_t end
-class type int64_array_t = object inherit [int64_t] array_t end
-class type float_array_t = object inherit [float_t] array_t end
-class type string_array_t = object inherit [string_t] array_t end
 
 class type ['row] row_t = object inherit ['row] type_info end
 
@@ -222,15 +217,15 @@ module Table_type : sig
   val interval : 'nul nul_witness ->
     < get : unit; nul : 'nul; t : interval_t > sql_type
   val bool_array : 'nul nul_witness ->
-    < get : unit; nul : 'nul; t : bool_array_t > sql_type
+    < get : unit; nul : 'nul; t : bool_t array_t > sql_type
   val int32_array : 'nul nul_witness ->
-    < get : unit; nul : 'nul; t : int32_array_t > sql_type
+    < get : unit; nul : 'nul; t : int32_t array_t > sql_type
   val int64_array : 'nul nul_witness ->
-    < get : unit; nul : 'nul; t : int64_array_t > sql_type
+    < get : unit; nul : 'nul; t : int64_t array_t > sql_type
   val float_array : 'nul nul_witness ->
-    < get : unit; nul : 'nul; t : float_array_t > sql_type
+    < get : unit; nul : 'nul; t : float_t array_t > sql_type
   val string_array : 'nul nul_witness ->
-    < get : unit; nul : 'nul; t : string_array_t > sql_type
+    < get : unit; nul : 'nul; t : string_t array_t > sql_type
 end
 
 (** final query building *)
@@ -273,11 +268,11 @@ module Value : sig
   val timestamp : timestamp -> < t : timestamp_t; nul : _ > t
   val timestamptz : timestamptz -> < t : timestamptz_t; nul : _ > t
   val interval : interval -> < t : interval_t; nul : _ > t
-  val bool_array : bool option list -> < t : bool_array_t; nul : _ > t
-  val int32_array : int32 option list -> < t : int32_array_t; nul : _ > t
-  val int64_array : int64 option list -> < t : int64_array_t; nul : _ > t
-  val float_array : float option list -> < t : float_array_t; nul : _ > t
-  val string_array : string option list -> < t : string_array_t; nul : _ > t
+  val bool_array : bool option list -> < t : bool_t array_t; nul : _ > t
+  val int32_array : int32 option list -> < t : int32_t array_t; nul : _ > t
+  val int64_array : int64 option list -> < t : int64_t array_t; nul : _ > t
+  val float_array : float option list -> < t : float_t array_t; nul : _ > t
+  val string_array : string option list -> < t : string_t array_t; nul : _ > t
 end
 
 

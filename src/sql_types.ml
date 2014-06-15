@@ -49,11 +49,6 @@ class type date_t = object inherit [date] type_info end
 class type timestamp_t = object inherit [timestamp] type_info end
 class type timestamptz_t = object inherit [timestamptz] type_info end
 class type interval_t = object inherit [interval] type_info end
-class type bool_array_t = object inherit [bool_t] array_t end
-class type int32_array_t = object inherit [int32_t] array_t end
-class type int64_array_t = object inherit [int64_t] array_t end
-class type float_array_t = object inherit [float_t] array_t end
-class type string_array_t = object inherit [string_t] array_t end
 
 class type ['row] row_t = object inherit ['row] type_info end
 

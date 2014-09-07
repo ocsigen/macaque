@@ -43,7 +43,11 @@ module Value = struct
   let timestamp i = Atom (Timestamp i), Non_nullable TTimestamp
   let timestamptz i = Atom (Timestamptz i), Non_nullable TTimestamptz
   let interval i = Atom (Interval i), Non_nullable TInterval
-  let int32_array js = Atom (Int32_array js), Non_nullable TInt32_array
+  let bool_array js = Atom (Bool_array js), Non_nullable (TArray TBool)
+  let int32_array js = Atom (Int32_array js), Non_nullable (TArray TInt32)
+  let int64_array js = Atom (Int64_array js), Non_nullable (TArray TInt64)
+  let float_array js = Atom (Float_array js), Non_nullable (TArray TFloat)
+  let string_array js = Atom (String_array js), Non_nullable (TArray TString)
 end
 
 type 'a sequence = string * atom_type
@@ -124,6 +128,13 @@ module Op = struct
   let max (v, t) = nullable (prefixop "max" (v, t), t)
   let sum (v, t) = nullable (prefixop "sum" (v, t), t)
   let md5 (v, t) = prefixop "md5" (v, t), t
+  let array_agg (v, t) =
+    let to_array = function
+      | Nullable None -> Nullable None
+      | Nullable (Some t)
+      | Non_nullable t -> Nullable (Some (TArray t))
+    in
+    prefixop "array_agg" (v, t), to_array t
 
   let label seq_name = Atom (String seq_name), Non_nullable TString
   let nextval (seq_name, typ) =
@@ -156,7 +167,11 @@ module Table_type = struct
   let timestamp = _type TTimestamp
   let timestamptz = _type TTimestamptz
   let interval = _type TInterval
-  let int32_array = _type TInt32_array
+  let bool_array = _type (TArray TBool)
+  let int32_array = _type (TArray TInt32)
+  let int64_array = _type (TArray TInt64)
+  let float_array = _type (TArray TFloat)
+  let string_array = _type (TArray TString)
 end
 
 module View = struct

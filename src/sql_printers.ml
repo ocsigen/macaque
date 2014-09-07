@@ -181,7 +181,11 @@ and string_of_atom =
     | Timestamp i -> quote PGOCaml.string_of_timestamp i
     | Timestamptz i -> quote PGOCaml.string_of_timestamptz i
     | Interval i -> quote PGOCaml.string_of_interval i
+    | Bool_array js -> quote PGOCaml.string_of_bool_array js
     | Int32_array js -> quote PGOCaml.string_of_int32_array js
+    | Int64_array js -> quote PGOCaml.string_of_int64_array js
+    | Float_array js -> quote PGOCaml.string_of_float_array js
+    | String_array js -> quote PGOCaml.string_of_string_array js
     | Record t ->
         (* all records should have been expanded,
            that's the !atom-records flatten postcondition *)

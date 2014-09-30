@@ -1,8 +1,0 @@
-Beta 3 :
-	- Query.Simple functions are now directly accessible in the Query module
-	- UPDATE and DELETE queries can use joins over several tables
-	- support for default values in table descriptions
-	- pa_comp and pa_descr are now together in pa_macaque
-
-Creation of the Changelog :
-	- Macaque has been submitted to JFLA

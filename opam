@@ -15,6 +15,3 @@ depends: [
   "oasis" {>= "0.4.4"}
   "camlp4"
 ]
-conflicts: [
-  "batteries" {="2.3.0"}
-]

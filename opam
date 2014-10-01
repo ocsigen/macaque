@@ -11,7 +11,7 @@ remove: [
 ]
 depends: [
   "ocamlfind"
-  "pgocaml" {< "2.0"}
+  "pgocaml" {>= "2.0"}
   "oasis" {>= "0.4.4"}
   "camlp4"
 ]

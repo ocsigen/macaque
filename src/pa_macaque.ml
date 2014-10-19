@@ -784,8 +784,8 @@ let table_of_descr (_loc, table) =
       List.concat (List.map value table.field_descrs) in
     let bind (_loc, name, default_val) =
       let expr = value_of_comp Env.empty (_loc, default_val) in
-      <:binding< $lid:name$ = $expr$ >> in
-    let meth (_loc, name, _) =
+      <:binding< $lid:name$ = Sql.cast $expr$ $lid:field_name name$ >> in
+    let meth (_loc, name, _expr) =
       <:class_str_item< method $lid:name$ = $lid:name$ >> in
     let assoc (_loc, name, _) = <:expr< ($str:name$, Sql.untyped_t $lid:name$) >> in
     <:expr<

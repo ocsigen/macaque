@@ -930,7 +930,7 @@ readability anyway, so you should not use it even if it wasn't for
 compatibility reasons.
 
 
-<a name="campl4_use"></a>
+<a name="camlp4_use"></a>
 #### Camlp4 use                                                   
 
 I am under the impression that some "serious" ocaml users try to avoid

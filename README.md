@@ -20,7 +20,7 @@ Summary of this document :
 - [Processing query results](#processing_results)
   - [Single value queries](#single_value_query)
 - [General syntax : values, comprehensions, queries](#syntax_description)
-- [View expressions](#view)
+- [View expressions](#view_expressions)
   - [View results](#view_results)
   - [View modifiers](#view_modifiers)
   - [Comprehension items](#comprehension_items)
@@ -431,7 +431,7 @@ if the user forgets the guards altogether, she will also forget the
 
 
 
-<a name="view"></a>
+<a name="view_expressions"></a>
 ### View expressions                                                     
 
 :BNF:

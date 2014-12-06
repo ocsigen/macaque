@@ -194,10 +194,10 @@ the `QUERY` interface, with no threading integrated.
 
 The core `Query` interface is quite simple :
 
-  val query : _ Db.t -> ?log:out_channel -> 'a Sql.query -> 'a Db.monad
-  val view : _ Db.t -> ?log:out_channel -> 'a Sql.view -> 'a list Db.monad
-  val view_one : _ Db.t -> ?log:out_channel -> 'a Sql.view -> 'a Db.monad
-  val view_opt : _ Db.t -> ?log:out_channel -> 'a Sql.view -> 'a option Db.monad
+    val query : _ Db.t -> ?log:out_channel -> 'a Sql.query -> 'a Db.monad
+    val view : _ Db.t -> ?log:out_channel -> 'a Sql.view -> 'a list Db.monad
+    val view_one : _ Db.t -> ?log:out_channel -> 'a Sql.view -> 'a Db.monad
+    val view_opt : _ Db.t -> ?log:out_channel -> 'a Sql.view -> 'a option Db.monad
 
 (in the simple case, `_ Db.t` is `_ PGOCaml.t`, and `'a Db.monad` is just `'a`)
 
@@ -237,8 +237,8 @@ result; if they get more results, they will raise a `Failure` exception.
 macaque produces `Sql.t` values from the query results. The real caml
 values can be accessed using the `Sql.get` and `Sql.getn` operators :
 
-  val get : < get : _; nul : non_nullable; t : 't #type_info > t -> 't
-  val getn : < get : _; nul : nullable; t : 't #type_info > t -> 't option
+    val get : < get : _; nul : non_nullable; t : 't #type_info > t -> 't
+    val getn : < get : _; nul : nullable; t : 't #type_info > t -> 't option
 
 `Sql.get` operates on non-nullable values, while `Sql.getn` operates
 no nullable values and returns an `option`.

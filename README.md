@@ -52,7 +52,7 @@ Summary of this document :
 
 
 
-### Important macaque types and structures                      [.macaque_types]
+### Important macaque types and structures                      <a name="macaque_types"></a>
 
 macaque builds SQL queries/views/values at three different levels :
 
@@ -176,7 +176,7 @@ at will :
 
 
 
-### Sending queries to the SQL server                         [.sending_queries]
+### Sending queries to the SQL server                         <a name="sending_queries"></a>
 
 Most of macaque efforts are directed towards producing safe and
 composables SQL queries, and rebuilding typed values from the
@@ -232,7 +232,7 @@ result; if they get more results, they will raise a `Failure` exception.
 
 
 
-### Processing query results                               [.processing_results]
+### Processing query results                               <a name="processing_results"></a>
 
 macaque produces `Sql.t` values from the query results. The real caml
 values can be accessed using the `Sql.get` and `Sql.getn` operators :
@@ -267,7 +267,7 @@ option matching anyway.
 
 
 
-#### Single value queries                                  [.single_value_query]
+#### Single value queries                                  <a name="single_value_query"></a>
 
 It is sometimes useful to query single values from the database,
 instead of the usual list-of-rows SELECT query -- for example to
@@ -300,7 +300,7 @@ As an example, the following three definitions of `get_time` are equivalent:
 
 
 
-### General syntax : values, comprehensions, queries       [.syntax_description]
+### General syntax : values, comprehensions, queries       <a name="syntax_description"></a>
 
 macaque use the Camlp4 quotations system to integrate Domain-specific
 syntaxes into the Objective Caml language. General principles are as follows :
@@ -413,7 +413,7 @@ in `Sql.Op`.
     (`by {}`) is optinal. See the [GROUP BY expressions and aggregate
     functions](#group_by) section.
 
-##### Remark : implicit exhaustive manipulation       [.exhaustive_manipulations]
+##### Remark : implicit exhaustive manipulation       <a name="exhaustive_manipulations"></a>
 
 It was found that user sometimes forgot the guards in an `UPDATE` or
 `DELETE` query. The results of that mistake are usually rather
@@ -425,7 +425,7 @@ if the user forgets the guards altogether, she will also forget the
 
 
 
-### View expressions                                                     [.view]
+### View expressions                                                     <a name="view"></a>
 
 :BNF:
 
@@ -437,7 +437,7 @@ if the user forgets the guards altogether, she will also forget the
       | 'intersect' | 'intersect_all'
       | 'except"    | 'except_all'
 
-#### View results                                                [.view_results]
+#### View results                                                <a name="view_results"></a>
 
 View results are either a simple value or a `GROUP BY` expression (see
 the [GROUP BY expressions and aggregate functions](#group_by) part of
@@ -462,7 +462,7 @@ macaque is rather delicate and you might encounter bugs with
 no-yet-well-tested combinations of nested tuples and other macaque
 features.
 
-#### View modifiers                                            [.view_modifiers]
+#### View modifiers                                            <a name="view_modifiers"></a>
 
 View modifiers correspond to following SQL features : `LIMIT`,
 `OFFSET` and `ORDER BY`. Their behaviour should not come as
@@ -487,7 +487,7 @@ depend on the rows bound in the latter part of the
 comprehension. `LIMIT` and `OFFSET` are not : obviously `<< foo LIMIT
 foo.id | foo in $..$ >>` is not a well-formed query.
 
-#### Comprehension items                                  [.comprehension_items]
+#### Comprehension items                                  <a name="comprehension_items"></a>
 
 There is one important thing to know about comprehension items \: row
 bindings are not sequential, they're simultaneous (`let .. and .. and
@@ -514,7 +514,7 @@ is equivalent to
 
 
 
-### GROUP BY expressions and aggregate functions                     [.group_by]
+### GROUP BY expressions and aggregate functions                     <a name="group_by"></a>
 
 The SQL query `SELECT fields GROUP BY group_fields` roughly translate
 in the `group {fields} by {group_fields}` expression : after `group`
@@ -528,12 +528,12 @@ Example :
 Will expand to
   SELECT SUM(t.a) AS subtotal, t.b AS k  GROUP BY t.b FROM (...) AS t
 
-#### Empty GROUP part                                             [.empty_group]
+#### Empty GROUP part                                             <a name="empty_group"></a>
 
 `GROUP BY` expressions with all fields in the `BY` part are equivalent to
 a `SELECT DISTINCT` query.
 
-#### Restrictions on the GROUP record, accumulators [..] syntax  [.accumulators]
+#### Restrictions on the GROUP record, accumulators [..] syntax  <a name="accumulators"></a>
 
 The `BY` values (here `t.b`) can be any expression depending on the bound
 view (here `t`, but possibly more than one), and anything else in
@@ -548,7 +548,7 @@ semantic :
 - fields name bound in the `BY` record can be used freely :
   - `<:view< group {c = k; d = k + k; e = count[l]} by {k = t.b; l = t.c} | ... >>` is legal
 
-#### Corresponding typing errors                       [.static_group_by_typing]
+#### Corresponding typing errors                       <a name="static_group_by_typing"></a>
 
 - Use of group-varying values outside accumulators
 
@@ -569,7 +569,7 @@ semantic :
   returned directly
 
 
-#### Non-grouped aggregates                            [.non_grouped_aggregates]
+#### Non-grouped aggregates                            <a name="non_grouped_aggregates"></a>
 
 Aggregates functions *cannot* be used outside group by expressions. If
 you want to use an aggregate functions over all the rows of a table,
@@ -588,7 +588,7 @@ macaque to protect from runtime errors.
 
 
 
-### Description syntax                                           [.descriptions]
+### Description syntax                                           <a name="descriptions"></a>
 
 Description syntax is used to describe existing database tables, making
 them as macaque views (internally, it builds a runtime description of
@@ -613,7 +613,7 @@ a potentially richer description : foreign keys, etc.). If you change
 a table description, you will have to duplicate the changes in the
 caml description as well.
 
-#### Auto-incrementing columns                                    [.incr_column]
+#### Auto-incrementing columns                                    <a name="incr_column"></a>
 
 `SERIAL` columns are not supported (yet). It is however possible to
 emulate this feature with explicit `SEQUENCE` manipulations ([sequence
@@ -629,7 +629,7 @@ the next identifier:
 
   <:insert< my_table := { id = my_table?id; ... } >>
 
-#### sequence descriptions                              [.sequence_descriptions]
+#### sequence descriptions                              <a name="sequence_descriptions"></a>
 
 It is not possible to create new sequences from Macaque (this is
 coherent with the choice that macaques allows descriptions, not
@@ -638,7 +638,7 @@ creation operators are part of the `Sql.Sequence` module.
 
   let table_id_seq = <:sequence< serial "the_sql_sequence_name" >>
 
-#### Checking descriptions                                 [.check_descriptions]
+#### Checking descriptions                                 <a name="check_descriptions"></a>
 
 To help you with the macaque/database synchronization, the `Check`
 module provide coherence check routines (`check_table`,
@@ -652,7 +652,7 @@ section of this document).
 
 
 
-### OCamlbuild                                                      [.ocamlbuild]
+### OCamlbuild                                                      <a name="ocamlbuild"></a>
 
 I have created a macaque-specific OCamlbuild plugin. It was originally
 intended to help during macaque development only, but is probably
@@ -670,9 +670,9 @@ preprocessing tags being there for finer-grained control.
 
 
 
-### Sql functions, operators and data types                     [.SQL_operators]
+### Sql functions, operators and data types                     <a name="SQL_operators"></a>
 
-#### Sql value operators                                      [.value_operators]
+#### Sql value operators                                      <a name="value_operators"></a>
 
 macaque can use all function and operators defined in the `Sql.Op`
 module, using the standard ocaml syntax (and operator associativities
@@ -686,7 +686,7 @@ and precedences) :
 and aggregate functions](#group_by) section of this document for more
 information.
 
-#### Value types antiquotations                          [.value_antiquotations]
+#### Value types antiquotations                          <a name="value_antiquotations"></a>
 
 macaque supports some SQL data types, some of them having a litteral
 syntax (ints and string : `<:value< 2 >>`, `<:value< "foo" >>`). They can
@@ -697,7 +697,7 @@ all be constructed by using named antiquotations :
 More generally, the type constructors are the values in Sql.Value :
 `<:value< $foo:bar$ >>` is equivalent to `Sql.Value.foo bar`
 
-#### Column types                                                [.column_types]
+#### Column types                                                <a name="column_types"></a>
 
 Data types used in table descriptions are defined in the
 `Sql.Table_type` module. We use a different set of type names, in
@@ -705,7 +705,7 @@ order to mimic SQL type names and ease specification derivation from
 existing SQL tables. For example, "integer" is used instead of "int",
 and will expand to a `Sql.Table_type.integer` value.
 
-#### Casts                                                              [.casts]
+#### Casts                                                              <a name="casts"></a>
 
 You can use an explicit cast of the form `cast foo as bar`, where
 `bar` is an identifier for a column-type as described in the "Column
@@ -719,7 +719,7 @@ null as integer` instead.
 
 Sequence creators are defined in the `Sql.Sequence` module.
 
-#### Sequence operators                                          [.sequence_ops]
+#### Sequence operators                                          <a name="sequence_ops"></a>
 
 Sql.Op has some sequence functions. Currently supported are
 `currval` and `nextval`. They can be used to have an
@@ -729,14 +729,14 @@ auto-incrementing identifier :
 
 See the src/tests/sequence.ml for example.
 
-#### View antiquotations                                  [.view_antiquotations]
+#### View antiquotations                                  <a name="view_antiquotations"></a>
 
 In view positions, macaque supports antiquotations through the
 `Sql.View` module : `$foo:bar$` will expand to `Sql.View.foo bar`.
 
 
 
-### phantom types                                               [.phantom_types]
+### phantom types                                               <a name="phantom_types"></a>
 
 Sql.t types sure are heavy. You *will* be confronted to cluttered
 error messages with ugly as hell unification problems. Hopes this
@@ -780,7 +780,7 @@ including (nested) rows...
 
 
 
-### Specific type fourberies                                  [.type_subtleties]
+### Specific type fourberies                                  <a name="type_subtleties"></a>
 
 macaque being strongly (and intricately) typed, you will often find
 yourself confronted to hostile error messages, wich means someone has
@@ -789,7 +789,7 @@ macaque. There are nonetheless some specificites that you should be
 aware of.
 
 
-#### Sql interface safety                                    [.interface_safety]
+#### Sql interface safety                                    <a name="interface_safety"></a>
 
 Macaque syntax extensions transform user code into complicated caml
 code. But the produced codes still lies outside macaque module
@@ -809,7 +809,7 @@ otherwise it's a bug.
   α: and there is some Obj magic behind the scene; but it's protected
   by typing and you won't get a segfault, I hope.
 
-#### Update subtyping problem                                [.update_subtyping]
+#### Update subtyping problem                                <a name="update_subtyping"></a>
 
 An example of update syntax is << t in $tab$ := {amount = t.amout + 1} >>,-
 wich increment the "amout" column of all rows in table `tab`. Table
@@ -857,9 +857,9 @@ should be rewritten into
 
 
 
-### Remarks                                                   [.general_remarks]
+### Remarks                                                   <a name="general_remarks"></a>
 
-#### Side effects                                                [.side_effects]
+#### Side effects                                                <a name="side_effects"></a>
 
 It is probably an obvious thing to say, but users should not put
 expressions wich have side-effect when evaluated inside macaque
@@ -870,7 +870,7 @@ In case of doubt, you should explicitely evaluate expressions before
 handling them to the macaque expression :
   let my_val = my_expr in << ... $my_val$ ... >>
 
-#### Semantic of row bindings                           [.row_binding_semantics]
+#### Semantic of row bindings                           <a name="row_binding_semantics"></a>
 
 From the [View expressions > Comprehension
 items](#comprehension_items) part of this document :
@@ -896,7 +896,7 @@ readability anyway, so you should not use it even if it wasn't for
 compatibility reasons.
 
 
-#### Camlp4 use                                                   [.campl4_use]
+#### Camlp4 use                                                   <a name="campl4_use"></a>
 
 I am under the impression that some "serious" ocaml users try to avoid
 to include camlp4 in their compilation chain if possible, and to
@@ -933,7 +933,7 @@ as solid as possible :
   and drop `pa_bananas` from her compilation chain entirely.
 
 
-#### Macaque and PG'OCaml                                      [.pgocaml_compat]
+#### Macaque and PG'OCaml                                      <a name="pgocaml_compat"></a>
 
 Macaque relies on PG'OCaml low-level interface. It is fully compatible
 with PG'OCaml : you can use a database handler for Macaque queries and
@@ -958,7 +958,7 @@ composability. If you're interested in investigating Macaque
 performances, let me know.
 
 
-#### NULL and semantic issues                                  [.null_inference]
+#### NULL and semantic issues                                  <a name="null_inference"></a>
 
 I have tried to reproduce SQL behaviour as closely as possible. In
 particular, all operators are really SQL operators, so they will have

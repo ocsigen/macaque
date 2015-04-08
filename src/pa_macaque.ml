@@ -493,13 +493,7 @@ end = struct
   let empty = SMap.empty
 
   let new_row name env =
-    let mangle name =
-      let len = String.length name in
-      let res = String.create len in
-      for i = 0 to len - 1 do
-        res.[i] <- (match name.[i] with '\'' -> '$' | c -> c)
-      done;
-      res in
+    let mangle = String.map (function '\'' -> '$' | c -> c) in
     let name' = mangle name in
     name', SMap.add name name' env
 

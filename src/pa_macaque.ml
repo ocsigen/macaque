@@ -495,11 +495,11 @@ end = struct
   let new_row name env =
     let mangle name =
       let len = String.length name in
-      let res = String.create len in
+      let buf = Buffer.create len in
       for i = 0 to len - 1 do
-        res.[i] <- (match name.[i] with '\'' -> '$' | c -> c)
+        Buffer.add_char buf (match name.[i] with '\'' -> '$' | c -> c)
       done;
-      res in
+      Buffer.contents buf in
     let name' = mangle name in
     name', SMap.add name name' env
 

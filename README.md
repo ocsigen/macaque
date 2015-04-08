@@ -415,7 +415,7 @@ in `Sql.Op`.
     `baz`); the example can thus be written `{ foo.a; bar.foobar.b }`
 
   - if the `BY` record of a `group .. by` expression is empty, the `BY` part
-    (`by {}`) is optinal. See the [GROUP BY expressions and aggregate
+    (`by {}`) is optional. See the [GROUP BY expressions and aggregate
     functions](#group_by) section.
 
 <a name="exhaustive_manipulations"></a>

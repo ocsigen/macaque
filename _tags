@@ -8,3 +8,5 @@
 <test*.*>: camlp4o, use_macaque
 <tests/sequence.ml>: use_check
 <src/pa_*>: pp(camlp4orf)
+
+true: safe_string

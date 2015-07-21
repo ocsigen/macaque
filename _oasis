@@ -1,6 +1,6 @@
 OASISFormat: 0.4
 Name: macaque
-Version: 0.7.1
+Version: 0.7.2
 Synopsis: MaCaQue (or macaque) is a DSL for SQL Queries in Caml
 Authors:
   Gabriel Scherer,

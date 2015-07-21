@@ -1,3 +1,8 @@
+0.7.2:
+	- Now use -safe-string and so requires PGOCaml >= 2.2
+	- Documentation fixes
+	- Constrain the default value's type with an annotation to avoid having polymorphic nullability.
+
 0.7.1:
 	- Works with PGOCaml >= 2.0. int32_array is now mapped to int32 option array
 	instead of int32 array

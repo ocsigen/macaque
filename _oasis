@@ -2,10 +2,15 @@ OASISFormat: 0.4
 Name: macaque
 Version: 0.7.2
 Synopsis: MaCaQue (or macaque) is a DSL for SQL Queries in Caml
+Description: Macaque produces SQL requests from a comprehension syntax.
+  It can build queries by from simpler components, using phantom types
+  used to ensure safety.
+Maintainers: Jacques-Pascal Deplaix <jp.deplaix@gmail.com>
 Authors:
-  Gabriel Scherer,
-  Jérôme Vouillon
+  Gabriel Scherer <gasche.dylc@gmail.com>,
+  Jérôme Vouillon <jp.deplaix@gmail.com>
 License: LGPL-2 with OCaml linking exception
+Homepage: https://github.com/ocsigen/macaque
 Plugins: DevFiles (0.4), META (0.4)
 AlphaFeatures: compiled_setup_ml
 BuildTools: ocamlbuild
@@ -28,12 +33,12 @@ Library "macaque"
     Sql_flatten,
     Sql_internals
   BuildDepends:
-    pgocaml,
+    pgocaml (>= 2.2),
     macaque.syntax
   XMETARequires:
     pgocaml
   XMETADescription:
-    MaCaQue, Macros for Caml Queries : a typed SQL DSL for Caml
+    MaCaQue, Macros for Caml Queries: a typed SQL DSL for Caml
 
 Library "syntax"
   Path: src
@@ -49,3 +54,8 @@ Library "syntax"
   XMETAType: syntax
   XMETADescription:
     Syntax extension: Comprehension syntax for composable SQL statements
+
+SourceRepository master
+  Type: git
+  Location: https://github.com/ocsigen/macaque.git
+  Browser: https://github.com/ocsigen/macaque

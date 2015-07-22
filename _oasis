@@ -8,7 +8,7 @@ Description: Macaque produces SQL requests from a comprehension syntax.
 Maintainers: Jacques-Pascal Deplaix <jp.deplaix@gmail.com>
 Authors:
   Gabriel Scherer <gasche.dylc@gmail.com>,
-  Jérôme Vouillon <jp.deplaix@gmail.com>
+  Jérôme Vouillon <Jerome.Vouillon@pps.univ-paris-diderot.fr>
 License: LGPL-2 with OCaml linking exception
 Homepage: https://github.com/ocsigen/macaque
 Plugins: DevFiles (0.4), META (0.4)

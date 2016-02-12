@@ -93,7 +93,7 @@ Examples :
             cat.id = u.cat >>
 
 
-- Names of all simple users of the 'prev_view' view (wich might be the previous example view)
+- Names of all simple users of the 'prev_view' view (which might be the previous example view)
 
     <:view< {name = row.user} |
             row in $prev_view$;
@@ -105,7 +105,7 @@ Examples :
     let names view = <:view< {name = t.name} | t in $view$ >>
 
 
-- Generic function that will build an associative table, wich the
+- Generic function that will build an associative table, which the
   'name' column in the 'name' field and the whole column in the
   't' field.
 
@@ -150,7 +150,7 @@ Examples :
 
     <:value< current_timestamp () >>
 
-- field 'id' of table 'foo', casted as a nullable value (wich can take the `NULL` value)
+- field 'id' of table 'foo', casted as a nullable value (which can take the `NULL` value)
 
     <:value< nullable foo.id >>
 
@@ -188,10 +188,10 @@ server is relatively minor and well separated. It is done through the
 
 The `Query` module is designed to work with PGOCaml (and is actually the
 only part of macaque with a hard dependence on PGOCaml). It thus
-reproduces the functorized design of PGOCaml, wich is intended to
+reproduces the functorized design of PGOCaml, which is intended to
 support flexible threading/concurrence models. See PGOCaml
 documentation for more information. The casual user can use the
-non-functorized values, wich are a directly-usable implementation of
+non-functorized values, which are a directly-usable implementation of
 the `QUERY` interface, with no threading integrated.
 
 The core `Query` interface is quite simple :
@@ -203,7 +203,7 @@ The core `Query` interface is quite simple :
 
 (in the simple case, `_ Db.t` is `_ PGOCaml.t`, and `'a Db.monad` is just `'a`)
 
-The main function is `query`, wich accepts a database handler (the one
+The main function is `query`, which accepts a database handler (the one
 produced by `PGOCaml.connect`), the query, and returns the typed
 result : in case of `SELECT`, a list of value rows, otherwise
 (`UPDATE`, `INSERT`...) `unit`. An optional parameter `?log` will
@@ -249,10 +249,10 @@ no nullable values and returns an `option`.
 A common use case is to access fields from a row, leading to code such
 as `Sql.get row#field`. The problem with this syntax is that it is not
 chainable : to access field of a subrow (row inside the result row),
-wich is a Sql.t value itself, one has to write code such as `Sql.get
+which is a Sql.t value itself, one has to write code such as `Sql.get
 (Sql.get row#sub_row)#field`.
 
-To lighten the notation, a specific syntaxic sugar is integrated with
+To lighten the notation, a specific syntactic sugar is integrated with
 the `pa_bananas` syntax extension : `a#!b` is equivalent to `Sql.get
 a#b`, and `a#?b` is equivalent to `Sql.getn a#b`. It is thus possible
 to write `row#!sub_row#!field` directly.
@@ -260,7 +260,7 @@ to write `row#!sub_row#!field` directly.
 Note that `a#?b` still returns an option, so you can't have something
 like `a#?b#?c` (as `a#?b` is not an object) : you still need to do
 pattern matching on the option value yourself. I could create an
-unsafe constructor wich would raise an exception in the `None` case,
+unsafe constructor which would raise an exception in the `None` case,
 but that would defeat the point of macaque (as few runtime errors as
 possible).  I also feels that such facilities would encourage
 nullability-laziness from the user : you have to work on your database
@@ -333,7 +333,7 @@ antiquotations can also be named in specific context :
   (* function that transforms a caml int into a Sql.t value *)
 
 named antiquotations are not hardcoded in the syntax definition :
-they rely on values of the `Sql` module, wich are in the appropriate
+they rely on values of the `Sql` module, which are in the appropriate
 submodule : `$foo:bar$` will expand to `Sql.Module.foo bar`, where the
 `Foo` module depends on the antiquotation position (`View`, `Value`,
 `Table_type`); this way, on can read the `Sql` interface to discover
@@ -398,7 +398,7 @@ in `Sql.Op`.
 
   - Tuples, comprehension and guard lists can be empty :
 
-    - `<:view< $row$ | >>` is the view with only one line, wich is 'row'
+    - `<:view< $row$ | >>` is the view with only one line, which is 'row'
     - `<:insert< $table$ := $row$ | >>` inserts a single row
     - `<:delete< row in $table$ | >>` deletes a whole table
     - `<:update< row in $table$ := $value$ | >>` updates a whole table
@@ -457,7 +457,7 @@ a view with columns named `a` and `b` and values corresponding to the
 You can also give the name of a row : `<< t | t in .. >>`
 
 Columns values can be tuples themselves. This is a quite
-Macaque-specific feature, wich makes the language much more
+Macaque-specific feature, which makes the language much more
 homogenous. Tuple types (column or immediate records) can be nested
 arbitrarily. For example, a cartesian product view :
 
@@ -595,7 +595,7 @@ use a group by expression with an empty BY record :
 In that case, `by` is optional : `group {max = max[t.id]} | ...`
 
 Rationale : aggregate functions are not regular operators; they have
-a non-trivial semantic, wich is modeled by the typing transformations
+a non-trivial semantic, which is modeled by the typing transformations
 inside the group .. by expressions. Using them outside those
 expressions would not be safe and could lead to runtime errors if the
 SQL server doesn't accept an ill-formed query. It is a design goal of
@@ -665,7 +665,7 @@ module provide coherence check routines (`check_table`,
 is not faithful to the real table structure (as described by the SQL
 server table informations). It is possible to enforce an automatic
 runtime check of every macaque-described table or sequence with the
-'-check_tables' command line option (camlp4 time), wich can be enabled
+'-check_tables' command line option (camlp4 time), which can be enabled
 by the `use_check` ocamlbuild flag (see the [OCamlbuild](#ocamlbuild)
 section of this document).
 
@@ -812,9 +812,9 @@ including (nested) rows...
 ### Specific type fourberies                                  
 
 macaque being strongly (and intricately) typed, you will often find
-yourself confronted to hostile error messages, wich means someone has
+yourself confronted to hostile error messages, which means someone has
 done something wrong. I hope that you will more often be wrong than
-macaque. There are nonetheless some specificites that you should be
+macaque. There are nonetheless some specificities that you should be
 aware of.
 
 
@@ -828,7 +828,7 @@ has. Concretely, as most of the operations needed by those extensions
 are not typable inside the OCaml type system (for example dynamic
 construction of an object based on a list of field names and values),
 some unsafe operations had to be exposed through Sql interface^α.
-They are marked with the "unsafe" parametrized type (wich is only
+They are marked with the "unsafe" parametrized type (which is only
 there for documentation purposes) and you should NOT use them : every
 function having an "unsafe" type somewhere in its interface is to be
 considered forbidden. All the other functions should be type-safe,
@@ -843,7 +843,7 @@ otherwise it's a bug.
 #### Update subtyping problem                                
 
 An example of update syntax is << t in $tab$ := {amount = t.amout + 1} >>,-
-wich increment the "amout" column of all rows in table `tab`. Table
+which increment the "amout" column of all rows in table `tab`. Table
 `tab` probably has more fields than just the "amount" colum, so the
 type of the tuple on the right should be a subtype of `table` row
 type.
@@ -859,7 +859,7 @@ corresponding value is an antiquotation :
            <:update< row in $table$ := $value row$ | $predicate row$ >>
 
 In this case, the update syntax is used to define a generic update
-operation^β : I know of no syntaxic way to impose that the right
+operation^β : I know of no syntactic way to impose that the right
 tuple type be a subtype of the table row type.
 
 To keep things simple, there is an ad-hoc rule for the specific update
@@ -895,7 +895,7 @@ should be rewritten into
 #### Side effects                                                
 
 It is probably an obvious thing to say, but users should not put
-expressions wich have side-effect when evaluated inside macaque
+expressions which have side-effect when evaluated inside macaque
 expressions. No guarantee is given that any part of a macaque
 expression will be evaluated at all, or only once.
 
@@ -938,7 +938,7 @@ to include camlp4 in their compilation chain if possible, and to
 minimize their reliance on camlp4 extensions. Camlp4 is
 a not-so-simple (and really-not-so-well-documented) tool, and camlp4
 extensions are sometimes fragile and more subject to bugs than other
-pieces of ocaml software; syntaxic bugs can have far-reaching effects
+pieces of ocaml software; syntactic bugs can have far-reaching effects
 (they are, however, nearly always spotted at compilation-time) and are
 difficult to spot for the non-camlp4-aware user.
 
@@ -952,11 +952,11 @@ as solid as possible :
 
 - `pa_macaque` relies on the "quotation" mechanism of the existing
   ocaml camlp4 grammar : they DO NOT modify the ocaml grammar but
-  instead reuse the `<:..< .. >>` mechanism wich is widely used inside
+  instead reuse the `<:..< .. >>` mechanism which is widely used inside
   camlp4 itself, and thus can be reasonably trusted
 
 - `pa_bananas` is the only extension modifying the OCaml grammar
-  itself; it is a simple extension wich affects a localized part of
+  itself; it is a simple extension which affects a localized part of
   the parsing process (the "." level of expressions : `a.b`, `a#b`..),
   with no precedence/associativity subtleties. It is a relatively
   trustable extension, and any spotted defects would be easy to fix.
@@ -980,7 +980,7 @@ PG'OCaml is more mature and its general approach leads to a safer
 software : Macaque will probably catch less errors at compile-time
 than PG'OCaml (see the PostGreSQL typing issues of the next section
 for an area where I believe Macaque lacks behind PG'OCaml in terms of
-safety), and it is very young software wich probably have quite a few
+safety), and it is very young software which probably have quite a few
 bugs remaining.
 
 This inconvenient comes with the flexibility Macaque brings : it is
@@ -1002,7 +1002,7 @@ particular, all operators are really SQL operators, so they will have
 the SQL behaviour, for example `null = null` is null, not false.
 
 I have encountered issues with PostGreSQL typing system
-though. PostGreSQL gives NULL the type 'unknown', wich is problematic
+though. PostGreSQL gives NULL the type 'unknown', which is problematic
 because sql operators are strongly typed, but the type system is not
 very expressive. For example `NULL + 0` will work okay, but :
 

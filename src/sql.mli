@@ -199,6 +199,8 @@ module Table_type : sig
     < get : unit; nul : 'nul; t : float_t > sql_type
   val text : 'nul nul_witness ->
     < get : unit; nul : 'nul; t : string_t > sql_type
+  val citext : 'nul nul_witness ->
+    < get : unit; nul : 'nul; t : string_t > sql_type
   val bytea : 'nul nul_witness ->
     < get : unit; nul : 'nul; t : bytea_t > sql_type
   val time : 'nul nul_witness ->

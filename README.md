@@ -252,7 +252,7 @@ chainable : to access field of a subrow (row inside the result row),
 wich is a Sql.t value itself, one has to write code such as `Sql.get
 (Sql.get row#sub_row)#field`.
 
-To lighten the notation, a specific syntaxic sugar is integrated with
+To lighten the notation, a specific syntactic sugar is integrated with
 the `pa_bananas` syntax extension : `a#!b` is equivalent to `Sql.get
 a#b`, and `a#?b` is equivalent to `Sql.getn a#b`. It is thus possible
 to write `row#!sub_row#!field` directly.
@@ -814,7 +814,7 @@ including (nested) rows...
 macaque being strongly (and intricately) typed, you will often find
 yourself confronted to hostile error messages, wich means someone has
 done something wrong. I hope that you will more often be wrong than
-macaque. There are nonetheless some specificites that you should be
+macaque. There are nonetheless some specificities that you should be
 aware of.
 
 
@@ -859,7 +859,7 @@ corresponding value is an antiquotation :
            <:update< row in $table$ := $value row$ | $predicate row$ >>
 
 In this case, the update syntax is used to define a generic update
-operation^β : I know of no syntaxic way to impose that the right
+operation^β : I know of no syntactic way to impose that the right
 tuple type be a subtype of the table row type.
 
 To keep things simple, there is an ad-hoc rule for the specific update
@@ -938,7 +938,7 @@ to include camlp4 in their compilation chain if possible, and to
 minimize their reliance on camlp4 extensions. Camlp4 is
 a not-so-simple (and really-not-so-well-documented) tool, and camlp4
 extensions are sometimes fragile and more subject to bugs than other
-pieces of ocaml software; syntaxic bugs can have far-reaching effects
+pieces of ocaml software; syntactic bugs can have far-reaching effects
 (they are, however, nearly always spotted at compilation-time) and are
 difficult to spot for the non-camlp4-aware user.
 

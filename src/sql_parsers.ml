@@ -95,6 +95,7 @@ let parser_of_type =
     | TInt64 -> int64_field_parser
     | TFloat -> float_field_parser
     | TString -> string_field_parser
+    | TCIString -> string_field_parser
     | TBytea -> bytea_field_parser
     | TTime -> time_field_parser
     | TDate -> date_field_parser

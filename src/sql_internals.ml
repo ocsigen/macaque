@@ -91,6 +91,7 @@ and atom_type =
   | TInt64
   | TFloat
   | TString
+  | TCIString
   | TBytea
   | TTime
   | TDate
@@ -122,6 +123,7 @@ let atom_type_of_string = function
   | "bigint" -> TInt64
   | "double precision" -> TFloat
   | "text" -> TString
+  | "citext" -> TCIString
   | "bytea" -> TBytea
   | "time" -> TTime
   | "date" -> TDate
@@ -138,6 +140,7 @@ let string_of_atom_type = function
   | TInt64 -> "bigint"
   | TFloat -> "double precision"
   | TString -> "text"
+  | TCIString -> "citext"
   | TBytea -> "bytea"
   | TTime -> "time"
   | TDate -> "date"
@@ -174,9 +177,10 @@ let is_record_type record =
 
 let rec unify t t' =
   let unify_atom a a' = match a, a' with
+    | TCIString, (TString as t) | (TString as t), TCIString -> t
     (* identity unifications *)
     | ( TUnit | TBool | TInt16 | TInt32 | TInt64 | TFloat
-      | TString | TBytea | TTime | TDate | TInterval | TInt32_array
+      | TString | TCIString | TBytea | TTime | TDate | TInterval | TInt32_array
       | TTimestamp | TTimestamptz) as t, t' when t = t' -> t
     | TRecord r, TRecord r' ->
         let fields descr = List.sort compare (List.map fst descr) in
@@ -191,7 +195,7 @@ let rec unify t t' =
 
     (* failure *)
     | ( TUnit | TBool | TInt16 | TInt32 | TInt64 | TFloat
-      | TString | TBytea | TTime | TDate | TInterval | TInt32_array
+      | TString | TCIString | TBytea | TTime | TDate | TInterval | TInt32_array
       | TTimestamp | TTimestamptz | TRecord _), _ ->
         failwith
           (Printf.sprintf "unify (%s and %s)"

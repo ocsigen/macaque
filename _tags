@@ -3,10 +3,10 @@
 
 <src/base.ml>: camlp4o, use_macaque
 <src/check.ml>: camlp4o, use_macaque
-<tests/*>: camlp4o, use_macaque, debug
-<error_tests/*>: camlp4o, use_macaque
-<test*.*>: camlp4o, use_macaque
-<tests/sequence.ml>: use_check
+<src/tests/*>: camlp4o, use_macaque, debug
+<src/error_tests/*>: camlp4o, use_macaque
+<src/test*.*>: camlp4o, use_macaque
+<src/tests/sequence.ml>: use_check
 <src/pa_*>: pp(camlp4orf)
 
 true: safe_string

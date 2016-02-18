@@ -1,16 +1,18 @@
-opam-version: "1"
+opam-version: "1.2"
+author: "gabriel.scherer@gmail.com"
 maintainer: "gabriel.scherer@gmail.com"
+homepage: "https://github.com/ocsigen/macaque"
+bug-reports: "https://github.com/ocsigen/macaque/issues"
+dev-repo: "https://github.com/ocsigen/macaque"
 version: "dev"
 build: [
   ["./configure" "--prefix" prefix]
   [make]
-  [make "install"]
 ]
-remove: [
-  ["ocamlfind" "remove" "macaque"]
-]
+install: [ make "install" ]
+remove: [ "ocamlfind" "remove" "macaque" ]
 depends: [
-  "ocamlfind"
+  "ocamlfind" {build}
   "pgocaml" {>= "2.2"}
   "oasis" {>= "0.4.4"}
   "camlp4"

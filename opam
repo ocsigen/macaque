@@ -3,7 +3,7 @@ author: "gabriel.scherer@gmail.com"
 maintainer: "gabriel.scherer@gmail.com"
 homepage: "https://github.com/ocsigen/macaque"
 bug-reports: "https://github.com/ocsigen/macaque/issues"
-dev-repo: "https://github.com/ocsigen/macaque"
+dev-repo: "https://github.com/ocsigen/macaque.git"
 version: "dev"
 build: [
   ["./configure" "--prefix" prefix]

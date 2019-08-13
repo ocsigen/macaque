@@ -43,9 +43,10 @@ Library "syntax"
     Pa_bananas
   BuildDepends:
     camlp4
+  XMETAExtraLines:
+    requires(syntax) = "camlp4"
   XMETARequires:
-    macaque,
-    camlp4
+    macaque
   XMETAType: syntax
   XMETADescription:
     Syntax extension: Comprehension syntax for composable SQL statements
